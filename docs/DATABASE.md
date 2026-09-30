@@ -184,13 +184,13 @@ di 3: risponde `requiresConfirmation` e non scrive finché non si ripete con `p_
 
 ### RPC aggiunte da 105_* (Statistiche, Bingo, Citazioni)
 
-| RPC | Argomenti (default) | Ritorno (schema Zod in `contracts/stats-lists.ts`) |
-| --- | --- | --- |
-| `list_quotes` | `p_book_id uuid` (null), `p_limit integer` (100, max 500), `p_offset integer` (0) | `quoteListResponseSchema` |
-| `list_bingo_boards` | - | `bingoBoardListResponseSchema` (anno decrescente, `completedPositions`) |
-| `create_bingo_board` | `p_year integer` | `bingoBoardResponseSchema` (`23505` se esiste, `22023` anno non valido) |
-| `get_year_genre_breakdown` | `p_year integer` | `yearGenreBreakdownResponseSchema` |
-| `list_completed_books` | `p_query text` (null), `p_limit integer` (50, max 200) | `completedBooksResponseSchema` |
+| RPC                        | Argomenti (default)                                                               | Ritorno (schema Zod in `contracts/stats-lists.ts`)                      |
+| -------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `list_quotes`              | `p_book_id uuid` (null), `p_limit integer` (100, max 500), `p_offset integer` (0) | `quoteListResponseSchema`                                               |
+| `list_bingo_boards`        | -                                                                                 | `bingoBoardListResponseSchema` (anno decrescente, `completedPositions`) |
+| `create_bingo_board`       | `p_year integer`                                                                  | `bingoBoardResponseSchema` (`23505` se esiste, `22023` anno non valido) |
+| `get_year_genre_breakdown` | `p_year integer`                                                                  | `yearGenreBreakdownResponseSchema`                                      |
+| `list_completed_books`     | `p_query text` (null), `p_limit integer` (50, max 200)                            | `completedBooksResponseSchema`                                          |
 
 Dettagli in `docs/features/stats.md`.
 

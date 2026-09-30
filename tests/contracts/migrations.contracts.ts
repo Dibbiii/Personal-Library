@@ -1,5 +1,6 @@
 // Registered by db.contracts.test.ts: schema, roles and privileges of the migrated database.
 import { randomUUID } from 'node:crypto';
+import { readdirSync } from 'node:fs';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations, migrationStatus } from '../../scripts/db-migrate.mjs';
@@ -8,15 +9,9 @@ import { adminSql } from '../helpers/users';
 import { sql, withUser } from '../../src/lib/server/db';
 import { createTestUser, type TestUser } from '../helpers/users';
 
-const EXPECTED_MIGRATIONS = [
-	'001_schema.sql',
-	'002_rpc_layer.sql',
-	'003_rpc_contract_alignment.sql',
-	'004_reference_data.sql',
-	'005_fix_account_deletion.sql',
-	'006_harden_user_books_insert.sql',
-	'007_app_api.sql'
-];
+const EXPECTED_MIGRATIONS = readdirSync(new URL('../../db/migrations', import.meta.url))
+	.filter((name) => name.endsWith('.sql'))
+	.sort();
 
 const USER_OWNED_TABLES = [
 	'profiles',

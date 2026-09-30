@@ -1,8 +1,31 @@
-# Segnalibro - local development database (plain PostgreSQL 17).
-#   docker compose up -d db      start (waits for the healthcheck)
-#   docker compose down          stop, data is kept in the named volume
-#   docker compose down -v       stop AND delete all data
+# Segnalibro application and PostgreSQL.
 services:
+  app:
+    build: .
+    container_name: personal-library
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://segnalibro_app:${SEGNALIBRO_APP_PASSWORD:-segnalibro_app}@db:5432/segnalibro
+      SESSION_COOKIE_NAME: sb-session
+      STORAGE_DIR: /app/storage
+      GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+    volumes:
+      - segnalibro_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.personal-library.rule=Host(`personal-library.alessandrobrunoh.it`)
+      - traefik.http.routers.personal-library.entrypoints=websecure
+      - traefik.http.routers.personal-library.tls=true
+      - traefik.http.routers.personal-library.tls.certresolver=le
+      - traefik.http.services.personal-library.loadbalancer.server.port=3000
+
   db:
     image: postgres:17
     container_name: segnalibro-db
@@ -25,3 +48,9 @@ services:
 volumes:
   segnalibro_pgdata:
     name: segnalibro_pgdata
+  segnalibro_storage:
+    name: personal_library_storage
+
+networks:
+  proxy:
+    external: true

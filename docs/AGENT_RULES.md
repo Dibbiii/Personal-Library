@@ -3,6 +3,7 @@
 Più agenti modificano questo repo contemporaneamente. Queste regole evitano che si pestino i piedi.
 
 ## Divieti assoluti
+
 - **Supabase è vietato**, per nessun motivo (niente supabase-js, CLI, container, Auth/Storage/PostgREST, e nemmeno la parola nel codice). Il DB è PostgreSQL 17 in Docker; auth, sessioni e storage sono codice nostro.
 - **Niente git né `but`**: nessun commit, stage, reset, `git rm`, ecc. Il versionamento lo gestisce la sessione principale.
 - **Niente colori letterali** (#hex, rgb(), hsl(), nomi colore, classi Tailwind colorate) fuori da `src/lib/themes/`. Usa solo i token CSS (`var(--color-…)`, `var(--genre-current…)`, `color-mix()`). `npm run lint:colors` deve restare verde. Se manca un token, aggiungilo in `src/lib/themes/` (additivo) e documentalo.
@@ -10,12 +11,14 @@ Più agenti modificano questo repo contemporaneamente. Queste regole evitano che
 - Non introdurre infrastruttura non richiesta (Redis, GraphQL, ecc.) né librerie pesanti.
 
 ## Fonti da leggere prima di scrivere UI
+
 1. `Segnalibro_Work_Package/MASTER_SPEC.md` (spec funzionale; dove cita Supabase è superata da `docs/DEVIATIONS.md`).
 2. `docs/mockup/DESIGN_REFERENCE.md`, `docs/mockup/CHECKLIST.md`, `docs/mockup/screens/*.png` (vanno guardati con Read): l'utente vuole i mockup seguiti **ALLA LETTERA**. Dove il mockup contraddice la spec vince il mockup; dove il mockup non copre un caso richiesto dalla spec, estendi nello stesso stile e segnalalo nel report.
 3. `docs/COMPONENTS.md`, `docs/DATA_LAYER.md`, `docs/DATABASE.md`, `docs/DEVIATIONS.md`.
 4. Asset visivi: `docs/mockup/assets/` (SVG candela, pianta, tazza, ecc., `icons-sprite.svg`); dorsi: `docs/mockup/SPINES.md`.
 
 ## Risorse condivise (occhio ai conflitti)
+
 - **Database condiviso** (`segnalibro-db`, porta 5433) già con migration e seed. **NON eseguire** `db-reset`, `db:reset`, `test:contracts:db` o qualsiasi cosa che droppi/ricrei il DB: li usano tutti. Per provare mutazioni **non modificare i dati dell'utente demo** (`demo@segnalibro.local` / `segnalibro-demo`): registra un utente di prova (email `<tuonome>-<n>@test.local`) oppure ripristina ciò che cambi. Puoi leggere liberamente col demo per i confronti visivi.
 - **Dev server**: avvia il tuo con `npx vite dev --port <TUA_PORTA> --strictPort` (porta assegnata nel tuo brief). Non usare altre porte, non fermare processi altrui.
 - **Browser**: NON usare i tool `mcp__playwright__*` (un solo browser condiviso fra tutti gli agenti). Per screenshot/test usa script Node con `@playwright/test`/`playwright` (`chromium.launch()`, già installato) in `/private/tmp/claude-501/-Users-tacosalfornoh-Coding-Dibbi-Personal-Library/44e92337-870a-4ef3-9667-ebee0177998a/scratchpad/<tuo-nome>/`. Viewport mobile 390×844 e desktop 1280×800.
@@ -27,9 +30,11 @@ Più agenti modificano questo repo contemporaneamente. Queste regole evitano che
 - **Route**: ogni route ha un solo proprietario (vedi brief). Non sovrascrivere le pagine altrui.
 
 ## Componenti condivisi dei libri (li crea l'agente "Home")
+
 Path fissi, da importare negli altri moduli: `$lib/components/book/BookCover.svelte`, `BookSpine.svelte`, `BookCard.svelte` (API in `docs/COMPONENTS.md` sezione Book, scritta dall'agente Home appena pronta; controlla se il file esiste prima di usarlo, altrimenti sviluppa le tue parti e integra alla fine). Input comune: `BookSummary` da `$lib/contracts/books`.
 
 ## Qualità
+
 - Svelte 5 (runes), TypeScript strict, niente `any`. Commenti solo dove servono; stile coerente con il codice vicino.
 - Validazione Zod ai confini, errori normalizzati (`DataAccessError.code`), mai parsing di stringhe Postgres.
 - Accessibilità: target 44×44, focus visibile, aria-label, ESC/focus trap nei sheet, `prefers-reduced-motion`, colore mai unico segnale.
@@ -38,4 +43,5 @@ Path fissi, da importare negli altri moduli: `$lib/components/book/BookCover.sve
 - Italiano per tutta la UI. Titoli di libri/autori non si traducono.
 
 ## Report finale
+
 Conciso: cosa funziona, file principali, API esposte ad altri moduli (firme), deviazioni/estensioni rispetto ai mockup, test eseguiti (comando + esito), problemi aperti, richieste di dipendenze.

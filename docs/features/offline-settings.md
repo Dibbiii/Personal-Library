@@ -115,14 +115,14 @@ Eliminare un tema custom in uso riporta prima al tema built-in salvato.
 
 ### Endpoint
 
-| Endpoint                                   | Uso                                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| `GET/PATCH /api/settings`                  | impostazioni (+ tema custom selezionato); PATCH: nome/scaffali/movimento, copia nei cookie `sb-motion`/`sb-shelf` |
-| `PUT /api/settings/theme`                  | salva la selezione e il cookie `sb-theme`                            |
-| `GET/POST /api/settings/themes`            | elenco / crea-aggiorna tema custom                                   |
-| `DELETE /api/settings/themes/[id]`         | elimina tema custom                                                  |
-| `GET /api/export/json`, `/api/export/csv`  | download (`Content-Disposition: attachment`, `no-store`)             |
-| `DELETE /api/account`                      | cancellazione account                                                |
+| Endpoint                                  | Uso                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `GET/PATCH /api/settings`                 | impostazioni (+ tema custom selezionato); PATCH: nome/scaffali/movimento, copia nei cookie `sb-motion`/`sb-shelf` |
+| `PUT /api/settings/theme`                 | salva la selezione e il cookie `sb-theme`                                                                         |
+| `GET/POST /api/settings/themes`           | elenco / crea-aggiorna tema custom                                                                                |
+| `DELETE /api/settings/themes/[id]`        | elimina tema custom                                                                                               |
+| `GET /api/export/json`, `/api/export/csv` | download (`Content-Disposition: attachment`, `no-store`)                                                          |
+| `DELETE /api/account`                     | cancellazione account                                                                                             |
 
 Errori `{ code, message }` con status coerente al `DataErrorCode` (`src/lib/server/settings-http.ts`).
 

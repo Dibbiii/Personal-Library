@@ -21,7 +21,8 @@
 		"db:reset": "node scripts/db-reset.mjs",
 		"test:contracts": "vitest run tests/contracts/unit.contracts.test.ts tests/contracts/auth-unit.contracts.test.ts tests/contracts/storage.contracts.test.ts",
 		"test:contracts:db": "RUN_DB_CONTRACT_TESTS=1 vitest run tests/contracts/db.contracts.test.ts",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"test:e2e:dev": "E2E_MODE=dev playwright test"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
