@@ -1,0 +1,44 @@
+/* Ghost, cerchio del dito e stato globale del drag (vedi drag.ts). Solo token, nessun colore letterale. */
+.drag-ghost {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: calc(var(--z-sheet) + 10);
+	pointer-events: none;
+	transform-origin: 50% 70%;
+	will-change: transform;
+	filter: drop-shadow(0 20px 14px color-mix(in srgb, var(--color-text-primary) 40%, transparent));
+	animation: drag-lift 140ms var(--ease-out);
+}
+
+.drag-touch {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: calc(var(--z-sheet) + 11);
+	box-sizing: border-box;
+	width: 44px;
+	height: 44px;
+	border: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--color-accent) 55%, transparent);
+	pointer-events: none;
+	will-change: transform;
+}
+
+html.is-dragging,
+html.is-dragging * {
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	cursor: grabbing;
+}
+
+@keyframes drag-lift {
+	from {
+		opacity: 0.4;
+	}
+	to {
+		opacity: 1;
+	}
+}

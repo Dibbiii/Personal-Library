@@ -1,0 +1,2 @@
+<!-- Terreno ondulato del Cimitero (viewBox 350x34, larghezza 100% preserveAspectRatio=none, opacity .55). Colori via CSS custom property (nessun hex). Token usati: --color-divider (#81815D). Va inlinato nel DOM (non <img>) perche' le var() ereditino dal tema. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="34" viewBox="0 0 350 34" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34V18c20-8 30 4 55-2s30-10 60-2 40 6 70-2 50-8 80 0 40 6 85-2V34z" fill="var(--color-divider)" opacity=".55"/></svg>

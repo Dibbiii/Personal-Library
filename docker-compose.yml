@@ -1,0 +1,27 @@
+# Segnalibro - local development database (plain PostgreSQL 17).
+#   docker compose up -d db      start (waits for the healthcheck)
+#   docker compose down          stop, data is kept in the named volume
+#   docker compose down -v       stop AND delete all data
+services:
+  db:
+    image: postgres:17
+    container_name: segnalibro-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: segnalibro
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - segnalibro_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d segnalibro']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  segnalibro_pgdata:
+    name: segnalibro_pgdata

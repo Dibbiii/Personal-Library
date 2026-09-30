@@ -1,0 +1,15 @@
+node_modules
+.svelte-kit
+build
+dist
+dev-dist
+package-lock.json
+Segnalibro_Work_Package
+db
+storage
+tests/contracts
+tests/helpers
+docs/mockup
+static/icons
+test-results
+playwright-report
