@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test as base, type Page, type StorageState } from '@playwright/test';
+import { rm } from 'node:fs/promises';
+import path from 'node:path';
+import { expect, test as base, type BrowserContext, type Page } from '@playwright/test';
 import postgres from 'postgres';
 
 /**
@@ -13,7 +15,7 @@ const ADMIN_URL =
 	process.env.DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5433/segnalibro';
 
 interface Account {
-	state: StorageState;
+	state: Awaited<ReturnType<BrowserContext['storageState']>>;
 	email: string;
 	id: string;
 }
@@ -47,6 +49,13 @@ const test = base.extend<object, { account: Account }>({
 			>`select id::text from app.users where email = ${email}`;
 			await use({ state, email, id: row?.id ?? '' });
 			await admin`delete from app.users where email = ${email}`;
+			// come deleteAccount(): anche i file caricati dell'utente di prova
+			if (row?.id) {
+				await rm(path.resolve(process.env.STORAGE_DIR ?? './storage', 'covers', row.id), {
+					recursive: true,
+					force: true
+				});
+			}
 			await admin.end();
 		},
 		{ scope: 'worker', timeout: 180_000 }
@@ -620,20 +629,19 @@ test.describe('cover', () => {
 			mimeType: 'image/png',
 			buffer: PNG_1X1
 		});
-		await expect(sheet.getByText('Copertina aggiornata.')).toBeVisible();
-		await expect(sheet.getByText('personalizzata')).toBeVisible();
-		const after = (await userBooks(account.id)).find(
-			(row) => row.id === bookId
-		)?.cover_storage_path;
+		const storagePath = async () =>
+			(await userBooks(account.id)).find((row) => row.id === bookId)?.cover_storage_path;
+		await expect.poll(storagePath).not.toBe(before);
+		await expect(sheet.getByText('personalizzata', { exact: true })).toBeVisible();
+		const after = await storagePath();
 		expect(after).toBeTruthy();
-		expect(after).not.toBe(before);
 		// il vecchio file è stato eliminato
 		expect((await page.request.get(`/api/covers/${before}`)).status()).toBe(404);
 
 		// Rimozione con conferma
 		await sheet.getByRole('button', { name: 'Rimuovi cover personalizzata' }).click();
 		await page.getByRole('alertdialog').getByRole('button', { name: 'Rimuovi' }).click();
-		await expect(sheet.getByText('Copertina personalizzata rimossa.')).toBeVisible();
+		await expect(sheet.getByText('nessuna', { exact: true })).toBeVisible();
 		expect(
 			(await userBooks(account.id)).find((row) => row.id === bookId)?.cover_storage_path
 		).toBeNull();

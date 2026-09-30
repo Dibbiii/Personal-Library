@@ -132,9 +132,9 @@ test.describe('Ruota della Fortuna', () => {
 		await expect(dialog).toContainText('Hai già 3 libri nelle prossime letture');
 		await dialog.getByRole('button', { name: 'Aggiungi comunque' }).click();
 		await expect(page.getByText(/Aggiunto ai prossimi/)).toBeVisible();
-		const [{ n }] = await sql<{ n: number }[]>`
+		const [queued] = await sql<{ n: number }[]>`
 			select count(*)::int as n from public.reading_queue where user_id = ${userId}::uuid`;
-		expect(n).toBe(4);
+		expect(queued?.n).toBe(4);
 
 		// Filtro senza risultati: Thriller non ha libri
 		await page.getByRole('button', { name: /^Thriller/ }).click();
