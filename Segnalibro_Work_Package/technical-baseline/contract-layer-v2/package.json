@@ -1,0 +1,21 @@
+{
+  "name": "segnalibro-contract-layer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:contracts": "vitest run tests/contracts/unit.contracts.test.ts",
+    "test:contracts:db": "RUN_DB_CONTRACT_TESTS=1 vitest run tests/contracts/db.contracts.test.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "postgres": "^3.4.7",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

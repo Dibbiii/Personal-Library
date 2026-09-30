@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it" data-theme="%sb.theme%">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="%sb.themecolor%" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Segnalibro" />
+		<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+		<style id="sb-theme-css">
+			%sb.themecss%
+		</style>
+		<script>
+			// Niente flash: riallinea data-theme al cookie anche quando l'HTML arriva dalla cache del service worker.
+			(function () {
+				var m = document.cookie.match(/(?:^|; )sb-theme=([^;]+)/);
+				var root = document.documentElement;
+				if (m && root.getAttribute('data-theme') !== m[1]) {
+					var css = document.getElementById('sb-theme-css');
+					if (css && css.textContent.indexOf('data-theme="' + m[1] + '"') !== -1) {
+						root.setAttribute('data-theme', m[1]);
+					}
+				}
+			})();
+		</script>
+		<script>
+			// Preferenze utente senza flash: tema custom (solo variabili colore validate) e movimento.
+			(function () {
+				try {
+					var root = document.documentElement;
+					var t = document.cookie.match(/(?:^|; )sb-theme=([^;]+)/);
+					var stored = t && localStorage.getItem('sb-custom-theme');
+					if (stored) {
+						var custom = JSON.parse(stored);
+						if (custom && custom.id === t[1] && custom.vars) {
+							for (var name in custom.vars) {
+								if (
+									/^--(color|genre)-[a-z0-9-]+$/.test(name) &&
+									/^#[0-9A-Fa-f]{6}$/.test(custom.vars[name])
+								) {
+									root.style.setProperty(name, custom.vars[name]);
+								}
+							}
+							root.setAttribute('data-theme', custom.id);
+						}
+					}
+					var mo = document.cookie.match(/(?:^|; )sb-motion=(reduce|full)/);
+					if (mo) root.setAttribute('data-motion', mo[1]);
+				} catch (e) {}
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

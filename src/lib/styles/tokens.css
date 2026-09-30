@@ -1,0 +1,101 @@
+/*
+ * Token non cromatici e token derivati.
+ * I valori base (--color-*, --genre-*) arrivano dal tema (src/lib/themes);
+ * qui si compongono solo con color-mix() e var(). Nessun colore letterale.
+ */
+:root {
+	--font-display: 'Young Serif', Georgia, 'Times New Roman', serif;
+	--font-ui: 'Figtree Variable', Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+	--radius-xs: 6px;
+	--radius-sm: 10px;
+	--radius-md: 14px;
+	--radius-lg: 18px;
+	--radius-xl: 24px;
+	--radius-sheet: 28px;
+	--radius-pill: 999px;
+
+	--tap-size: 44px;
+	--nav-height: 84px;
+	--sidebar-width: 264px;
+	--content-max: 1280px;
+	--page-gutter: 20px;
+
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--duration-fast: 140ms;
+	--duration-base: 240ms;
+
+	--z-nav: 20;
+	--z-overlay: 40;
+	--z-sheet: 50;
+
+	/* Superfici e testo derivati dai token del tema */
+	--color-card: var(--color-surface-elevated);
+	--color-text-link: var(--color-info);
+	--color-info-tint: color-mix(in srgb, var(--color-info-hover) 14%, transparent);
+	--color-nav-inactive: var(--color-shelf-axis);
+	--color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, var(--color-shadow));
+	--color-primary-outline: color-mix(in srgb, var(--color-primary) 45%, transparent);
+	--color-primary-tint: color-mix(in srgb, var(--color-primary) 16%, transparent);
+	--color-surface-pressed: color-mix(in srgb, var(--color-surface) 82%, var(--color-border));
+	--color-scrim: color-mix(in srgb, var(--color-text-primary) 50%, transparent);
+
+	--gradient-wood: linear-gradient(
+		180deg,
+		var(--color-wood-top),
+		var(--color-wood-mid) 55%,
+		var(--color-wood-bottom)
+	);
+	--gradient-wood-detail: linear-gradient(
+		180deg,
+		var(--color-wood-detail-top),
+		var(--color-wood-detail-mid) 55%,
+		var(--color-wood-detail-bottom)
+	);
+
+	/* Alias usati dagli asset del mockup (docs/mockup/assets) */
+	--tomb-top: var(--color-tomb-top);
+	--tomb-bottom: var(--color-tomb-bottom);
+
+	/* Ombre: sempre text-primary con alpha, come nei mockup */
+	--shadow-card: 0 6px 12px -6px color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+	--shadow-cover: 0 8px 10px -5px color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+	--shadow-plank:
+		inset 0 1px 0 color-mix(in srgb, var(--color-on-genre-white) 40%, transparent),
+		0 14px 16px -8px color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+	--shadow-button: 0 10px 20px -8px color-mix(in srgb, var(--color-primary) 70%, transparent);
+	--shadow-sheet: 0 -10px 40px color-mix(in srgb, var(--color-text-primary) 28%, transparent);
+	--shadow-dialog: 0 24px 60px color-mix(in srgb, var(--color-text-primary) 40%, transparent);
+
+	/* Genere corrente: il fallback è il primo genere, data-genre lo sovrascrive */
+	--genre-current: var(--color-primary);
+	--genre-current-light: var(--color-surface);
+	--genre-current-dark: var(--color-secondary);
+	--genre-current-on: var(--color-on-primary);
+	--genre-current-on-light: var(--color-text-primary);
+}
+
+/* Derivati del genere corrente: nav, bordi e mensole della vista genere */
+:root,
+[data-genre] {
+	--genre-current-nav-bg: color-mix(
+		in srgb,
+		var(--genre-current-light) 90%,
+		var(--genre-current-dark)
+	);
+	--genre-current-nav-border: color-mix(
+		in srgb,
+		var(--genre-current-light) 80%,
+		var(--genre-current-dark)
+	);
+	--genre-current-line-top: color-mix(
+		in srgb,
+		var(--genre-current-light) 84%,
+		var(--genre-current-dark)
+	);
+	--genre-current-line-bottom: color-mix(
+		in srgb,
+		var(--genre-current-light) 66%,
+		var(--genre-current-dark)
+	);
+}
