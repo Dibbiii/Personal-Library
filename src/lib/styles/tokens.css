@@ -52,6 +52,18 @@
 		var(--color-wood-detail-mid) 55%,
 		var(--color-wood-detail-bottom)
 	);
+	/* Luce morbida sulla tavola; venature e nodi irregolari arrivano dalla texture. */
+	--gradient-wood-back:
+		radial-gradient(
+			ellipse 75% 80% at 48% 38%,
+			color-mix(in srgb, var(--color-wood-detail-top) 42%, transparent),
+			transparent 90%
+		),
+		linear-gradient(
+			180deg,
+			var(--color-wood-detail-mid),
+			color-mix(in srgb, var(--color-wood-detail-mid) 75%, var(--color-wood-detail-bottom))
+		);
 
 	/* Alias usati dagli asset del mockup (docs/mockup/assets) */
 	--tomb-top: var(--color-tomb-top);
@@ -60,9 +72,7 @@
 	/* Ombre: sempre text-primary con alpha, come nei mockup */
 	--shadow-card: 0 6px 12px -6px color-mix(in srgb, var(--color-text-primary) 30%, transparent);
 	--shadow-cover: 0 8px 10px -5px color-mix(in srgb, var(--color-text-primary) 45%, transparent);
-	--shadow-plank:
-		inset 0 1px 0 color-mix(in srgb, var(--color-on-genre-white) 40%, transparent),
-		0 14px 16px -8px color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+
 	--shadow-button: 0 10px 20px -8px color-mix(in srgb, var(--color-primary) 70%, transparent);
 	--shadow-sheet: 0 -10px 40px color-mix(in srgb, var(--color-text-primary) 28%, transparent);
 	--shadow-dialog: 0 24px 60px color-mix(in srgb, var(--color-text-primary) 40%, transparent);

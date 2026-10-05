@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="48" viewBox="0 0 640 48">
+  <!-- Horizontal wood fibres for the shelf front; CSS supplies the color. -->
+  <filter id="fibres" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.005 0.15" numOctaves="2" seed="23" stitchTiles="stitch" />
+    <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.5 0 0 0 -1.15" />
+  </filter>
+  <rect width="640" height="48" opacity="0.38" filter="url(#fibres)" />
+  <g fill="none" stroke="currentColor" stroke-linecap="round">
+    <g opacity="0.35" stroke-width="0.8">
+      <path d="M-8 8 C72 5 96 10 161 7 S260 12 321 7 S433 8 493 6 S576 11 648 7" />
+      <path d="M-8 19 C81 16 122 21 199 18 S301 22 360 18 S459 21 514 18 S595 20 648 17" />
+      <path d="M-8 32 C75 29 142 34 217 31 S326 35 386 30 S479 34 548 31 S604 34 648 29" />
+      <path d="M-8 44 C81 41 132 45 193 42 S322 47 411 42 S542 44 648 41" />
+    </g>
+    <g opacity="0.23" stroke-width="1.5">
+      <path d="M30 13 C95 11 133 14 176 12 S252 15 299 13" />
+      <path d="M375 25 C439 21 482 26 548 23 S606 24 640 22" />
+      <path d="M66 38 C136 34 186 39 236 36 S328 40 365 37" />
+    </g>
+    <g opacity="0.22" stroke-width="1">
+      <path d="M178 27 C207 26 217 22 235 23 S253 28 278 26" />
+      <path d="M469 13 C490 10 507 10 522 13 S547 14 563 11" />
+    </g>
+  </g>
+</svg>

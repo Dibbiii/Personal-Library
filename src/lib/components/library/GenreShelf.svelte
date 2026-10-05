@@ -53,6 +53,7 @@
 	href="/genre/{slug}"
 	accent="var(--genre-{slug})"
 	genre={slug}
+	woodBackdrop={false}
 	target={dnd.hover === `genre:${slug}`}
 	zone={dnd.genreZone(slug)}
 	label="Scaffale {GENRE_LABELS[slug]}, {shelf.totalCount} {shelf.totalCount === 1

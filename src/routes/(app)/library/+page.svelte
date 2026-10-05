@@ -33,11 +33,13 @@
 <svelte:head><title>Libreria · Segnalibro</title></svelte:head>
 
 <div class="home">
-	<HomeHeader name={data.user?.displayName ?? null} />
+	<div class="intro">
+		<HomeHeader name={data.user?.displayName ?? null} />
 
-	<div class="top">
-		<ReadingNow items={home.reading} />
-		<div class="queue"><UpNextQueue {home} {dnd} /></div>
+		<div class="top">
+			<ReadingNow items={home.reading} />
+			<div class="queue"><UpNextQueue {home} {dnd} /></div>
+		</div>
 	</div>
 
 	<div class="shelves">
@@ -52,10 +54,20 @@
 </div>
 
 <style>
+	:global(.shell.home .content) {
+		max-width: none;
+	}
+
 	.home {
 		position: relative;
 		isolation: isolate;
 		padding-top: 0;
+	}
+
+	.intro {
+		box-sizing: border-box;
+		max-width: var(--content-max);
+		margin-inline: auto;
 	}
 
 	/* "Nuvole" blush del fondo Home (mockup 3.1): qualche ellisse sfumata, nessuna posizione e' critica */
@@ -115,10 +127,28 @@
 	}
 
 	.shelves {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 26px;
 		margin-top: 28px;
+		padding: 18px 0 22px;
+		background: var(--gradient-wood-back);
+		box-shadow: inset 0 0 24px color-mix(in srgb, var(--color-wood-ink) 14%, transparent);
+	}
+
+	.shelves::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: var(--color-wood-ink);
+		opacity: 0.3;
+		/* Un'unica trama continua evita giunture orizzontali tra le ripetizioni. */
+		-webkit-mask: url('/textures/wood-grain.svg') no-repeat;
+		mask: url('/textures/wood-grain.svg') no-repeat;
+		-webkit-mask-size: 100% 100%;
+		mask-size: 100% 100%;
 	}
 
 	.toast {
@@ -149,7 +179,7 @@
 	}
 
 	@media (min-width: 1024px) {
-		.home {
+		.intro {
 			padding-inline: 24px;
 		}
 
@@ -159,6 +189,7 @@
 			align-items: start;
 			gap: 32px;
 		}
+
 
 		.shelves {
 			margin-top: 36px;

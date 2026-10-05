@@ -34,7 +34,7 @@
 <ShelfFrame
 	title="I prossimi 3"
 	accent="var(--color-divider)"
-	height={162}
+	height={224}
 	inset={11}
 	{pill}
 	target={dnd.hover === 'queue'}

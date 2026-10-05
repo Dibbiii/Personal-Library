@@ -8,9 +8,9 @@
 		title: string;
 		/** Con href tutta la plancia e' un link (vista genere). */
 		href?: string;
-		/** Colore del LED (espressione CSS / token). */
+		/** Colore dell'indicatore (espressione CSS / token). */
 		accent: string;
-		/** Altezza dell'area libri: 224 In lettura, 162 I prossimi, 168 scaffali. */
+		/** Altezza dell'area libri: 224 per In lettura e I prossimi, 168 per genere. */
 		height?: number;
 		/** Padding orizzontale della riga (18 scaffali, 11 prossimi). */
 		inset?: number;
@@ -24,6 +24,8 @@
 		chevron?: boolean;
 		/** Bersaglio di drop. */
 		zone?: DropZoneOptions<never>;
+		/** Il fondo della libreria può essere condiviso tra gli scaffali per genere. */
+		woodBackdrop?: boolean;
 		/** Descrizione accessibile dell'area libri. */
 		label?: string;
 		scroller?: HTMLElement | null;
@@ -45,6 +47,7 @@
 		target = false,
 		chevron = true,
 		zone,
+		woodBackdrop = true,
 		label,
 		scroller = $bindable(null),
 		children,
@@ -59,6 +62,7 @@
 <section
 	class="block {className ?? ''}"
 	class:target
+	class:wood-backdrop={woodBackdrop}
 	style:--g={accent}
 	style:--g-dark={genre ? `var(--genre-${genre}-dark)` : undefined}
 	style:--g-light={genre ? `var(--genre-${genre}-light)` : undefined}
@@ -70,7 +74,6 @@
 			class="row"
 			style:height="{height}px"
 			style:padding-inline="{inset}px"
-			style:--h="{height}px"
 		>
 			{@render children()}
 		</div>
@@ -120,10 +123,26 @@
 	}
 
 	.scroller {
+		position: relative;
 		overflow-x: auto;
 		overflow-y: hidden;
 		scrollbar-width: none;
 		overscroll-behavior-x: contain;
+	}
+
+	.wood-backdrop .scroller {
+		background: var(--gradient-wood-back);
+	}
+
+	.wood-backdrop .scroller::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: var(--color-wood-ink);
+		opacity: 0.38;
+		-webkit-mask: url('/textures/wood-grain.svg') repeat;
+		mask: url('/textures/wood-grain.svg') repeat;
 	}
 
 	.scroller::-webkit-scrollbar {
@@ -132,7 +151,7 @@
 
 	.row {
 		position: relative;
-		isolation: isolate;
+		z-index: 1;
 		display: flex;
 		align-items: flex-end;
 		box-sizing: border-box;
@@ -141,48 +160,6 @@
 		gap: 2px;
 	}
 
-	/* LED: gradiente verticale + linea 3px con bagliore leggero, nel colore --g */
-	.row::before {
-		content: '';
-		position: absolute;
-		z-index: -1;
-		inset: auto 0 0 0;
-		height: 100%;
-		background: linear-gradient(
-			to top,
-			color-mix(in srgb, var(--g) 36%, transparent),
-			color-mix(in srgb, var(--g) 10%, transparent) 50%,
-			transparent
-		);
-	}
-
-	.row::after {
-		content: '';
-		position: absolute;
-		z-index: -1;
-		inset: auto 0 0 0;
-		height: 3px;
-		background: var(--g);
-		box-shadow:
-			0 0 10px 2px color-mix(in srgb, var(--g) 75%, transparent),
-			0 6px 22px 4px color-mix(in srgb, var(--g) 40%, transparent);
-	}
-
-	.target .row::before {
-		background: linear-gradient(
-			to top,
-			color-mix(in srgb, var(--g) 60%, transparent),
-			color-mix(in srgb, var(--g) 20%, transparent) 50%,
-			transparent
-		);
-	}
-
-	.target .row::after {
-		height: 5px;
-		box-shadow:
-			0 0 14px 3px color-mix(in srgb, var(--g) 90%, transparent),
-			0 8px 30px 8px color-mix(in srgb, var(--g) 60%, transparent);
-	}
 
 	.plank {
 		position: relative;
@@ -195,10 +172,30 @@
 		width: 100%;
 		height: 42px;
 		padding: 0 14px;
-		background: var(--gradient-wood);
-		box-shadow: var(--shadow-plank);
+		background:
+			linear-gradient(
+				180deg,
+				color-mix(in srgb, var(--color-wood-detail-top) 60%, transparent),
+				transparent 27%,
+				color-mix(in srgb, var(--color-wood-bottom) 28%, transparent) 100%
+			),
+			var(--gradient-wood);
+		box-shadow:
+			0 6px 0 -2px var(--color-wood-bottom),
+			0 15px 17px -5px color-mix(in srgb, var(--color-wood-ink) 50%, transparent);
 		color: var(--color-wood-ink);
 		text-decoration: none;
+	}
+
+	.plank::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: var(--color-wood-ink);
+		opacity: 0.32;
+		-webkit-mask: url('/textures/wood-front.svg') repeat;
+		mask: url('/textures/wood-front.svg') repeat;
 	}
 
 	/* area di tocco 44px senza cambiare l'aspetto */

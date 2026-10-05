@@ -18,7 +18,11 @@ export default defineConfig({
 				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
 				navigateFallback: null,
 				// Pagina di cortesia offline (src/routes/offline) e Background Sync della outbox (static/sw-outbox.js)
-				additionalManifestEntries: [{ url: '/offline', revision: String(Date.now()) }],
+				additionalManifestEntries: [
+					{ url: '/offline', revision: String(Date.now()) },
+					{ url: '/textures/wood-grain.svg', revision: '2' },
+					{ url: '/textures/wood-front.svg', revision: '1' }
+				],
 				importScripts: ['/sw-outbox.js'],
 				runtimeCaching: [
 					{
