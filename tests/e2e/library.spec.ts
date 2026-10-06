@@ -79,11 +79,13 @@ test.describe('Home Libreria', () => {
 		const { userId } = await setup(page, 'home');
 		try {
 			await page.goto('/library');
-			await expect(page.getByRole('heading', { name: 'Segnalibro', level: 1 })).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Libreria', level: 1 })).toBeVisible();
 			await expect(page.getByText('Ciao Lettrice Test, cosa leggi oggi?')).toBeVisible();
-			await expect(page.getByRole('link', { name: 'Scansiona il codice ISBN' })).toHaveAttribute(
+			// scansione ISBN solo su mobile, "Aggiungi libro" sempre
+			await expect(page.locator('a[href="/add/scan"]')).toHaveCount(1);
+			await expect(page.getByRole('link', { name: 'Aggiungi libro' })).toHaveAttribute(
 				'href',
-				'/add/scan'
+				'/add'
 			);
 			await expect(page.getByRole('region', { name: /^I prossimi, 3 libri/ })).toBeVisible();
 			await expect(page.getByText('3 su 3')).toBeVisible();
@@ -95,6 +97,19 @@ test.describe('Home Libreria', () => {
 			await expect(page.locator('a[href^="/genre/"]')).toHaveCount(7);
 			// dorso di un libro -> dettaglio
 			await expect(page.locator('a[href^="/book/"][aria-label^="Libro D"]').first()).toBeVisible();
+			// ricerca: nasconde in lettura/prossimi e filtra gli scaffali
+			await page.getByLabel('Cerca nella libreria').fill('libro d');
+			await expect(page.getByText(/trovat[oi] per «libro d»/)).toBeVisible();
+			await expect(page.getByRole('region', { name: /^I prossimi/ })).toBeHidden();
+			await expect(page.locator('a[href^="/book/"][aria-label^="Libro D"]').first()).toBeVisible();
+			await page.getByRole('button', { name: 'Cancella la ricerca' }).click();
+			// vista elenco
+			await page.getByRole('button', { name: 'Vista elenco' }).click();
+			await expect(page.getByRole('button', { name: 'Vista elenco' })).toHaveAttribute(
+				'aria-pressed',
+				'true'
+			);
+			await page.getByRole('button', { name: 'Vista scaffali' }).click();
 		} finally {
 			await cleanup(userId);
 		}

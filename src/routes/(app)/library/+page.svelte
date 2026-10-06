@@ -1,10 +1,22 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import GenreShelf from '$lib/components/library/GenreShelf.svelte';
 	import HomeHeader from '$lib/components/library/HomeHeader.svelte';
+	import LibraryToolbar from '$lib/components/library/LibraryToolbar.svelte';
 	import ReadingNow from '$lib/components/library/ReadingNow.svelte';
 	import UpNextQueue from '$lib/components/library/UpNextQueue.svelte';
 	import { HomeDnd } from '$lib/components/library/home-dnd.svelte';
 	import { HomeState } from '$lib/components/library/home-state.svelte';
+	import BookPreviewPopover from '$lib/components/library/BookPreviewPopover.svelte';
+	import { HoverPreview } from '$lib/components/library/hover-preview.svelte';
+	import {
+		isLibrarySort,
+		matchesQuery,
+		normalizeQuery,
+		sortBooks,
+		type LibrarySort,
+		type LibraryView
+	} from '$lib/components/library/library-filter';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -12,6 +24,7 @@
 	// svelte-ignore state_referenced_locally
 	const home = new HomeState(data.home);
 	const dnd = new HomeDnd(home);
+	const preview = new HoverPreview();
 
 	// Dopo un invalidate() la risposta cambia: riallinea lo stato locale.
 	// svelte-ignore state_referenced_locally
@@ -28,25 +41,97 @@
 		const timer = setTimeout(() => (home.message = ''), 4500);
 		return () => clearTimeout(timer);
 	});
+
+	let query = $state('');
+	let sort = $state<LibrarySort>('recent');
+	let view = $state<LibraryView>('grid');
+
+	// Ordinamento e vista sono preferenze del singolo browser.
+	const PREFS_KEY = 'segnalibro:library-view';
+	let prefsReady = false;
+	onMount(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
+			if (isLibrarySort(saved.sort)) sort = saved.sort;
+			if (saved.view === 'grid' || saved.view === 'list') view = saved.view;
+		} catch {
+			// storage non disponibile: restano i valori di default
+		}
+		prefsReady = true;
+	});
+	$effect(() => {
+		const prefs = JSON.stringify({ sort, view });
+		if (!prefsReady) return;
+		try {
+			localStorage.setItem(PREFS_KEY, prefs);
+		} catch {
+			// ignorato
+		}
+	});
+
+	const needle = $derived(normalizeQuery(query));
+	const searching = $derived(needle !== '');
+	const customized = $derived(searching || sort !== 'recent');
+
+	// Ricerca e ordinamento lavorano sull'intera libreria, non solo sulla prima pagina degli scaffali.
+	$effect(() => {
+		if (customized) void home.loadAll();
+	});
+
+	const sections = $derived(
+		home.shelves
+			.map((shelf) => ({
+				shelf,
+				books: customized
+					? sortBooks(
+							shelf.books.filter((book) => matchesQuery(book, needle)),
+							sort
+						)
+					: undefined
+			}))
+			.filter((section) => !searching || (section.books?.length ?? 0) > 0)
+	);
+	const resultCount = $derived(
+		sections.reduce((total, section) => total + (section.books?.length ?? 0), 0)
+	);
+	const stillLoading = $derived(
+		customized && home.shelves.some((shelf) => shelf.hasMore && !shelf.failed)
+	);
 </script>
 
 <svelte:head><title>Libreria · Segnalibro</title></svelte:head>
 
 <div class="home">
-	<div class="intro">
-		<HomeHeader name={data.user?.displayName ?? null} />
-
-		<div class="top">
-			<ReadingNow items={home.reading} />
-			<div class="queue"><UpNextQueue {home} {dnd} /></div>
-		</div>
+	<div class="top">
+		<div class="toolbar"><LibraryToolbar bind:query bind:sort bind:view /></div>
+		<div class="header"><HomeHeader name={data.user?.displayName ?? null} /></div>
 	</div>
+
+	{#if searching}
+		<p class="results" role="status">
+			{#if stillLoading}
+				Cerco in tutta la libreria…
+			{:else if resultCount === 0}
+				Nessun libro trovato per «{query.trim()}».
+			{:else}
+				{resultCount}
+				{resultCount === 1 ? 'libro trovato' : 'libri trovati'} per «{query.trim()}»
+			{/if}
+		</p>
+	{:else}
+		<div class="pinned">
+			<ReadingNow items={home.reading} />
+			<UpNextQueue {home} {dnd} {preview} />
+		</div>
+	{/if}
 
 	<div class="shelves">
-		{#each home.shelves as shelf (shelf.genre.slug)}
-			<GenreShelf {shelf} {home} {dnd} />
+		{#each sections as section (section.shelf.genre.slug)}
+			<GenreShelf shelf={section.shelf} books={section.books} {view} {home} {dnd} {preview} />
 		{/each}
 	</div>
+
+	<BookPreviewPopover {preview} {home} {dnd} />
 
 	<p class="toast" role="status" aria-live="polite" class:visible={home.message !== ''}>
 		{home.message}
@@ -54,101 +139,38 @@
 </div>
 
 <style>
-	:global(.shell.home .content) {
-		max-width: none;
-	}
-
 	.home {
 		position: relative;
 		isolation: isolate;
-		padding-top: 0;
-	}
-
-	.intro {
-		box-sizing: border-box;
-		max-width: var(--content-max);
-		margin-inline: auto;
-	}
-
-	/* "Nuvole" blush del fondo Home (mockup 3.1): qualche ellisse sfumata, nessuna posizione e' critica */
-	.home::before {
-		content: '';
-		position: absolute;
-		z-index: -1;
-		inset: 0;
-		pointer-events: none;
-		background:
-			radial-gradient(
-				ellipse 130px 55px at 62% 1%,
-				color-mix(in srgb, var(--color-accent) 30%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 120px 50px at 28% 6%,
-				color-mix(in srgb, var(--color-accent) 30%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 115px 63px at 71% 44%,
-				color-mix(in srgb, var(--color-accent) 30%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 130px 45px at 4% 64%,
-				color-mix(in srgb, var(--color-surface) 90%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 95px 64px at 28% 54%,
-				color-mix(in srgb, var(--color-on-genre-white) 35%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 146px 52px at 100% 80%,
-				color-mix(in srgb, var(--color-accent) 30%, transparent),
-				transparent 72%
-			),
-			radial-gradient(
-				ellipse 110px 40px at 10% 90%,
-				color-mix(in srgb, var(--color-surface) 90%, transparent),
-				transparent 72%
-			);
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+		padding: 20px 14px 28px;
 	}
 
 	.top {
 		display: flex;
 		flex-direction: column;
-		gap: 28px;
-		padding-top: 18px;
+		gap: 16px;
 	}
 
-	.queue {
-		min-width: 0;
+	/* Mobile: prima il titolo, poi gli strumenti */
+	.header {
+		order: -1;
 	}
 
+	.pinned,
 	.shelves {
-		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 26px;
-		margin-top: 28px;
-		padding: 18px 0 22px;
-		background: var(--gradient-wood-back);
-		box-shadow: inset 0 0 24px color-mix(in srgb, var(--color-wood-ink) 14%, transparent);
+		gap: 22px;
 	}
 
-	.shelves::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		background: var(--color-wood-ink);
-		opacity: 0.3;
-		/* Un'unica trama continua evita giunture orizzontali tra le ripetizioni. */
-		-webkit-mask: url('/textures/wood-grain.svg') no-repeat;
-		mask: url('/textures/wood-grain.svg') no-repeat;
-		-webkit-mask-size: 100% 100%;
-		mask-size: 100% 100%;
+	.results {
+		margin: 0;
+		color: var(--color-text-secondary);
+		font-size: 15px;
+		font-weight: 600;
 	}
 
 	.toast {
@@ -179,20 +201,25 @@
 	}
 
 	@media (min-width: 1024px) {
-		.intro {
-			padding-inline: 24px;
+		.home {
+			gap: 28px;
+			padding: 24px 32px 40px;
 		}
 
 		.top {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-			align-items: start;
-			gap: 32px;
+			gap: 28px;
 		}
 
+		.header {
+			order: 0;
+		}
+
+		.pinned {
+			gap: 28px;
+		}
 
 		.shelves {
-			margin-top: 36px;
+			gap: 26px;
 		}
 
 		.toast {

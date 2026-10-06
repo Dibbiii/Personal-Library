@@ -2,7 +2,9 @@
 	import { draggable } from '$lib/actions/drag';
 	import BookCover from '$lib/components/book/BookCover.svelte';
 	import BookSpine from '$lib/components/book/BookSpine.svelte';
-	import { layoutShelf } from '$lib/book/shelf-layout';
+	import { layoutShelf, SHELF_DECORATION, type DecorationKind } from '$lib/book/shelf-layout';
+	import { bookStatus } from '$lib/book/palette';
+	import { spineHeight } from '$lib/book/binding';
 	import { getThemeController } from '$lib/themes/controller.svelte';
 	import { GENRE_LABELS } from '$lib/genres';
 	import { buildAddHref } from '$lib/catalog/add-context';
@@ -11,20 +13,43 @@
 	import ShelfFrame from './ShelfFrame.svelte';
 	import type { HomeState, ShelfState } from './home-state.svelte';
 	import type { HomeDnd } from './home-dnd.svelte';
+	import type { LibraryView } from './library-filter';
+	import { hoverPreview, type HoverPreview } from './hover-preview.svelte';
+	import type { BookSummary } from '$lib/contracts';
 
 	interface Props {
 		shelf: ShelfState;
 		home: HomeState;
 		dnd: HomeDnd;
+		/** Libri da mostrare (filtrati/ordinati); di default quelli dello scaffale, con paginazione. */
+		books?: BookSummary[] | undefined;
+		view?: LibraryView;
+		preview: HoverPreview;
 	}
 
-	let { shelf, home, dnd }: Props = $props();
+	let { shelf, home, dnd, books, view = 'grid', preview }: Props = $props();
+
+	const shown = $derived(books ?? shelf.books);
+	const paginate = $derived(books === undefined && view === 'grid');
+	const count = $derived(books ? books.length : shelf.totalCount);
+	const pill = $derived(`${count} ${count === 1 ? 'libro' : 'libri'}`);
+
+	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
+	/** Decorazione finale diversa da quella gia' presente nello scaffale. */
+	const END_DECORATION: Record<DecorationKind, DecorationKind> = {
+		plant: 'vase',
+		candle: 'plant',
+		mug: 'globe',
+		stack: 'plant',
+		vase: 'plant',
+		globe: 'plant'
+	};
 
 	const theme = getThemeController();
 	const slug = $derived(shelf.genre.slug);
 	const items = $derived(
 		layoutShelf({
-			books: shelf.books,
+			books: shown,
 			genre: slug,
 			queuedIds: home.queuedIds,
 			themeKey: theme?.key
@@ -37,7 +62,7 @@
 	// Paginazione keyset: quando la coda dello scaffale entra in vista, carica altri libri.
 	$effect(() => {
 		void shelf.books.length;
-		if (!scroller || !sentinel || !shelf.hasMore || shelf.failed) return;
+		if (!paginate || !scroller || !sentinel || !shelf.hasMore || shelf.failed) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) void home.loadMore(slug);
@@ -56,7 +81,9 @@
 	addLabel="Aggiungi un libro a {GENRE_LABELS[slug]}"
 	accent="var(--genre-{slug})"
 	genre={slug}
-	woodBackdrop={false}
+	{pill}
+	height={184}
+	list={view === 'list'}
 	target={dnd.hover === `genre:${slug}`}
 	zone={dnd.genreZone(slug)}
 	label="Scaffale {GENRE_LABELS[slug]}, {shelf.totalCount} {shelf.totalCount === 1
@@ -64,58 +91,98 @@
 		: 'libri'}"
 	bind:scroller
 >
-	{#each items as item (item.key)}
-		{#if item.kind === 'deco'}
-			<Decoration kind={item.deco} />
-		{:else}
-			<div
-				class="item"
-				class:source={dnd.draggingId === item.book.id}
-				class:cover={item.kind === 'cover'}
-				style:--pw={item.kind === 'spine' ? `${item.spec.spine.width}px` : '84px'}
-				style:--ph={item.kind === 'spine' ? `${item.spec.spine.height}px` : '124px'}
-				use:draggable={dnd.source({ kind: 'shelf-book', book: item.book })}
-			>
-				{#if item.kind === 'spine'}
-					<BookSpine
-						book={item.book}
-						spec={item.spec}
-						badge={item.status}
-						lean={item.lean}
-						href="/book/{item.book.id}"
-					/>
-				{:else}
-					<a
-						class="cover-link"
-						href="/book/{item.book.id}"
-						aria-label="{item.book.title}, di {item.book.author}"
-					>
-						<BookCover
-							book={item.book}
-							size="md"
-							badge={item.status}
-							showFormat
-							noImage={item.noImage}
-						/>
+	{#if view === 'list'}
+		<ul class="rows">
+			{#each shown as book (book.id)}
+				{@const status = bookStatus(book, home.queuedIds.has(book.id))}
+				<li
+					class="row-item"
+					class:source={dnd.draggingId === book.id}
+					use:draggable={dnd.source({ kind: 'shelf-book', book })}
+					use:hoverPreview={{ preview, book }}
+				>
+					<a class="row-link" href="/book/{book.id}" aria-label="{book.title}, di {book.author}">
+						<BookCover {book} size="xs" />
+						<span class="meta">
+							<span class="row-title">{book.title}</span>
+							<span class="row-author">{book.author}</span>
+							<span class="row-info">
+								{#if status === 'reading'}<span class="tag strong">In lettura</span>
+								{:else if status === 'next'}<span class="tag strong">Prossimo</span>{/if}
+								<span class="tag">{FORMAT_LABELS[book.format]}</span>
+								{#if book.pageCount}<span>{book.pageCount} pagine</span>{/if}
+								{#if book.reviewRating}
+									<span class="stars" aria-label="Voto {book.reviewRating} su 5">
+										{'★'.repeat(book.reviewRating)}
+									</span>
+								{/if}
+							</span>
+						</span>
 					</a>
-				{/if}
-			</div>
-		{/if}
+				</li>
+			{:else}
+				<li class="none">Nessun libro in questo scaffale.</li>
+			{/each}
+		</ul>
 	{:else}
-		<a
-			class="empty"
-			href={buildAddHref('/add', slug)}
-			aria-label="Aggiungi un libro a {GENRE_LABELS[slug]}, scaffale vuoto"
-		>
-			<Icon name="book-plus" size={22} strokeWidth={2} />
-			<span>Scaffale<br />vuoto</span>
-		</a>
-		<Decoration
-			kind={slug === 'classics' || slug === 'fantasy-magical-gothic' ? 'plant' : 'candle'}
-		/>
-	{/each}
+		{#each items as item (item.key)}
+			{#if item.kind === 'deco'}
+				<Decoration kind={item.deco} />
+			{:else}
+				<div
+					class="item"
+					class:source={dnd.draggingId === item.book.id}
+					class:cover={item.kind === 'cover'}
+					style:--pw={item.kind === 'spine' ? `${item.spec.spine.width}px` : '84px'}
+					style:--ph={item.kind === 'spine' ? `${spineHeight(item.spec)}px` : '124px'}
+					use:draggable={dnd.source({ kind: 'shelf-book', book: item.book })}
+					use:hoverPreview={{ preview, book: item.book }}
+				>
+					{#if item.kind === 'spine'}
+						<BookSpine
+							book={item.book}
+							spec={item.spec}
+							badge={item.status}
+							lean={item.lean}
+							href="/book/{item.book.id}"
+						/>
+					{:else}
+						<a
+							class="cover-link"
+							href="/book/{item.book.id}"
+							aria-label="{item.book.title}, di {item.book.author}"
+						>
+							<BookCover
+								book={item.book}
+								size="md"
+								badge={item.status}
+								showFormat
+								noImage={item.noImage}
+							/>
+						</a>
+					{/if}
+				</div>
+			{/if}
+		{:else}
+			<a
+				class="empty"
+				href={buildAddHref('/add', slug)}
+				aria-label="Aggiungi un libro a {GENRE_LABELS[slug]}, scaffale vuoto"
+			>
+				<Icon name="book-plus" size={22} strokeWidth={2} />
+				<span>Scaffale<br />vuoto</span>
+			</a>
+			<Decoration
+				kind={slug === 'classics' || slug === 'fantasy-magical-gothic' ? 'plant' : 'candle'}
+			/>
+		{/each}
+		{#if items.length > 0}
+			<!-- Angolo decorativo in fondo allo scaffale (mockup): con spazio libero va a destra. -->
+			<div class="end-deco"><Decoration kind={END_DECORATION[SHELF_DECORATION[slug]]} /></div>
+		{/if}
+	{/if}
 
-	{#if shelf.hasMore}
+	{#if paginate && shelf.hasMore}
 		<div class="sentinel" bind:this={sentinel}>
 			{#if shelf.failed}
 				<button type="button" onclick={() => home.loadMore(slug)}>Riprova</button>
@@ -127,6 +194,132 @@
 </ShelfFrame>
 
 <style>
+	.rows {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+		gap: 8px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.row-item {
+		position: relative;
+		min-width: 0;
+		touch-action: pan-y;
+		-webkit-touch-callout: none;
+		user-select: none;
+	}
+
+	.row-item.source {
+		opacity: 0.4;
+	}
+
+	.row-link {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px 10px;
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--color-surface-elevated) 80%, transparent);
+		color: var(--color-text-primary);
+		text-decoration: none;
+		transition: background-color var(--duration-fast) var(--ease-out);
+	}
+
+	.row-link:hover {
+		background: var(--color-surface-elevated);
+	}
+
+	.row-link:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.meta {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.row-title,
+	.row-author {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.row-title {
+		font-size: 14px;
+		font-weight: 700;
+		line-height: 18px;
+	}
+
+	.row-author {
+		color: var(--color-text-secondary);
+		font-size: 12.5px;
+		line-height: 16px;
+	}
+
+	.row-info {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px 8px;
+		margin-top: 3px;
+		color: var(--color-text-muted);
+		font-size: 11.5px;
+		line-height: 16px;
+	}
+
+	.tag {
+		padding: 0 7px;
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text-secondary);
+		font-weight: 600;
+	}
+
+	.tag.strong {
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+	}
+
+	.stars {
+		color: var(--g-dark);
+		letter-spacing: 1px;
+	}
+
+	.none {
+		color: var(--color-text-secondary);
+		font-size: 13px;
+	}
+
+	.end-deco {
+		position: relative;
+		z-index: 0;
+		display: flex;
+		flex: none;
+		align-items: flex-end;
+		align-self: stretch;
+		margin-left: auto;
+		padding: 0 6px 0 24px;
+	}
+
+	/* Arco chiaro dietro la decorazione, come le nicchie del mockup */
+	.end-deco::before {
+		content: '';
+		position: absolute;
+		z-index: -1;
+		right: -4px;
+		bottom: 0;
+		width: 120px;
+		height: 82%;
+		border-radius: 60px 60px 0 0;
+		background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+	}
+
 	.item {
 		position: relative;
 		display: flex;
@@ -179,7 +372,7 @@
 		border: 2px dashed color-mix(in srgb, var(--color-divider) 70%, transparent);
 		border-radius: 8px;
 		background: color-mix(in srgb, var(--color-divider) 10%, transparent);
-		color: var(--color-shelf-axis);
+		color: var(--color-text-secondary);
 		font-size: 11px;
 		font-weight: 600;
 		line-height: 13px;

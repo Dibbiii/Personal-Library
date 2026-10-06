@@ -96,7 +96,10 @@ test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 			})
 		).toHaveAttribute('href', `/add?genre=${MYTHOLOGY}`);
 		// Il link del titolo resta indipendente dall’azione +.
-		await expect(populated.locator('.plank-link')).toHaveAttribute('href', `/genre/${CLASSICS}`);
+		await expect(populated.getByRole('link', { name: /^Vedi tutti/ })).toHaveAttribute(
+			'href',
+			`/genre/${CLASSICS}`
+		);
 		await testInfo.attach('library-home', {
 			body: await page.screenshot({ fullPage: true, scale: 'css' }),
 			contentType: 'image/png'

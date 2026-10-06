@@ -8,13 +8,15 @@
 	import ShelfFrame from './ShelfFrame.svelte';
 	import type { HomeDnd } from './home-dnd.svelte';
 	import type { HomeState } from './home-state.svelte';
+	import { hoverPreview, type HoverPreview } from './hover-preview.svelte';
 
 	interface Props {
 		home: HomeState;
 		dnd: HomeDnd;
+		preview: HoverPreview;
 	}
 
-	let { home, dnd }: Props = $props();
+	let { home, dnd, preview }: Props = $props();
 
 	const queue = $derived(home.sortedQueue);
 	const count = $derived(queue.length);
@@ -34,7 +36,7 @@
 <ShelfFrame
 	title="I prossimi 3"
 	accent="var(--color-divider)"
-	height={224}
+	height={140}
 	inset={11}
 	{pill}
 	target={dnd.hover === 'queue'}
@@ -52,6 +54,7 @@
 			class:minor={position > 3}
 			use:draggable={dnd.source({ kind: 'queue-book', book: entry.book, position })}
 			use:dropzone={dnd.slotZone(position)}
+			use:hoverPreview={{ preview, book: entry.book }}
 		>
 			<a
 				class="cover-link"
@@ -185,7 +188,7 @@
 		border: 2px dashed color-mix(in srgb, var(--color-divider) 70%, transparent);
 		border-radius: 8px;
 		background: color-mix(in srgb, var(--color-divider) 10%, transparent);
-		color: var(--color-shelf-axis);
+		color: var(--color-text-secondary);
 		font-size: 11px;
 		font-weight: 600;
 		line-height: 13px;
