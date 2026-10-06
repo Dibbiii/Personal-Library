@@ -8,9 +8,6 @@
 		title: string;
 		/** Link "Vedi tutti" nell'intestazione (vista genere). */
 		href?: string;
-		/** Azione "aggiungi" contestuale accanto a "Vedi tutti". */
-		addHref?: string;
-		addLabel?: string;
 		/** Colore del pallino (espressione CSS / token). */
 		accent: string;
 		/** Altezza dell'area libri: 224 per In lettura e I prossimi, 168 per genere. */
@@ -40,8 +37,6 @@
 	let {
 		title,
 		href,
-		addHref,
-		addLabel,
 		accent,
 		height = 168,
 		inset = 18,
@@ -89,11 +84,6 @@
 					<Icon name="arrow-right" size={16} strokeWidth={2.2} />
 				</a>
 			{/if}
-			{#if addHref}
-				<a class="add" href={addHref} aria-label={addLabel ?? `Aggiungi un libro a ${title}`}>
-					<Icon name="plus" size={18} strokeWidth={2.2} />
-				</a>
-			{/if}
 		</span>
 	</header>
 
@@ -105,7 +95,10 @@
 				{@render children()}
 			</div>
 		</div>
-		<div class="plank" aria-hidden="true"></div>
+		<div class="plank" aria-hidden="true">
+			<span class="plank-top"></span>
+			<span class="plank-front"></span>
+		</div>
 	{/if}
 
 	{@render below?.()}
@@ -226,34 +219,14 @@
 		background: var(--color-background);
 	}
 
-	.add {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		background: var(--g-dark, var(--color-primary));
-		color: var(--g-light, var(--color-on-primary));
-		text-decoration: none;
-		transition: transform var(--duration-fast) var(--ease-out);
-	}
-
 	/* area di tocco 44px */
-	.add::after,
 	.all::after {
 		content: '';
 		position: absolute;
 		inset: -4px;
 	}
 
-	.add:active {
-		transform: scale(0.92);
-	}
-
-	.all:focus-visible,
-	.add:focus-visible {
+	.all:focus-visible {
 		outline: 2px solid var(--color-primary);
 		outline-offset: 2px;
 	}
@@ -281,23 +254,90 @@
 		gap: 2px;
 	}
 
-	/* Mensola di legno chiaro su cui poggiano i libri, leggermente più larga della card */
+	/* Ombra di contatto: dove i libri incontrano la mensola il muro si scurisce appena. */
+	.scroller {
+		background: linear-gradient(
+			to top,
+			color-mix(in srgb, var(--color-wood-ink) 12%, transparent),
+			transparent 46px
+		);
+	}
+
+	/*
+	 * Mensola in legno chiaro: piano superiore in prospettiva (sotto ai libri, che ci poggiano sopra),
+	 * bordo frontale con venatura e ombra portata sulla card.
+	 */
 	.plank {
 		position: relative;
-		z-index: 2;
-		height: 16px;
-		margin: 0 -6px;
-		border-radius: 5px;
+		z-index: 0;
+		height: 28px;
+		margin: -8px -8px 0;
+	}
+
+	.plank-top {
+		position: absolute;
+		top: 0;
+		left: 10px;
+		right: 10px;
+		height: 10px;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-wood-detail-mid) 80%, var(--color-wood-ink)),
+			var(--color-wood-detail-mid) 45%,
+			var(--color-wood-detail-top)
+		);
+		clip-path: polygon(0.8% 0, 99.2% 0, 100% 100%, 0 100%);
+	}
+
+	.plank-front {
+		position: absolute;
+		top: 10px;
+		left: 0;
+		right: 0;
+		height: 17px;
+		overflow: hidden;
+		border-radius: 2px 2px 7px 7px;
 		background:
 			linear-gradient(
 				180deg,
-				color-mix(in srgb, var(--color-on-genre-white) 45%, transparent),
-				transparent 35%
+				color-mix(in srgb, var(--color-on-genre-white) 55%, transparent) 0 1px,
+				color-mix(in srgb, var(--color-on-genre-white) 18%, transparent) 2px,
+				transparent 45%,
+				color-mix(in srgb, var(--color-wood-ink) 16%, transparent)
 			),
 			var(--gradient-wood-detail);
 		box-shadow:
-			0 4px 0 -1px var(--color-wood-detail-bottom),
-			0 14px 16px -6px color-mix(in srgb, var(--color-wood-ink) 40%, transparent);
+			0 3px 0 -1px color-mix(in srgb, var(--color-wood-detail-bottom) 85%, var(--color-wood-ink)),
+			0 16px 18px -10px color-mix(in srgb, var(--color-wood-ink) 55%, transparent);
+	}
+
+	/* Venatura */
+	.plank-front::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: var(--color-wood-ink);
+		opacity: 0.22;
+		-webkit-mask: url('/textures/wood-front.svg') repeat-x;
+		mask: url('/textures/wood-front.svg') repeat-x;
+		-webkit-mask-size: auto 100%;
+		mask-size: auto 100%;
+	}
+
+	/* Ombra morbida proiettata sotto la mensola */
+	.plank::after {
+		content: '';
+		position: absolute;
+		top: 100%;
+		left: 4%;
+		right: 4%;
+		height: 16px;
+		background: radial-gradient(
+			ellipse 50% 100% at 50% 0,
+			color-mix(in srgb, var(--color-wood-ink) 22%, transparent),
+			transparent
+		);
+		pointer-events: none;
 	}
 
 	.list-body {

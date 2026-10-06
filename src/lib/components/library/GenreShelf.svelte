@@ -2,7 +2,7 @@
 	import { draggable } from '$lib/actions/drag';
 	import BookCover from '$lib/components/book/BookCover.svelte';
 	import BookSpine from '$lib/components/book/BookSpine.svelte';
-	import { layoutShelf, SHELF_DECORATION, type DecorationKind } from '$lib/book/shelf-layout';
+	import { layoutShelf, type DecorationKind } from '$lib/book/shelf-layout';
 	import { bookStatus } from '$lib/book/palette';
 	import { spineHeight } from '$lib/book/binding';
 	import { getThemeController } from '$lib/themes/controller.svelte';
@@ -15,7 +15,7 @@
 	import type { HomeDnd } from './home-dnd.svelte';
 	import type { LibraryView } from './library-filter';
 	import { hoverPreview, type HoverPreview } from './hover-preview.svelte';
-	import type { BookSummary } from '$lib/contracts';
+	import type { BookSummary, GenreSlug } from '$lib/contracts';
 
 	interface Props {
 		shelf: ShelfState;
@@ -35,18 +35,20 @@
 	const pill = $derived(`${count} ${count === 1 ? 'libro' : 'libri'}`);
 
 	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
-	/** Decorazione finale diversa da quella gia' presente nello scaffale. */
-	const END_DECORATION: Record<DecorationKind, DecorationKind> = {
-		plant: 'vase',
-		candle: 'plant',
-		mug: 'globe',
-		stack: 'plant',
-		vase: 'plant',
-		globe: 'plant'
+	/** Oggetti a tema ai due capi dello scaffale (mockup: busto e pianta a sinistra, vaso a destra). */
+	const SHELF_ENDS: Record<GenreSlug, readonly [DecorationKind, DecorationKind]> = {
+		classics: ['globe', 'fern'],
+		'mythology-epic-retelling': ['bust', 'vase'],
+		'dystopia-scifi': ['succulent', 'hourglass'],
+		'thriller-mystery': ['hourglass', 'lantern'],
+		'fantasy-magical-gothic': ['lantern', 'trailing'],
+		'romance-ya-na': ['trailing', 'figurine'],
+		'contemporary-historical': ['cactus', 'bookends']
 	};
 
 	const theme = getThemeController();
 	const slug = $derived(shelf.genre.slug);
+	const ends = $derived(SHELF_ENDS[slug]);
 	const items = $derived(
 		layoutShelf({
 			books: shown,
@@ -77,8 +79,6 @@
 <ShelfFrame
 	title={GENRE_LABELS[slug]}
 	href="/genre/{slug}"
-	addHref={buildAddHref('/add', slug)}
-	addLabel="Aggiungi un libro a {GENRE_LABELS[slug]}"
 	accent="var(--genre-{slug})"
 	genre={slug}
 	{pill}
@@ -125,6 +125,9 @@
 			{/each}
 		</ul>
 	{:else}
+		{#if items.length > 0}
+			<div class="niche start"><Decoration kind={ends[0]} /></div>
+		{/if}
 		{#each items as item (item.key)}
 			{#if item.kind === 'deco'}
 				<Decoration kind={item.deco} />
@@ -172,14 +175,10 @@
 				<Icon name="book-plus" size={22} strokeWidth={2} />
 				<span>Scaffale<br />vuoto</span>
 			</a>
-			<Decoration
-				kind={slug === 'classics' || slug === 'fantasy-magical-gothic' ? 'plant' : 'candle'}
-			/>
+			<Decoration kind={ends[0]} />
 		{/each}
-		{#if items.length > 0}
-			<!-- Angolo decorativo in fondo allo scaffale (mockup): con spazio libero va a destra. -->
-			<div class="end-deco"><Decoration kind={END_DECORATION[SHELF_DECORATION[slug]]} /></div>
-		{/if}
+		<!-- Angolo decorativo in fondo allo scaffale: con spazio libero va a destra. -->
+		<div class="niche end"><Decoration kind={ends[1]} /></div>
 	{/if}
 
 	{#if paginate && shelf.hasMore}
@@ -296,28 +295,46 @@
 		font-size: 13px;
 	}
 
-	.end-deco {
+	.niche {
 		position: relative;
 		z-index: 0;
 		display: flex;
 		flex: none;
 		align-items: flex-end;
 		align-self: stretch;
-		margin-left: auto;
-		padding: 0 6px 0 24px;
 	}
 
-	/* Arco chiaro dietro la decorazione, come le nicchie del mockup */
-	.end-deco::before {
+	.niche.start {
+		padding-right: 6px;
+	}
+
+	.niche.end {
+		margin-left: auto;
+		padding: 0 4px 0 24px;
+	}
+
+	/* Nicchia ad arco dietro l'oggetto, come nel mockup */
+	.niche::before {
 		content: '';
 		position: absolute;
 		z-index: -1;
-		right: -4px;
 		bottom: 0;
-		width: 120px;
-		height: 82%;
-		border-radius: 60px 60px 0 0;
-		background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+		width: 124px;
+		height: 84%;
+		border-radius: 62px 62px 0 0;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-surface) 70%, transparent),
+			color-mix(in srgb, var(--color-surface) 35%, transparent)
+		);
+	}
+
+	.niche.start::before {
+		left: -10px;
+	}
+
+	.niche.end::before {
+		right: -6px;
 	}
 
 	.item {

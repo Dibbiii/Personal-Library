@@ -141,7 +141,6 @@
 <style>
 	.home {
 		position: relative;
-		isolation: isolate;
 		display: flex;
 		flex-direction: column;
 		gap: 22px;

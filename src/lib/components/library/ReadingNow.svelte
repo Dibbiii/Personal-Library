@@ -33,7 +33,7 @@
 		label="In lettura, {pill}"
 		class="reading-frame"
 	>
-		<Decoration kind="plant" />
+		<Decoration kind="fern" />
 		{#each items as entry (entry.book.id)}
 			{@const pct = percent(entry)}
 			{@const active = entry === selected}
@@ -58,6 +58,7 @@
 			<p class="none">Nessun libro in lettura. Scegline uno dai prossimi o dagli scaffali.</p>
 		{/if}
 		<Decoration kind="candle" />
+		<Decoration kind="succulent" />
 	</ShelfFrame>
 
 	{#if selected}

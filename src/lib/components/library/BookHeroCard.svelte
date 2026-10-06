@@ -1,9 +1,10 @@
 <script lang="ts">
-	import type { BookSummary, CurrentlyReadingBook } from '$lib/contracts';
+	import type { BookSummary, CurrentlyReadingBook, GenreSlug } from '$lib/contracts';
 	import BookCover from '$lib/components/book/BookCover.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import RatingStars from '$lib/components/ui/RatingStars.svelte';
 	import { resolveCoverUrl } from '$lib/book/cover-url';
+	import { GENRE_LABELS, GENRE_ORDER } from '$lib/genres';
 
 	interface Props {
 		book: BookSummary;
@@ -11,12 +12,22 @@
 		reading?: CurrentlyReadingBook['reading'] | null;
 		/** Il libro e' gia' nei prossimi. */
 		queued?: boolean;
-		/** Con questa callback compare il "+" per aggiungerlo ai prossimi. */
+		onstart?: (() => void) | undefined;
 		onqueue?: (() => void) | undefined;
+		onunqueue?: (() => void) | undefined;
+		onmove?: ((slug: GenreSlug) => void) | undefined;
 	}
 
 	/** Scheda scura di un libro (mockup Libreria): copertina, dati, avanzamento, azioni. */
-	let { book, reading = null, queued = false, onqueue }: Props = $props();
+	let {
+		book,
+		reading = null,
+		queued = false,
+		onstart,
+		onqueue,
+		onunqueue,
+		onmove
+	}: Props = $props();
 
 	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
 	const STATE_LABELS = {
@@ -32,6 +43,8 @@
 		year: 'numeric'
 	});
 
+	let moving = $state(false);
+
 	const total = $derived(reading?.totalPages ?? book.pageCount);
 	const percent = $derived.by(() => {
 		if (!reading) return null;
@@ -43,12 +56,12 @@
 	const series = $derived(
 		book.series ? `${book.series.name}${book.series.number ? ` #${book.series.number}` : ''}` : null
 	);
+	const inProgress = $derived(reading !== null || book.lifecycleState === 'reading');
 	const status = $derived(
 		queued && book.lifecycleState === 'unread' ? 'Nei prossimi' : STATE_LABELS[book.lifecycleState]
 	);
-	const canQueue = $derived(
-		onqueue !== undefined && !queued && !reading && book.lifecycleState !== 'reading'
-	);
+	const startLabel = $derived(book.lifecycleState === 'finished' ? 'Rileggi' : 'Inizia a leggere');
+	const otherGenres = $derived(GENRE_ORDER.filter((slug) => slug !== book.genre.slug));
 </script>
 
 <article
@@ -130,30 +143,81 @@
 		</div>
 	</div>
 
+	{#if moving && onmove}
+		<div class="move" role="group" aria-label="Sposta {book.title} in un altro genere">
+			<span class="move-label">Sposta in</span>
+			{#each otherGenres as slug (slug)}
+				<button
+					type="button"
+					style:--dot="var(--genre-{slug})"
+					onclick={() => {
+						moving = false;
+						onmove(slug);
+					}}
+				>
+					<span class="dot" aria-hidden="true"></span>{GENRE_LABELS[slug]}
+				</button>
+			{/each}
+		</div>
+	{/if}
+
 	<div class="cta">
 		<a class="primary" href="/book/{book.id}">
 			<Icon name="book-open" size={18} strokeWidth={2.1} />
 			Vedi dettagli
 		</a>
-		{#if reading}
+		{#if inProgress}
 			<a
 				class="round"
 				href="/book/{book.id}#progress"
 				aria-label="Aggiorna la pagina di {book.title}"
-				title="Aggiorna pagina"
+				data-tip="Aggiorna pagina"
 			>
 				<Icon name="bookmark" size={19} />
 			</a>
+		{:else if onstart && book.lifecycleState !== 'dnf'}
+			<button
+				type="button"
+				class="round"
+				aria-label="{startLabel}: {book.title}"
+				data-tip={startLabel}
+				onclick={onstart}
+			>
+				<Icon name="book-open" size={19} />
+			</button>
 		{/if}
-		{#if canQueue}
+		{#if !inProgress && queued && onunqueue}
+			<button
+				type="button"
+				class="round on"
+				aria-label="Togli {book.title} dai prossimi"
+				data-tip="Togli dai prossimi"
+				onclick={onunqueue}
+			>
+				<Icon name="check" size={20} strokeWidth={2.2} />
+			</button>
+		{:else if !inProgress && !queued && onqueue}
 			<button
 				type="button"
 				class="round"
 				aria-label="Aggiungi {book.title} ai prossimi"
-				title="Aggiungi ai prossimi"
+				data-tip="Aggiungi ai prossimi"
 				onclick={onqueue}
 			>
 				<Icon name="plus" size={20} strokeWidth={2.1} />
+			</button>
+		{/if}
+		{#if onmove}
+			<button
+				type="button"
+				class="round"
+				class:on={moving}
+				aria-label="Sposta in un altro genere"
+				aria-expanded={moving}
+				data-tip="Sposta in un altro genere"
+				onclick={() => (moving = !moving)}
+			>
+				<Icon name="more-horizontal" size={20} />
 			</button>
 		{/if}
 	</div>
@@ -162,41 +226,43 @@
 <style>
 	.hero {
 		--ink: var(--color-on-genre-white);
-		--ink-soft: color-mix(in srgb, var(--color-on-genre-white) 78%, transparent);
-		--glass: color-mix(in srgb, var(--color-on-genre-white) 14%, transparent);
+		--ink-soft: color-mix(in srgb, var(--color-on-genre-white) 86%, transparent);
+		--glass: color-mix(in srgb, var(--color-on-genre-white) 16%, transparent);
+		--base: color-mix(in srgb, var(--color-overlay) 94%, var(--g));
 		position: relative;
 		isolation: isolate;
 		display: flex;
 		flex-direction: column;
-		gap: 18px;
+		gap: 16px;
 		box-sizing: border-box;
 		padding: 18px;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
 		background:
 			radial-gradient(
-				ellipse 60% 90% at 100% 0%,
-				color-mix(in srgb, var(--g) 40%, transparent),
+				ellipse 55% 80% at 100% 0%,
+				color-mix(in srgb, var(--g) 28%, transparent),
 				transparent 70%
 			),
-			color-mix(in srgb, var(--color-overlay) 92%, var(--g));
+			var(--base);
 		box-shadow:
 			0 24px 48px -18px color-mix(in srgb, var(--color-overlay) 70%, transparent),
 			0 2px 6px color-mix(in srgb, var(--color-overlay) 30%, transparent);
 		color: var(--ink);
+		text-shadow: 0 1px 2px color-mix(in srgb, var(--color-overlay) 60%, transparent);
 	}
 
-	/* La copertina stessa fa da illustrazione sul lato destro, sfumata nel fondo scuro. */
+	/* La copertina fa da illustrazione solo sul bordo destro: scurita e sfumata, non disturba il testo. */
 	.art {
 		position: absolute;
 		z-index: -1;
-		inset: 0 0 0 38%;
+		inset: 0 0 0 55%;
 		background-position: center 30%;
 		background-size: cover;
-		filter: blur(3px) saturate(1.15);
-		opacity: 0.5;
-		-webkit-mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 65%);
-		mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 65%);
+		filter: blur(6px) brightness(0.55) saturate(1.1);
+		opacity: 0.45;
+		-webkit-mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 80%);
+		mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 80%);
 	}
 
 	.body {
@@ -274,6 +340,7 @@
 		background: var(--glass);
 		font-size: 12px;
 		font-weight: 600;
+		text-shadow: none;
 	}
 
 	.chips .status {
@@ -318,6 +385,50 @@
 		font-weight: 700;
 	}
 
+	.move {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		padding: 10px;
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--color-overlay) 55%, transparent);
+		text-shadow: none;
+	}
+
+	.move-label {
+		margin-right: 4px;
+		color: var(--ink-soft);
+		font-size: 12px;
+		font-weight: 700;
+	}
+
+	.move button {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 32px;
+		padding: 0 10px;
+		border: 0;
+		border-radius: var(--radius-pill);
+		background: var(--glass);
+		color: var(--ink);
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.move button:hover {
+		background: color-mix(in srgb, var(--color-on-genre-white) 26%, transparent);
+	}
+
+	.move .dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--dot);
+	}
+
 	.cta {
 		display: flex;
 		flex-wrap: wrap;
@@ -327,6 +438,7 @@
 
 	.primary,
 	.round {
+		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -348,14 +460,48 @@
 		color: var(--color-on-primary);
 		font-size: 15px;
 		font-weight: 700;
+		text-shadow: none;
 	}
 
 	.round {
 		width: 48px;
 		padding: 0;
-		border: 0;
+		border: 1px solid color-mix(in srgb, var(--color-on-genre-white) 22%, transparent);
 		background: var(--glass);
 		cursor: pointer;
+	}
+
+	.round.on {
+		background: var(--color-on-genre-white);
+		color: var(--color-overlay);
+	}
+
+	/* Etichetta dell'icona: appare con hover o focus, sopra il pulsante */
+	.round[data-tip]::after {
+		content: attr(data-tip);
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		padding: 4px 9px;
+		border-radius: var(--radius-sm);
+		background: var(--color-on-genre-white);
+		color: var(--color-overlay);
+		font-size: 12px;
+		font-weight: 700;
+		white-space: nowrap;
+		text-shadow: none;
+		opacity: 0;
+		pointer-events: none;
+		transform: translate(-50%, 4px);
+		transition:
+			opacity var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
+	}
+
+	.round:hover::after,
+	.round:focus-visible::after {
+		opacity: 1;
+		transform: translate(-50%, 0);
 	}
 
 	.primary:hover {
@@ -363,7 +509,11 @@
 	}
 
 	.round:hover {
-		background: color-mix(in srgb, var(--color-on-genre-white) 24%, transparent);
+		background: color-mix(in srgb, var(--color-on-genre-white) 26%, transparent);
+	}
+
+	.round.on:hover {
+		background: color-mix(in srgb, var(--color-on-genre-white) 85%, transparent);
 	}
 
 	.primary:active,
@@ -379,7 +529,8 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.primary,
-		.round {
+		.round,
+		.round[data-tip]::after {
 			transition: none;
 		}
 	}

@@ -80,6 +80,8 @@
 		<span>Trascina<br />qui</span>
 	</div>
 	<Decoration kind="mug" />
+	<Decoration kind="stack" />
+	<Decoration kind="cactus" />
 
 	{#snippet below()}
 		<div class="titles" bind:this={titles} aria-hidden="true">
