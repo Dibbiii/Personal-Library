@@ -61,6 +61,24 @@ describe('temi built-in', () => {
 		expect(genreContextCss(['classics'])).toContain('--genre-current:var(--genre-classics)');
 		expect(builtinThemesCss()).toContain('[data-genre="romance-ya-na"]');
 	});
+
+	it('Beige è una palette e non una modalità', () => {
+		expect(resolveBuiltinTheme('beige').name).toBe('Beige legno');
+		const css = builtinThemesCss();
+		expect(css).toContain(':root[data-theme="beige"]');
+		expect(css).not.toContain('data-appearance="beige"');
+	});
+
+	it('la modalità scura mantiene la tinta della palette selezionata', () => {
+		for (const theme of Object.values(builtinThemes)) {
+			expect(themeToCssVariables(theme)['--color-palette-primary']).toBe(theme.colors.primary);
+		}
+		const css = builtinThemesCss();
+		expect(css).toContain('var(--color-palette-primary)');
+		expect(css).toContain(':root[data-appearance="dark"]');
+		expect(css).toContain('@media(prefers-color-scheme:dark)');
+		expect(css).toContain(':root[data-appearance="system"]');
+	});
 });
 
 describe('contrasto WCAG AA (testo normale)', () => {

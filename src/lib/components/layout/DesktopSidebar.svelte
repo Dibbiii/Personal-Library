@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { isNavActive, NAV_ITEMS } from '$lib/navigation';
+	import ProfileMenu from './ProfileMenu.svelte';
 
 	interface Props {
 		/** Nome visualizzato o email dell'utente, mostrato in fondo alla sidebar. */
@@ -9,7 +10,6 @@
 	}
 
 	let { userLabel = null }: Props = $props();
-	const settingsActive = $derived(page.url.pathname.startsWith('/settings'));
 </script>
 
 <aside class="sidebar">
@@ -33,24 +33,7 @@
 	</nav>
 
 	<div class="footer">
-		<a
-			class="link"
-			class:active={settingsActive}
-			href="/settings"
-			aria-current={settingsActive ? 'page' : undefined}
-		>
-			<Icon name="settings" size={22} />
-			<span>Impostazioni</span>
-		</a>
-		<form method="POST" action="/auth/logout">
-			<button class="link" type="submit">
-				<Icon name="logout" size={22} />
-				<span>Esci</span>
-			</button>
-		</form>
-		{#if userLabel}
-			<p class="user" title={userLabel}>{userLabel}</p>
-		{/if}
+		<ProfileMenu label={userLabel ?? 'Profilo'} />
 	</div>
 </aside>
 
@@ -130,14 +113,5 @@
 		flex-direction: column;
 		gap: 6px;
 		margin-top: auto;
-	}
-
-	.user {
-		margin: 8px 16px 0;
-		overflow: hidden;
-		color: var(--color-text-secondary);
-		font-size: 13px;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 </style>

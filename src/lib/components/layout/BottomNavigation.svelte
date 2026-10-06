@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { isNavActive, NAV_ITEMS } from '$lib/navigation';
+	import ProfileMenu from './ProfileMenu.svelte';
 </script>
 
 <nav class="bottom-nav" aria-label="Navigazione principale">
@@ -12,6 +13,7 @@
 			<span class="label">{item.label}</span>
 		</a>
 	{/each}
+	<ProfileMenu label={page.data.user?.displayName ?? page.data.user?.email ?? 'Profilo'} mobile />
 </nav>
 
 <style>

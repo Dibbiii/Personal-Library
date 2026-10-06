@@ -31,6 +31,9 @@
 			(function () {
 				try {
 					var root = document.documentElement;
+					var appearance = localStorage.getItem('sb-appearance');
+					root.dataset.appearance =
+						appearance === 'dark' || appearance === 'light' ? appearance : 'system';
 					var t = document.cookie.match(/(?:^|; )sb-theme=([^;]+)/);
 					var stored = t && localStorage.getItem('sb-custom-theme');
 					if (stored) {

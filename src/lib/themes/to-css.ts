@@ -11,6 +11,9 @@ export function themeToCssVariables(theme: ThemeDefinition): Record<string, stri
 		vars[`--color-${camelToKebab(key)}`] = value;
 	}
 
+	// La modalità scura conserva la tinta della palette, senza sovrascriverne la definizione.
+	vars['--color-palette-primary'] = theme.colors.primary;
+
 	for (const [slug, palette] of Object.entries(theme.genres)) {
 		vars[`--genre-${slug}`] = palette.base;
 		vars[`--genre-${slug}-light`] = palette.light;

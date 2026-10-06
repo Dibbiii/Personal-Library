@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AccountSection from '$lib/components/settings/AccountSection.svelte';
+	import AppearancePicker from '$lib/components/settings/AppearancePicker.svelte';
 	import ChoiceGroup from '$lib/components/settings/ChoiceGroup.svelte';
 	import DeleteAccountSheet from '$lib/components/settings/DeleteAccountSheet.svelte';
 	import InstallPanel from '$lib/components/settings/InstallPanel.svelte';
@@ -248,7 +249,11 @@
 			/>
 		</SettingsCard>
 
-		<SettingsCard icon="sun" title="Tema" wide>
+		<SettingsCard icon="sun" title="Modalità di visualizzazione">
+			<AppearancePicker />
+		</SettingsCard>
+
+		<SettingsCard icon="image" title="Palette" wide>
 			<ThemePicker
 				builtins={data.builtins}
 				{custom}

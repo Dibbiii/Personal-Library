@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/Button.svelte';
 	import TextField from '$lib/components/ui/TextField.svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { displayNameSchema } from '$lib/contracts/settings';
 	import { sendJson } from './preferences';
 
@@ -31,6 +32,7 @@
 		try {
 			await sendJson('/api/settings', 'PATCH', { displayName: parsed.data });
 			onsaved(parsed.data);
+			await invalidateAll();
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Non sono riuscito a salvare il nome.';
 		} finally {
