@@ -13,15 +13,15 @@
 
 <section class="sort" aria-labelledby="sort-label">
 	<p id="sort-label" class="label">
-		<Icon name="sort" size={16} strokeWidth={2} />
-		ORDINA PER
+		<Icon name="sort" size={18} strokeWidth={2} />
+		Ordina per
 	</p>
 	<!-- Link veri: l'ordine vive nell'URL (condivisibile, funziona anche senza JavaScript). -->
-	<nav class="chips" aria-label="Ordina i libri">
+	<nav class="segments" aria-label="Ordina i libri">
 		{#each SORT_FIELDS as { field, label } (field)}
 			{@const active = sort.field === field}
 			<a
-				class="chip"
+				class="segment"
 				class:active
 				href="{path}{nextSortQuery(sort, field)}"
 				aria-current={active ? 'true' : undefined}
@@ -31,7 +31,7 @@
 			>
 				{#if active}
 					<span class="arrow" class:asc={sort.direction === 'asc'}>
-						<Icon name="arrow-down" size={16} strokeWidth={2.4} />
+						<Icon name="arrow-down" size={15} strokeWidth={2.4} />
 					</span>
 					<span class="sr-only">
 						{sort.direction === 'asc' ? 'crescente' : 'decrescente'},
@@ -46,54 +46,74 @@
 
 <style>
 	.sort {
-		padding: 22px var(--page-gutter) 0;
-		color: var(--genre-current-dark);
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
 
 	.label {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		margin: 0;
-		font-size: 12.5px;
+		color: var(--color-text-primary);
+		font-size: 14px;
 		font-weight: 700;
-		letter-spacing: 0.06em;
 	}
 
-	.chips {
+	/* Gruppo segmentato come i controlli della toolbar della Libreria */
+	.segments {
 		display: flex;
-		gap: 8px;
-		margin: 10px calc(-1 * var(--page-gutter)) 0;
-		padding: 0 var(--page-gutter);
+		align-self: flex-start;
+		gap: 2px;
+		max-width: 100%;
+		box-sizing: border-box;
+		padding: 4px;
 		overflow-x: auto;
+		border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-elevated);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-shadow) 5%, transparent);
 		scrollbar-width: none;
 	}
 
-	.chips::-webkit-scrollbar {
+	.segments::-webkit-scrollbar {
 		display: none;
 	}
 
-	.chip {
+	.segment {
 		display: inline-flex;
 		flex: none;
 		align-items: center;
 		gap: 6px;
 		box-sizing: border-box;
 		min-height: 40px;
-		padding: 0 16px;
-		border: 1.5px solid var(--genre-current);
-		border-radius: 20px;
-		color: var(--genre-current-dark);
+		padding: 0 12px;
+		border-radius: calc(var(--radius-md) - 4px);
+		color: var(--color-text-secondary);
 		font-size: 14px;
 		font-weight: 600;
 		text-decoration: none;
 		white-space: nowrap;
+		transition:
+			background-color var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
 	}
 
-	.chip.active {
-		background: var(--genre-current);
-		color: var(--genre-current-on);
+	.segment:hover {
+		background: var(--color-surface);
+		color: var(--color-text-primary);
+	}
+
+	.segment.active {
+		background: var(--genre-current-dark);
+		color: var(--genre-current-light);
 		font-weight: 700;
+	}
+
+	.segment:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 
 	.arrow {
@@ -106,7 +126,8 @@
 	}
 
 	.note {
-		margin: 10px 0 0;
+		margin: 0;
+		color: var(--color-text-secondary);
 		font-size: 12.5px;
 		line-height: 17px;
 	}
@@ -121,9 +142,30 @@
 	}
 
 	@media (min-width: 1024px) {
-		.chips {
+		.segment {
+			padding: 0 14px;
+		}
+
+		.sort {
+			flex-direction: row;
 			flex-wrap: wrap;
-			overflow: visible;
+			align-items: center;
+			gap: 10px 16px;
+		}
+
+		.segments {
+			align-self: auto;
+		}
+
+		.note {
+			margin-left: auto;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.segment,
+		.arrow {
+			transition: none;
 		}
 	}
 </style>

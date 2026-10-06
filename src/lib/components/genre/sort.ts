@@ -64,7 +64,7 @@ const FIELD_NAMES: Record<GenreSortField, string> = {
 	date: 'data'
 };
 
-/** "per voto, dal più alto" (Letti) oppure solo "per voto" (TBR), come nel mockup. */
+/** "per voto, dal più alto" (Letti) oppure solo "per voto" (Da leggere), come nel mockup. */
 export function sortCaption(sort: GenreSort, withDirection: boolean): string {
 	const base = `per ${FIELD_NAMES[sort.field]}`;
 	return withDirection ? `${base}, ${DESCRIPTIONS[sort.field][sort.direction]}` : base;

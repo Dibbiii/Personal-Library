@@ -43,25 +43,12 @@
 
 	.shell.genre {
 		position: relative;
-		background: var(--gradient-wood-back);
+		background: var(--color-background-shelf);
 		--nav-bg: var(--genre-current-nav-bg);
 		--nav-border: var(--genre-current-nav-border);
 		--nav-ink: var(--genre-current-dark);
 		--nav-active-bg: var(--genre-current-dark);
 		--nav-active-fg: var(--genre-current-light);
-	}
-
-	.shell.genre::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		background: var(--color-wood-ink);
-		opacity: 0.3;
-		-webkit-mask: url('/textures/wood-grain.svg') no-repeat;
-		mask: url('/textures/wood-grain.svg') no-repeat;
-		-webkit-mask-size: 100% 100%;
-		mask-size: 100% 100%;
 	}
 
 	.shell.genre .content {

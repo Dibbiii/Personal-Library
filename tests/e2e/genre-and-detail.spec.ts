@@ -123,7 +123,7 @@ test('vista genere: sezioni, contatori, ordinamento in URL, slug non valido', as
 	await expect(page.getByText('0 letti', { exact: true })).toBeVisible();
 	await expect(page.getByText('1 da leggere')).toBeVisible();
 	await expect(page.getByRole('heading', { name: /^Letti/ })).toBeVisible();
-	await expect(page.getByRole('heading', { name: /^TBR/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /^Da leggere/ })).toBeVisible();
 	await expect(page.getByText('per voto, dal più alto')).toBeVisible();
 	await expect(page.getByRole('link', { name: /Libro Alfa/ })).toBeVisible();
 
