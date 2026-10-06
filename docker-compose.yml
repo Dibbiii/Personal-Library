@@ -11,9 +11,6 @@ services:
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
     volumes:
       - segnalibro_storage:/app/storage
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     networks:
       - default
       - proxy
@@ -25,17 +22,7 @@ services:
       - traefik.http.routers.personal-library.tls=true
       - traefik.http.routers.personal-library.tls.certresolver=le
       - traefik.http.services.personal-library.loadbalancer.server.port=3000
-
-  migrate:
-    build: .
-    command: ['node', 'scripts/db-migrate.mjs']
-    restart: 'no'
-    environment:
-      DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/segnalibro
-    depends_on:
-      db:
-        condition: service_healthy
-
+      
   db:
     image: postgres:17
     container_name: segnalibro-db
