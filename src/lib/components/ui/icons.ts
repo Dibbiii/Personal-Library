@@ -77,7 +77,9 @@ export const ICONS = {
 	trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12.5h9.4L17.5 7M10 11v5M14 11v5"/>',
 	grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
 	list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r=".9" fill="currentColor" stroke="none"/><circle cx="4.75" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="4.75" cy="17.5" r=".9" fill="currentColor" stroke="none"/>',
-	'arrow-right': '<path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/>'
+	'arrow-right': '<path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/>',
+	globe:
+		'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5z"/>'
 } as const;
 
 export type IconName = keyof typeof ICONS;

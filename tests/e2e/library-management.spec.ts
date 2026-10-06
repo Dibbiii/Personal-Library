@@ -134,16 +134,16 @@ test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 					: page.getByRole('link', { name: addLabel(CLASSICS), exact: true });
 			await followAddLink(page, add, CLASSICS);
 			for (const [name, path] of [
-				[/Scansiona l’ISBN/, 'scan'],
-				[/Cerca per titolo/, 'search'],
-				[/Inserisci a mano/, 'manual']
+				[/Scansiona ISBN/, 'scan'],
+				[/^Cerca/, 'search'],
+				[/Inserisci manualmente/, 'manual']
 			] as const) {
 				await expect(page.getByRole('link', { name })).toHaveAttribute(
 					'href',
 					`/add/${path}?genre=${CLASSICS}`
 				);
 			}
-			await page.getByRole('link', { name: /Inserisci a mano/ }).click();
+			await page.getByRole('link', { name: /Inserisci manualmente/ }).click();
 			await expect(page).toHaveURL(
 				(url) => url.pathname === '/add/manual' && url.searchParams.get('genre') === CLASSICS
 			);
