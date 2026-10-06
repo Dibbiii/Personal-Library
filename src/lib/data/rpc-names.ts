@@ -7,6 +7,7 @@ export const RPC = {
 	shelfPage: 'get_shelf_page',
 	genreView: 'get_genre_view',
 	bookDetail: 'get_book_detail',
+	removeBook: 'remove_book',
 
 	explorePool: 'get_explore_pool',
 

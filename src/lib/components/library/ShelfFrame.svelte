@@ -8,6 +8,9 @@
 		title: string;
 		/** Con href tutta la plancia e' un link (vista genere). */
 		href?: string;
+		/** Azione indipendente dal link della plancia e dallo scroll dei libri. */
+		addHref?: string;
+		addLabel?: string;
 		/** Colore dell'indicatore (espressione CSS / token). */
 		accent: string;
 		/** Altezza dell'area libri: 224 per In lettura e I prossimi, 168 per genere. */
@@ -39,6 +42,8 @@
 	let {
 		title,
 		href,
+		addHref,
+		addLabel,
 		accent,
 		height = 168,
 		inset = 18,
@@ -70,16 +75,25 @@
 	use:dropzone={zone ?? neverAccepts}
 >
 	<div class="scroller" data-shelf-scroller bind:this={scroller} {onscroll}>
-		<div
-			class="row"
-			style:height="{height}px"
-			style:padding-inline="{inset}px"
-		>
+		<div class="row" style:height="{height}px" style:padding-inline="{inset}px">
 			{@render children()}
 		</div>
 	</div>
 
-	{#if href}
+	{#if addHref}
+		<div class="plank with-action">
+			{#if href}
+				<a class="plank-link" {href}>
+					{@render plank()}
+				</a>
+			{:else}
+				<div class="plank-link">{@render plank()}</div>
+			{/if}
+			<a class="add" href={addHref} aria-label={addLabel ?? `Aggiungi un libro a ${title}`}>
+				<Icon name="book-plus" size={20} strokeWidth={2} />
+			</a>
+		</div>
+	{:else if href}
 		<a class="plank" {href}>
 			{@render plank()}
 		</a>
@@ -160,7 +174,6 @@
 		gap: 2px;
 	}
 
-
 	.plank {
 		position: relative;
 		z-index: 1;
@@ -203,6 +216,75 @@
 		content: '';
 		position: absolute;
 		inset: -1px 0;
+	}
+
+	.with-action {
+		padding: 0 6px 0 0;
+		gap: 0;
+	}
+
+	.plank-link {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		min-width: 0;
+		min-height: 44px;
+		padding: 0 8px 0 14px;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.add {
+		position: relative;
+		z-index: 1;
+		display: inline-flex;
+		flex: 0 0 44px;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		color: var(--g-light, var(--color-on-primary));
+		text-decoration: none;
+	}
+
+	/* Disco ~32px centrato nell'area di tocco 44px: stessa coppia g-dark/g-light della pill "Rilascia qui", glow come il dot del genere. */
+	.add::before {
+		content: '';
+		position: absolute;
+		z-index: -1;
+		inset: 6px;
+		border-radius: 50%;
+		background: var(--g-dark, var(--color-primary));
+		box-shadow:
+			0 0 9px 2px color-mix(in srgb, var(--g) 40%, transparent),
+			inset 0 1px 0 color-mix(in srgb, var(--color-on-genre-white) 30%, transparent);
+		transition:
+			background var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
+	}
+
+	.add:hover::before {
+		background: color-mix(
+			in srgb,
+			var(--g-dark, var(--color-primary)) 80%,
+			var(--g-light, var(--color-on-primary))
+		);
+	}
+
+	.add:active::before {
+		transform: scale(0.92);
+	}
+
+	a.plank:focus-visible,
+	a.plank-link:focus-visible,
+	.add:focus-visible {
+		outline: 2px solid var(--color-wood-ink);
+		outline-offset: -2px;
 	}
 
 	.left {

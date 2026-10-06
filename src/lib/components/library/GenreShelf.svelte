@@ -5,6 +5,7 @@
 	import { layoutShelf } from '$lib/book/shelf-layout';
 	import { getThemeController } from '$lib/themes/controller.svelte';
 	import { GENRE_LABELS } from '$lib/genres';
+	import { buildAddHref } from '$lib/catalog/add-context';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Decoration from './Decoration.svelte';
 	import ShelfFrame from './ShelfFrame.svelte';
@@ -51,6 +52,8 @@
 <ShelfFrame
 	title={GENRE_LABELS[slug]}
 	href="/genre/{slug}"
+	addHref={buildAddHref('/add', slug)}
+	addLabel="Aggiungi un libro a {GENRE_LABELS[slug]}"
 	accent="var(--genre-{slug})"
 	genre={slug}
 	woodBackdrop={false}
@@ -99,10 +102,14 @@
 			</div>
 		{/if}
 	{:else}
-		<div class="empty">
-			<Icon name="plus" size={20} strokeWidth={2} />
+		<a
+			class="empty"
+			href={buildAddHref('/add', slug)}
+			aria-label="Aggiungi un libro a {GENRE_LABELS[slug]}, scaffale vuoto"
+		>
+			<Icon name="book-plus" size={22} strokeWidth={2} />
 			<span>Scaffale<br />vuoto</span>
-		</div>
+		</a>
 		<Decoration
 			kind={slug === 'classics' || slug === 'fantasy-magical-gothic' ? 'plant' : 'candle'}
 		/>
@@ -177,6 +184,12 @@
 		font-weight: 600;
 		line-height: 13px;
 		text-align: center;
+		text-decoration: none;
+	}
+
+	.empty:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 3px;
 	}
 
 	.sentinel {

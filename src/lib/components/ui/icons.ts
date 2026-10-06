@@ -1,10 +1,13 @@
-/** Icone a tratto su griglia 24x24 (sprite del mockup: docs/mockup/assets/icons-sprite.svg). Markup SVG interno. */
+/** Icone a tratto su griglia 24x24 (sprite del mockup: docs/mockup/assets/icons-sprite.svg). Markup SVG interno.
+ * `book-plus` e` un'estensione fuori sprite (azione "aggiungi libro" degli scaffali). */
 export const ICONS = {
 	bookmark: '<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>',
 	camera:
 		'<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>',
 	'book-open':
 		'<path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2z"/><path d="M12 6.5v13"/>',
+	'book-plus':
+		'<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M12 6.5v6M9 9.5h6"/>',
 	'chevron-right': '<path d="M9 6l6 6-6 6"/>',
 	'chevron-left': '<path d="M15 6l-6 6 6 6"/>',
 	'chevron-down': '<path d="M6 9l6 6 6-6"/>',

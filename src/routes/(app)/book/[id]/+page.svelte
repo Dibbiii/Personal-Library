@@ -17,6 +17,10 @@
 	import ReviewPanel from '$lib/components/review/ReviewPanel.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import IconButton from '$lib/components/ui/IconButton.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
+	import { describeBookRemovalError, removeBook } from '$lib/client/library';
+	import { withBookRemovalGuard } from '$lib/offline/book-removal';
+	import { clearLocalDraft } from '$lib/review/local-draft';
 	import { addToQueue, removeFromQueue } from '$lib/client/queue.svelte';
 	import {
 		addCompletedReading,
@@ -71,6 +75,11 @@
 	let pendingPage = $state<number | null>(null);
 	let offline = $state(false);
 	let coverOpen = $state(false);
+	const removalUid = $props.id();
+	let removalOpen = $state(false);
+	let removalBusy = $state(false);
+	let removalError = $state<string | null>(null);
+	let removalCompleted = $state(false);
 	let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function say(message: string) {
@@ -109,6 +118,50 @@
 			return false;
 		} finally {
 			busy = false;
+		}
+	}
+
+	// La navigazione invalida la destinazione, mai il dettaglio appena eliminato.
+	function openRemoval() {
+		if (busy || removalBusy) return;
+		removalError = null;
+		removalCompleted = false;
+		removalOpen = true;
+	}
+
+	function closeRemoval() {
+		if (removalBusy || removalCompleted) return;
+		removalOpen = false;
+	}
+
+	async function confirmRemoval() {
+		if (busy || removalBusy) return;
+		removalBusy = true;
+		removalError = null;
+		const bookId = book.id;
+		const destination = `/genre/${slug}`;
+		try {
+			if (!removalCompleted) {
+				if (!data.user) {
+					removalError = 'Sessione scaduta: accedi di nuovo e riprova.';
+					return;
+				}
+				await withBookRemovalGuard(
+					data.user.id,
+					detail.readings.map((item) => item.id),
+					() => removeBook(bookId)
+				);
+				removalCompleted = true;
+				clearLocalDraft(bookId);
+			}
+			await goto(destination, { invalidateAll: true, replaceState: true });
+			removalOpen = false;
+		} catch (error) {
+			removalError = removalCompleted
+				? 'Il libro è stato eliminato, ma non riesco ad aprire il genere. Riprova con “Torna al genere”.'
+				: describeBookRemovalError(error);
+		} finally {
+			removalBusy = false;
 		}
 	}
 
@@ -287,6 +340,7 @@
 			onmove={() => openSheet('move')}
 			onqueue={toggleQueue}
 			oncover={() => (coverOpen = true)}
+			onremove={openRemoval}
 		/>
 	</header>
 
@@ -375,6 +429,48 @@
 	</div>
 </div>
 
+<Modal
+	open={removalOpen}
+	placement="center"
+	role="alertdialog"
+	labelledby="{removalUid}-removal-title"
+	describedby="{removalUid}-removal-description"
+	onclose={closeRemoval}
+>
+	<div class="removal-dialog" aria-busy={removalBusy}>
+		<h2 id="{removalUid}-removal-title">Eliminare «{book.title}»?</h2>
+		<p id="{removalUid}-removal-description">
+			Il libro sarà rimosso dalla libreria insieme a tutta la cronologia di lettura, alle
+			recensioni, ai tag e alle citazioni. Le caselle Bingo collegate potrebbero essere svuotate e
+			le statistiche cambieranno. L’operazione è irreversibile.
+		</p>
+		{#if removalError}
+			<p class="removal-error" role="alert">{removalError}</p>
+		{/if}
+		<div class="removal-actions">
+			<button
+				class="removal-confirm"
+				type="button"
+				disabled={removalBusy}
+				onclick={confirmRemoval}
+				data-testid="confirm-remove"
+			>
+				<Icon name="trash" size={20} />
+				{removalBusy ? 'Attendi…' : removalCompleted ? 'Torna al genere' : 'Elimina dalla libreria'}
+			</button>
+			<button
+				class="removal-cancel"
+				type="button"
+				disabled={removalBusy || removalCompleted}
+				onclick={closeRemoval}
+				data-autofocus
+			>
+				Annulla
+			</button>
+		</div>
+	</div>
+</Modal>
+
 <CoverPicker
 	bookId={book.id}
 	cover={book.cover}
@@ -445,6 +541,63 @@
 />
 
 <style>
+	.removal-dialog h2 {
+		margin: 0 0 20px;
+		font-size: 19px;
+		line-height: 1.3;
+		text-align: center;
+		overflow-wrap: anywhere;
+	}
+
+	.removal-dialog p {
+		margin: 0 0 20px;
+		color: var(--color-text-secondary);
+		font-size: 14px;
+		line-height: 20px;
+		text-align: center;
+	}
+
+	.removal-dialog .removal-error {
+		color: var(--color-error, var(--color-danger));
+	}
+
+	.removal-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.removal-actions button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		min-height: 50px;
+		padding: 10px 12px;
+		border: 1.5px solid transparent;
+		border-radius: 16px;
+		font-family: var(--font-ui);
+		font-size: 16px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	.removal-confirm {
+		background: var(--color-error, var(--color-danger));
+		color: var(--color-on-error, var(--color-on-danger));
+	}
+
+	.removal-actions .removal-cancel {
+		background: transparent;
+		color: var(--color-primary);
+		border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+	}
+
+	.removal-actions button:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+
 	.page {
 		padding-bottom: 32px;
 	}

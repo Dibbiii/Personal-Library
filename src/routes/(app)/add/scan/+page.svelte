@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { buildAddHref, getAddContext } from '$lib/catalog/add-context';
 	import AddBookConfirmSheet from '$lib/components/catalog/AddBookConfirmSheet.svelte';
 	import BookSearchResult from '$lib/components/catalog/BookSearchResult.svelte';
 	import ISBNScanner from '$lib/components/catalog/ISBNScanner.svelte';
@@ -10,8 +12,12 @@
 
 	type Phase = 'scan' | 'lookup' | 'results' | 'notfound' | 'error';
 
+	const context = $derived(getAddContext(page.url));
 	let phase = $state<Phase>('scan');
 	let isbn = $state('');
+	const manualHref = $derived(
+		buildAddHref('/add/manual', context.genre, new URLSearchParams({ isbn }))
+	);
 	let candidates = $state<EditionCandidate[]>([]);
 	let degraded = $state(false);
 	let errorMessage = $state('');
@@ -59,7 +65,7 @@
 	<PageHeader
 		title="Scansiona ISBN"
 		subtitle="Il codice a barre sul retro del libro"
-		backHref="/add"
+		backHref={context.backHref}
 	/>
 
 	<div class="content">
@@ -86,9 +92,7 @@
 			</ul>
 			<div class="actions">
 				<Button variant="secondary" fullWidth onclick={again}>Scansiona un altro libro</Button>
-				<Button variant="ghost" fullWidth href={`/add/manual?isbn=${encodeURIComponent(isbn)}`}>
-					Non è questo: inserisci a mano
-				</Button>
+				<Button variant="ghost" fullWidth href={manualHref}>Non è questo: inserisci a mano</Button>
 			</div>
 		{:else if phase === 'notfound'}
 			<div class="notice" role="status">
@@ -98,9 +102,7 @@
 					conserverò insieme al libro.
 				</p>
 				<div class="actions">
-					<Button fullWidth href={`/add/manual?isbn=${encodeURIComponent(isbn)}`}
-						>Inserisci a mano</Button
-					>
+					<Button fullWidth href={manualHref}>Inserisci a mano</Button>
 					<Button variant="secondary" fullWidth onclick={again}>Scansiona di nuovo</Button>
 				</div>
 			</div>
@@ -110,11 +112,7 @@
 				<p>{errorMessage}</p>
 				<div class="actions">
 					<Button fullWidth onclick={() => onscan(isbn)}>Riprova</Button>
-					<Button
-						variant="secondary"
-						fullWidth
-						href={`/add/manual?isbn=${encodeURIComponent(isbn)}`}
-					>
+					<Button variant="secondary" fullWidth href={manualHref}>
 						Inserisci a mano con questo ISBN
 					</Button>
 					<Button variant="ghost" fullWidth onclick={again}>Scansiona di nuovo</Button>
@@ -124,7 +122,12 @@
 	</div>
 </div>
 
-<AddBookConfirmSheet open={sheetOpen} {draft} onclose={() => (sheetOpen = false)} />
+<AddBookConfirmSheet
+	open={sheetOpen}
+	{draft}
+	initialGenre={context.genre}
+	onclose={() => (sheetOpen = false)}
+/>
 
 <style>
 	.column {

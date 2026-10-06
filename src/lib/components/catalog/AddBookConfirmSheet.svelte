@@ -1,27 +1,31 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { untrack } from 'svelte';
+	import { parseAddGenre } from '$lib/catalog/add-context';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CoverImage from './CoverImage.svelte';
 	import { addBookToLibrary, CatalogClientError } from '$lib/catalog/client';
 	import { buildAddRequest, candidateMeta, seriesLabel, type BookDraft } from '$lib/catalog/draft';
-	import { GENRE_LABELS, GENRE_ORDER } from '$lib/genres';
+	import { GENRE_LABELS, GENRE_ORDER, isGenreSlug } from '$lib/genres';
 	import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 
 	interface Props {
 		open: boolean;
 		draft: BookDraft | null;
+		/** Genere di partenza, sempre modificabile prima della conferma. */
+		initialGenre?: string | null;
 		onclose: () => void;
 		/** Dopo l'inserimento. Senza handler si apre la scheda del libro. */
 		onadded?: (bookId: string) => void;
 	}
 
-	let { open, draft, onclose, onadded }: Props = $props();
+	let { open, draft, initialGenre = null, onclose, onadded }: Props = $props();
 
 	const uid = $props.id();
 
-	let genre = $state<GenreSlug | null>(null);
+	let genre = $state<GenreSlug | null>(untrack(() => parseAddGenre(initialGenre)));
 	let format = $state<BookFormat | null>('physical');
 	let seriesName = $state('');
 	let seriesNumber = $state('');
@@ -37,7 +41,7 @@
 	$effect(() => {
 		if (!open) return;
 		void draft;
-		genre = null;
+		genre = untrack(() => parseAddGenre(initialGenre));
 		format = 'physical';
 		seriesName = '';
 		seriesNumber = '';
@@ -66,7 +70,7 @@
 
 	function validate(): boolean {
 		const next: typeof fieldError = {};
-		if (!genre) next.genre = 'Scegli il genere del libro.';
+		if (!genre || !isGenreSlug(genre)) next.genre = 'Scegli il genere del libro.';
 		if (seriesNumber.trim() && numberValue === undefined)
 			next.series = 'Il numero del volume deve essere maggiore di zero.';
 		else if (seriesTotal.trim() && (totalValue === undefined || !Number.isInteger(totalValue))) {

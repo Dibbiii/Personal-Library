@@ -22,7 +22,7 @@ export type Repositories = Pick<SegnalibroRepositories, 'library'> &
 /** `rpc` è il client Postgres dell'utente (createPgRpcClient in src/lib/server/db). */
 export function createRepositories(rpc: RpcTransport): Repositories {
 	return {
-		// RpcLibraryRepository copre getHome/getShelfPage/getGenreView/getBookDetail/changeGenre.
+		// RpcLibraryRepository copre letture della libreria, cambio genere e rimozione dei libri.
 		library: new RpcLibraryRepository(rpc),
 		queue: new RpcQueueRepository(rpc),
 		reading: new RpcReadingRepository(rpc),

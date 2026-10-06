@@ -6,6 +6,7 @@
 	import { sortCaption } from '$lib/components/genre/sort';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { isGenreSlug } from '$lib/genres';
+	import { buildAddHref } from '$lib/catalog/add-context';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -23,6 +24,7 @@
 {#if isGenreSlug(slug)}
 	<GenreHeader
 		{slug}
+		addHref={buildAddHref('/add', slug)}
 		name={data.view.genre.name}
 		total={data.view.counts.total}
 		read={data.view.counts.read}
@@ -33,7 +35,7 @@
 		<section class="empty">
 			<h2>Questo scaffale è ancora vuoto</h2>
 			<p>Aggiungi un libro di questo genere per vederlo comparire qui.</p>
-			<Button href="/add">Aggiungi un libro</Button>
+			<Button href={buildAddHref('/add', slug)}>Aggiungi un libro</Button>
 		</section>
 	{:else}
 		<SortBar {sort} path={page.url.pathname} />

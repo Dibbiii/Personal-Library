@@ -14,6 +14,7 @@ import type { RpcTransport } from './rpc-client';
 import { callRpc } from './rpc-client';
 import { RPC } from './rpc-names';
 import { genreChangeResponseSchema } from '../contracts/rpc';
+import { bookRemovalResultSchema } from '../contracts/library-mutations';
 
 /**
  * Esempio reale dell'implementazione repository.
@@ -66,6 +67,10 @@ export class RpcLibraryRepository implements LibraryRepository {
 
 	async getBookDetail(bookId: string) {
 		return callRpc(this.transport, RPC.bookDetail, { p_book_id: bookId }, bookDetailResponseSchema);
+	}
+
+	async removeBook(bookId: string) {
+		return callRpc(this.transport, RPC.removeBook, { p_book_id: bookId }, bookRemovalResultSchema);
 	}
 
 	async changeGenre(input: ChangeBookGenreInput) {

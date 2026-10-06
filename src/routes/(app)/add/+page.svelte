@@ -1,9 +1,13 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { buildAddHref, getAddContext, type AddPath } from '$lib/catalog/add-context';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import type { IconName } from '$lib/components/ui/icons';
 
-	const options: { href: string; icon: IconName; title: string; text: string }[] = [
+	const context = $derived(getAddContext(page.url));
+
+	const options: { href: AddPath; icon: IconName; title: string; text: string }[] = [
 		{
 			href: '/add/scan',
 			icon: 'camera',
@@ -28,11 +32,15 @@
 <svelte:head><title>Aggiungi un libro · Segnalibro</title></svelte:head>
 
 <div class="column">
-	<PageHeader title="Aggiungi un libro" subtitle="Scegli come vuoi inserirlo" backHref="/library" />
+	<PageHeader
+		title="Aggiungi un libro"
+		subtitle="Scegli come vuoi inserirlo"
+		backHref={context.backHref}
+	/>
 
 	<nav class="options" aria-label="Modi per aggiungere un libro">
 		{#each options as option (option.href)}
-			<a class="option" href={option.href}>
+			<a class="option" href={buildAddHref(option.href, context.genre)}>
 				<span class="tile"><Icon name={option.icon} size={24} /></span>
 				<span class="text">
 					<span class="title">{option.title}</span>

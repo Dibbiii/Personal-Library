@@ -11,9 +11,10 @@
 		onmove: () => void;
 		onqueue: () => void;
 		oncover: () => void;
+		onremove?: () => void;
 	}
 
-	let { book, queued, canQueue, onmove, onqueue, oncover }: Props = $props();
+	let { book, queued, canQueue, onmove, onqueue, oncover, onremove }: Props = $props();
 
 	const uid = $props.id();
 	let open = $state(false);
@@ -94,6 +95,18 @@
 				<span class="tile"><Icon name="image" size={20} strokeWidth={1.9} /></span>
 				Cambia copertina
 			</button>
+			{#if onremove}
+				<button
+					class="item destructive"
+					type="button"
+					role="menuitem"
+					onclick={() => onremove && choose(onremove)}
+					data-testid="menu-remove"
+				>
+					<span class="tile"><Icon name="trash" size={20} strokeWidth={1.9} /></span>
+					Elimina dalla libreria
+				</button>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -134,6 +147,11 @@
 		font-weight: 600;
 		text-align: left;
 		cursor: pointer;
+	}
+
+	.item.destructive,
+	.item.destructive .tile {
+		color: var(--color-error, var(--color-danger));
 	}
 
 	.item:hover,

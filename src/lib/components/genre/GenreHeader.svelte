@@ -9,9 +9,10 @@
 		read: number;
 		unread: number;
 		backHref?: string;
+		addHref?: string;
 	}
 
-	let { slug, name, total, read, unread, backHref = '/library' }: Props = $props();
+	let { slug, name, total, read, unread, backHref = '/library', addHref }: Props = $props();
 
 	const pills = $derived([
 		`${total} ${total === 1 ? 'libro' : 'libri'}`,
@@ -26,7 +27,13 @@
 			<Icon name="chevron-left" size={22} strokeWidth={2.2} />
 		</a>
 		<span class="kicker">GENERE</span>
-		<span class="spacer" aria-hidden="true"></span>
+		{#if addHref}
+			<a class="add" href={addHref} aria-label="Aggiungi un libro a {name}">
+				<Icon name="book-plus" size={22} strokeWidth={2} />
+			</a>
+		{:else}
+			<span class="spacer" aria-hidden="true"></span>
+		{/if}
 	</div>
 	<h1>{name}</h1>
 	<ul class="pills" aria-label="Riepilogo del genere">
@@ -58,12 +65,43 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--tap-size);
-		height: var(--tap-size);
+		width: max(44px, var(--tap-size));
+		height: max(44px, var(--tap-size));
+		flex: none;
 		border-radius: 50%;
 		background: var(--genre-current-light);
 		color: var(--genre-current-dark);
 		text-decoration: none;
+	}
+
+	.back:focus-visible {
+		outline: 2px solid var(--genre-current-dark);
+		outline-offset: 3px;
+	}
+
+	/* Aggiungi: disco scuro con icona chiara, stesso abbinamento delle pill, distinto dal tasto indietro. */
+	.add {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: max(44px, var(--tap-size));
+		height: max(44px, var(--tap-size));
+		flex: none;
+		border-radius: 50%;
+		background: var(--genre-current-dark);
+		color: var(--genre-current-light);
+		text-decoration: none;
+		box-shadow: inset 0 1px 0 color-mix(in srgb, var(--genre-current-light) 25%, transparent);
+		transition: background var(--duration-fast) var(--ease-out);
+	}
+
+	.add:hover {
+		background: color-mix(in srgb, var(--genre-current-dark) 80%, var(--genre-current-light));
+	}
+
+	.add:focus-visible {
+		outline: 2px solid var(--genre-current-light);
+		outline-offset: 3px;
 	}
 
 	.kicker {

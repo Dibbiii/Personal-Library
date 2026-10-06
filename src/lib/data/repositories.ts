@@ -24,6 +24,7 @@ import type {
 import type { GenreSortField, GenreSlug, SortDirection } from '../contracts/enums';
 
 import type { ReadingMutationResult } from '../contracts/readings';
+import type { BookRemovalResult } from '../contracts/library-mutations';
 
 import type {
 	AddQuoteInput,
@@ -66,6 +67,8 @@ export interface LibraryRepository {
 	}): Promise<GenreViewResponse>;
 
 	getBookDetail(bookId: string): Promise<BookDetailResponse>;
+
+	removeBook(bookId: string): Promise<BookRemovalResult>;
 
 	changeGenre(input: ChangeBookGenreInput): Promise<{
 		book: BookSummary;
