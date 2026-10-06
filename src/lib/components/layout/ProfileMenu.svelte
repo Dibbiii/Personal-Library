@@ -121,8 +121,8 @@
 	<div class="preferences">
 		<span class="section-label">Aspetto</span>
 		<AppearancePicker active={opened} />
-		<label class="palette-row" for="{panelId}-palette">
-			<span>Palette</span>
+		<div class="palette-row">
+			<label for="{panelId}-palette">Palette</label>
 			<select
 				id="{panelId}-palette"
 				value={theme.key}
@@ -134,7 +134,7 @@
 					<option value={option.id}>{option.name}</option>
 				{/each}
 			</select>
-		</label>
+		</div>
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 	</div>
 	{@render actions()}
