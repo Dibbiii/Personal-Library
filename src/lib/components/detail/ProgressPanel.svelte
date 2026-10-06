@@ -80,9 +80,12 @@
 <style>
 	.panel {
 		box-sizing: border-box;
-		padding: 18px;
-		border-radius: 22px;
-		background: var(--color-surface);
+		padding: 20px;
+		border-radius: var(--radius-xl);
+		background: var(--color-surface-elevated);
+		box-shadow:
+			0 0 0 1px color-mix(in srgb, var(--color-border) 18%, transparent),
+			0 12px 30px -20px color-mix(in srgb, var(--color-shadow) 35%, transparent);
 		scroll-margin-top: 16px;
 	}
 
@@ -95,7 +98,10 @@
 
 	h2 {
 		margin: 0;
+		color: var(--color-primary);
+		font-family: var(--font-display);
 		font-size: 20px;
+		font-weight: 400;
 		line-height: 1.2;
 	}
 

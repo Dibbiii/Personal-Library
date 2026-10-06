@@ -4,7 +4,9 @@
 	import AddReadingSheet, {
 		type AddReadingChoice
 	} from '$lib/components/detail/AddReadingSheet.svelte';
-	import BookHero from '$lib/components/detail/BookHero.svelte';
+	import BookBanner from '$lib/components/detail/BookBanner.svelte';
+	import LibraryPlaceCard from '$lib/components/detail/LibraryPlaceCard.svelte';
+	import ReadingSummaryCard from '$lib/components/detail/ReadingSummaryCard.svelte';
 	import MarkReadSheet from '$lib/components/detail/MarkReadSheet.svelte';
 	import MoveSheet from '$lib/components/detail/MoveSheet.svelte';
 	import ProgressPanel from '$lib/components/detail/ProgressPanel.svelte';
@@ -332,7 +334,11 @@
 <div class="page" style={genreScopeStyle(slug)}>
 	<header class="top">
 		<IconButton icon="chevron-left" label="Indietro" onclick={back} />
-		<h2>Dettaglio</h2>
+		<nav class="crumbs" aria-label="Percorso">
+			<a href="/library">Libreria</a>
+			<Icon name="chevron-right" size={14} strokeWidth={2.2} />
+			<a href="/genre/{slug}">{book.genre.name}</a>
+		</nav>
 		<ActionsMenu
 			{book}
 			queued={detail.queuePosition !== null}
@@ -351,35 +357,84 @@
 		</p>
 	{/if}
 
-	<div class="layout" class:compact={unlocked}>
-		<div class="hero-area">
-			<BookHero
+	<div class="layout">
+		<div class="banner-area">
+			<BookBanner
 				{book}
-				compact={unlocked}
+				review={detail.review}
 				{status}
 				queuePosition={detail.queuePosition}
 				onstatus={() => openSheet('status')}
 				statusOpen={sheet === 'status'}
-			/>
+			>
+				{#snippet actions()}
+					{#if canQueue}
+						<button
+							type="button"
+							class="round"
+							class:on={detail.queuePosition !== null}
+							aria-pressed={detail.queuePosition !== null}
+							aria-label={detail.queuePosition !== null
+								? 'Togli dai prossimi'
+								: 'Aggiungi ai prossimi'}
+							title={detail.queuePosition !== null ? 'Togli dai prossimi' : 'Aggiungi ai prossimi'}
+							onclick={toggleQueue}
+						>
+							<Icon name="bookmark" size={20} />
+						</button>
+					{/if}
+					<button
+						type="button"
+						class="round"
+						aria-label="Apri le opzioni di spostamento"
+						title="Sposta: genere, prossimi, letto"
+						aria-haspopup="dialog"
+						onclick={() => openSheet('move')}
+					>
+						<Icon name="library" size={20} />
+					</button>
+				{/snippet}
+			</BookBanner>
 		</div>
 
-		{#if reading}
-			<div class="progress-area">
-				<ProgressPanel
-					currentPage={reading.currentPage}
-					pageCount={book.pageCount}
-					paused={reading.status === 'paused'}
-					{pendingPage}
-					{busy}
-					onupdate={() => openSheet('progress')}
-					onfinish={finishReading}
-					onpause={pause}
-					onresume={resume}
-				/>
-			</div>
-		{/if}
+		<div class="right">
+			<aside class="progress-area" aria-label="Il mio progresso">
+				{#if reading}
+					<ProgressPanel
+						currentPage={reading.currentPage}
+						pageCount={book.pageCount}
+						paused={reading.status === 'paused'}
+						{pendingPage}
+						{busy}
+						onupdate={() => openSheet('progress')}
+						onfinish={finishReading}
+						onpause={pause}
+						onresume={resume}
+					/>
+				{:else}
+					<ReadingSummaryCard
+						{book}
+						readings={detail.readings}
+						onstatus={() => openSheet('status')}
+					/>
+				{/if}
+			</aside>
+			<aside class="side-area" aria-label="Il libro nella libreria">
+				<div id="place"><LibraryPlaceCard {book} queuePosition={detail.queuePosition} /></div>
+				{#if book.series}
+					<div id="series"><SeriesCard series={book.series} /></div>
+				{/if}
+			</aside>
+		</div>
 
-		<div class="review-area">
+		<nav class="sections" aria-label="Sezioni">
+			<a href="#review">Recensione</a>
+			{#if detail.readings.length > 0}<a href="#history">Letture</a>{/if}
+			<a href="#place">Nella mia libreria</a>
+			{#if book.series}<a href="#series">Serie</a>{/if}
+		</nav>
+
+		<div class="review-area" id="review">
 			<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
 				{#snippet lockedFooter()}
 					<button
@@ -400,17 +455,19 @@
 					</button>
 				{/snippet}
 				{#snippet afterScores()}
-					<ReadingHistory
-						readings={detail.readings}
-						pageCount={book.pageCount}
-						canAdd={book.completedReadingsCount >= 1}
-						onadd={() => openSheet('addReading')}
-					/>
+					<div id="history">
+						<ReadingHistory
+							readings={detail.readings}
+							pageCount={book.pageCount}
+							canAdd={book.completedReadingsCount >= 1}
+							onadd={() => openSheet('addReading')}
+						/>
+					</div>
 				{/snippet}
 			</ReviewPanel>
 
 			{#if !unlocked && detail.readings.length > 0}
-				<div class="history-locked">
+				<div class="history-locked" id="history">
 					<ReadingHistory
 						readings={detail.readings}
 						pageCount={book.pageCount}
@@ -420,12 +477,6 @@
 				</div>
 			{/if}
 		</div>
-
-		{#if book.series}
-			<div class="series-area">
-				<SeriesCard series={book.series} />
-			</div>
-		{/if}
 	</div>
 </div>
 
@@ -599,30 +650,53 @@
 	}
 
 	.page {
-		padding-bottom: 32px;
+		box-sizing: border-box;
+		max-width: 1360px;
+		margin: 0 auto;
+		padding: 0 0 40px;
 	}
 
 	.top {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 12px;
 		box-sizing: border-box;
-		height: 72px;
-		padding: 14px 16px 0;
+		min-height: 72px;
+		padding: 14px 16px 6px;
 	}
 
-	.top h2 {
-		margin: 0;
-		font-family: var(--font-ui);
-		font-size: 15px;
-		font-weight: 700;
+	.crumbs {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		color: var(--color-text-secondary);
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.crumbs a {
+		overflow: hidden;
+		color: inherit;
+		text-decoration: none;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.crumbs a:last-child {
+		color: var(--color-primary);
+	}
+
+	.crumbs a:hover {
+		text-decoration: underline;
 	}
 
 	.notice {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		margin: 8px var(--page-gutter) 0;
+		margin: 8px var(--page-gutter) 12px;
 		padding: 10px 14px;
 		border-radius: 14px;
 		background: var(--color-surface);
@@ -634,20 +708,16 @@
 	.layout {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 16px;
 		padding: 0 var(--page-gutter);
 	}
 
-	/* Il layout compatto (mockup 05) ha il proprio respiro laterale già nella hero */
-	.layout.compact .hero-area {
-		margin: 0 calc(-1 * var(--page-gutter));
+	/* Mobile: progresso subito dopo il banner, "Nella mia libreria" in fondo. */
+	.right {
+		display: contents;
 	}
 
-	.layout :global(.hero) {
-		padding-bottom: 4px;
-	}
-
-	.hero-area {
+	.banner-area {
 		order: 1;
 	}
 
@@ -655,21 +725,95 @@
 		order: 2;
 	}
 
-	.review-area {
+	.sections {
 		order: 3;
+	}
+
+	.review-area {
+		order: 4;
+	}
+
+	.side-area {
+		order: 5;
+	}
+
+	.review-area {
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
 		min-width: 0;
+		scroll-margin-top: 16px;
 	}
 
-	.series-area {
-		order: 4;
+	.side-area {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		min-width: 0;
 	}
 
-	/* nel layout compatto la serie è già sotto il titolo (mockup 05) */
-	.layout.compact .series-area {
-		display: none;
+	#place,
+	#series,
+	#history {
+		scroll-margin-top: 16px;
+	}
+
+	.sections {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
+		scrollbar-width: none;
+	}
+
+	.sections a {
+		flex: none;
+		padding: 12px 14px;
+		border-bottom: 2.5px solid transparent;
+		color: var(--color-text-secondary);
+		font-size: 14.5px;
+		font-weight: 600;
+		text-decoration: none;
+	}
+
+	.sections a:first-child {
+		border-bottom-color: var(--color-primary);
+		color: var(--color-primary);
+	}
+
+	.sections a:hover {
+		color: var(--color-primary);
+	}
+
+	/* Azioni rotonde accanto al pulsante di stato nel banner */
+	.round {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+		border-radius: 50%;
+		background: var(--color-surface-elevated);
+		color: var(--color-primary);
+		cursor: pointer;
+		transition: background-color var(--duration-fast) var(--ease-out);
+	}
+
+	.round:hover {
+		background: var(--color-background);
+	}
+
+	.round.on {
+		border-color: transparent;
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+	}
+
+	.round:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 
 	.move {
@@ -703,43 +847,42 @@
 
 	@media (min-width: 1024px) {
 		.top {
-			height: 88px;
-			padding: 28px var(--page-gutter) 0;
+			min-height: 80px;
+			padding: 22px var(--page-gutter) 10px;
 		}
+	}
 
+	/* Desktop largo (mockup dettaglio): banner, sezioni e recensione a sinistra; progresso e libreria a destra. */
+	@media (min-width: 1180px) {
 		.layout {
 			display: grid;
-			grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+			grid-template-columns: minmax(0, 1fr) 360px;
 			grid-template-areas:
-				'hero review'
-				'progress review'
-				'series review'
-				'. review';
-			grid-template-rows: auto auto auto 1fr;
-			column-gap: 40px;
+				'banner right'
+				'sections right'
+				'review right';
+			grid-template-rows: auto auto 1fr;
+			gap: 20px 24px;
 			align-items: start;
 		}
 
-		.layout.compact .hero-area {
-			margin: 0;
+		.right {
+			grid-area: right;
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
 		}
 
-		.hero-area {
-			grid-area: hero;
+		.banner-area {
+			grid-area: banner;
 		}
 
-		.progress-area {
-			grid-area: progress;
+		.sections {
+			grid-area: sections;
 		}
 
 		.review-area {
 			grid-area: review;
-		}
-
-		.series-area,
-		.layout.compact .series-area {
-			display: block;
-			grid-area: series;
 		}
 	}
 </style>
