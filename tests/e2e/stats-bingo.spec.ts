@@ -82,7 +82,7 @@ async function seed(userId: string) {
 	return ids;
 }
 
-test.describe('Statistiche, Bingo, Citazioni, Cimitero', () => {
+test.describe('Profilo: Statistiche, Bingo, Citazioni, Cimitero', () => {
 	let userId: string;
 
 	test.afterEach(async () => {
@@ -92,9 +92,12 @@ test.describe('Statistiche, Bingo, Citazioni, Cimitero', () => {
 	test('stati vuoti e poi dati: cimitero DNF con le regole della spec', async ({ page }) => {
 		({ userId } = await register(page));
 
+		// /stats ora porta alla scheda Statistiche del Profilo
 		await open(page, '/stats');
-		await expect(page.getByRole('heading', { name: 'Statistiche', level: 1 })).toBeVisible();
+		await expect(page).toHaveURL(/\/profile\?tab=stats$/);
+		await expect(page.getByRole('heading', { name: 'Prova B5', level: 1 })).toBeVisible();
 		await expect(page.getByTestId('stats-empty')).toBeVisible();
+		await page.getByRole('link', { name: 'Abbandonati', exact: true }).click();
 		await expect(page.getByTestId('dnf-empty')).toBeVisible();
 		await expect(
 			page.getByText('Libri lasciati a metà, senza rancore. Un fiore per ognuno.')
@@ -109,6 +112,7 @@ test.describe('Statistiche, Bingo, Citazioni, Cimitero', () => {
 		await expect(tombs.first()).toContainText('Libro Lasciato');
 		await expect(tombs.first()).toContainText('Riposa a pag. 77');
 		await expect(page.getByTestId('dnf-cemetery')).not.toContainText('Riletto e Lasciato');
+		await page.getByRole('link', { name: 'Statistiche', exact: true }).click();
 		await expect(page.getByTestId('stats-empty')).toHaveCount(0);
 		await expect(page.getByText('18.420')).toHaveCount(0);
 		await expect(page.getByText(/pagine nel/)).toBeVisible();
@@ -116,7 +120,7 @@ test.describe('Statistiche, Bingo, Citazioni, Cimitero', () => {
 		// Cambio anno
 		await page.getByTestId('year-pill').click();
 		await page.getByRole('link', { name: String(YEAR - 1) }).click();
-		await expect(page).toHaveURL(new RegExp(`/stats/${YEAR - 1}$`));
+		await expect(page).toHaveURL(new RegExp(`/profile/${YEAR - 1}\\?tab=stats$`));
 		await expect(page.getByTestId('stats-empty')).toBeVisible();
 	});
 
@@ -185,8 +189,8 @@ test.describe('Statistiche, Bingo, Citazioni, Cimitero', () => {
 		expect(bytes.readUInt32BE(20)).toBe(1350); // IHDR: altezza
 		expect(bytes.length).toBeGreaterThan(20_000); // non è una tela vuota
 
-		// Il codice Canvas non è nel caricamento iniziale della pagina Statistiche
-		await open(page, '/stats');
+		// Il codice Canvas non è nel caricamento iniziale della scheda Statistiche
+		await open(page, '/profile?tab=stats');
 		await expect(page.getByTestId('quote-card-open')).toBeEnabled();
 	});
 });

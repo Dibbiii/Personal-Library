@@ -17,10 +17,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
 	},
 	{ href: '/explore', label: 'Esplora', icon: 'compass', match: ['/explore'] },
 	{
-		href: '/stats',
-		label: 'Statistiche',
-		icon: 'bar-chart',
-		match: ['/stats', '/bingo', '/quotes']
+		href: '/profile',
+		label: 'Profilo',
+		icon: 'user',
+		match: ['/profile', '/stats', '/bingo', '/quotes']
 	}
 ];
 

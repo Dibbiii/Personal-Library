@@ -81,7 +81,7 @@
 
 <svelte:head><title>Bookish Bingo · Segnalibro</title></svelte:head>
 
-<PageHeader title="Bookish Bingo" backHref="/stats" />
+<PageHeader title="Bookish Bingo" backHref="/profile?tab=stats" />
 
 <BingoTabs
 	years={years.includes(data.year) ? years : [data.year, ...years].sort((a, b) => b - a)}

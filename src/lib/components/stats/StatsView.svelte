@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import type {
 		BingoBoardListItem,
 		DnfBook,
@@ -13,22 +12,20 @@
 	import QuotesSection from './QuotesSection.svelte';
 	import StatCard from './StatCard.svelte';
 	import TopTags from './TopTags.svelte';
-	import YearPicker from './YearPicker.svelte';
 	import { countLabel, formatNumber, monthName, plural } from './format';
 
 	interface Props {
 		year: number;
-		years: number[];
 		stats: YearStats;
 		genreBreakdown: { slug: GenreSlug; count: number }[];
 		bingo: BingoBoardListItem | null;
 		quotes: QuotePreview[];
 		dnf: DnfBook[];
-		/** Indirizzo della pagina per un anno (/stats per quello corrente). */
-		yearHref: (year: number) => string;
+		/** Il Cimitero DNF ha anche una scheda sua nel Profilo. */
+		showDnf?: boolean;
 	}
 
-	let { year, years, stats, genreBreakdown, bingo, quotes, dnf, yearHref }: Props = $props();
+	let { year, stats, genreBreakdown, bingo, quotes, dnf, showDnf = true }: Props = $props();
 
 	const hasData = $derived(stats.booksFinished > 0 || stats.pagesRead > 0);
 
@@ -49,12 +46,6 @@
 		}
 	}
 </script>
-
-<PageHeader title="Statistiche">
-	{#snippet actions()}
-		<YearPicker {year} {years} href={yearHref} />
-	{/snippet}
-</PageHeader>
 
 <div class="stats" data-testid="stats-page">
 	{#if !hasData}
@@ -123,7 +114,7 @@
 	<div class="sections">
 		<BingoSection {year} board={bingo} />
 		<QuotesSection {quotes} oncreate={openCreator} />
-		<div class="cemetery"><DnfCemetery books={dnf} /></div>
+		{#if showDnf}<div class="cemetery"><DnfCemetery books={dnf} /></div>{/if}
 	</div>
 </div>
 
@@ -136,7 +127,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 32px;
-		padding: 4px var(--page-gutter) 24px;
 	}
 
 	.empty {
@@ -225,7 +215,6 @@
 	@media (min-width: 1024px) {
 		.stats {
 			gap: 40px;
-			padding-top: 12px;
 		}
 
 		.sections {

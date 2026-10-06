@@ -51,7 +51,7 @@
 <PageHeader
 	title="Citazioni"
 	subtitle={data.total > 0 ? countLabel(data.total, 'citazione', 'citazioni') : ''}
-	backHref="/stats"
+	backHref="/profile?tab=stats"
 />
 
 <div class="page" data-testid="quotes-page">

@@ -4,20 +4,27 @@ import { requireRepository } from '$lib/server/repositories';
 /** Quanti anni precedenti a quello corrente offre il selettore, oltre a quelli con una card Bingo. */
 const EXTRA_YEARS = 4;
 
+/** Scaffali caricati per intero (limite della RPC): servono a conteggi, preferiti e attività. */
+const SHELF_LIMIT = 100;
+
 export function currentYear(): number {
 	return new Date().getFullYear();
 }
 
-/** Dati della pagina Statistiche per un anno (condivisi da /stats e /stats/[year]). */
-export async function loadStatsPage(repos: Repositories | null, year: number) {
+/** Dati del Profilo per un anno (condivisi da /profile e /profile/[year]). */
+export async function loadProfilePage(repos: Repositories | null, year: number) {
 	const stats = requireRepository(repos, 'stats');
 	const extras = requireRepository(repos, 'statsExtras');
 	const bingo = requireRepository(repos, 'bingo');
+	const library = requireRepository(repos, 'library');
 
-	const [dashboard, breakdown, boards] = await Promise.all([
+	const [dashboard, breakdown, boards, calendar, home, quotes] = await Promise.all([
 		stats.getDashboard(year),
 		extras.getGenreBreakdown(year),
-		bingo.listBoards()
+		bingo.listBoards(),
+		stats.getCalendar(year),
+		library.getHome({ shelfLimit: SHELF_LIMIT }),
+		extras.listQuotes({ limit: 1 })
 	]);
 
 	const thisYear = currentYear();
@@ -36,6 +43,9 @@ export async function loadStatsPage(repos: Repositories | null, year: number) {
 		})),
 		bingo: boards.boards.find((board) => board.year === year) ?? null,
 		quotes: dashboard.quotePreviews,
-		dnf: dashboard.dnf
+		quoteCount: quotes.total,
+		dnf: dashboard.dnf,
+		calendar: calendar.days,
+		home
 	};
 }
