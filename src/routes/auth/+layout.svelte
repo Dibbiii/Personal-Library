@@ -7,7 +7,7 @@
 
 <main class="auth">
 	<header class="brand">
-		<span class="mark"><Icon name="bookmark" size={30} strokeWidth={2} /></span>
+		<img class="mark" src="/segnalibro-logo.jpeg" alt="" />
 		<h1>Segnalibro</h1>
 		<p>La tua libreria e il tuo diario di lettura.</p>
 	</header>
@@ -41,10 +41,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 56px;
-		height: 56px;
-		border-radius: 50%;
-		background: var(--color-surface);
+		width: 144px;
+		height: 144px;
+		object-fit: contain;
+		border-radius: 24px;
 	}
 
 	h1 {
