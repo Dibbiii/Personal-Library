@@ -17,11 +17,16 @@
 		onchange: (draft: BookDraft) => void;
 		/** Bozza definitiva (con le eventuali modifiche): il chiamante apre la conferma. */
 		onadd: (draft: BookDraft) => void;
+		/** Id del titolo, se un dialogo lo usa come etichetta. */
+		headingId?: string;
+		/** Scheda del libro se è già in libreria. */
+		ownedHref?: string | null;
 	}
 
-	let { draft, info, infoLoading, onchange, onadd }: Props = $props();
+	let { draft, info, infoLoading, onchange, onadd, headingId, ownedHref = null }: Props = $props();
 
 	const uid = $props.id();
+	const titleId = $derived(headingId ?? `${uid}-title`);
 	const numbers = new Intl.NumberFormat('it-IT', { notation: 'compact', maximumFractionDigits: 1 });
 	const EDITIONS_PREVIEW = 4;
 
@@ -62,7 +67,8 @@
 	});
 
 	function editionLabel(edition: BookInfo['editions'][number]): string {
-		const label = languageLabel(edition.language);
+		// Solo le lingue note: un codice grezzo ("bel") non dice nulla.
+		const label = LANGUAGE_LABELS[edition.language ?? ''];
 		return label ? `Edizione in ${label.toLowerCase()}` : edition.title;
 	}
 
@@ -109,11 +115,11 @@
 	}
 </script>
 
-<article class="detail" aria-labelledby="{uid}-title">
+<article class="detail" aria-labelledby={titleId}>
 	<header class="head">
 		<CoverImage src={draft.coverUrl} width={156} height={234} alt="" eager />
 		<div class="head-text">
-			<h2 id="{uid}-title">{draft.title}</h2>
+			<h2 id={titleId}>{draft.title}</h2>
 			<p class="author">{draft.author}</p>
 
 			{#if info?.rating}
@@ -236,9 +242,16 @@
 	{/if}
 
 	<div class="actions">
-		<Button size="lg" fullWidth onclick={add}>
+		{#if ownedHref}
+			<p class="owned">
+				<Icon name="check" size={18} strokeWidth={2.4} />
+				<span>Questo libro è già nella tua libreria.</span>
+				<a href={ownedHref}>Apri il libro</a>
+			</p>
+		{/if}
+		<Button size="lg" fullWidth variant={ownedHref ? 'secondary' : 'primary'} onclick={add}>
 			{#snippet icon()}<Icon name="plus" size={20} strokeWidth={2.2} />{/snippet}
-			Aggiungi alla mia libreria
+			{ownedHref ? 'Aggiungi un’altra copia' : 'Aggiungi alla mia libreria'}
 		</Button>
 
 		<button
@@ -603,6 +616,27 @@
 
 	.actions :global(.btn.lg) {
 		border-radius: var(--radius-pill);
+	}
+
+	.owned {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 0;
+		padding: 12px 16px;
+		border-radius: var(--radius-lg);
+		background: var(--color-primary-tint);
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.owned span {
+		flex: 1;
+	}
+
+	.owned a {
+		font-weight: 700;
+		color: var(--color-primary);
 	}
 
 	.customize {

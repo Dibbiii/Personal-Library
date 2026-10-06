@@ -98,6 +98,8 @@ export function getCatalogRepository(event: RequestEvent): ServerCatalogReposito
 // Per processo e per utente: bastano a fermare loop del client e abusi banali.
 const limiters = {
 	search: new RateLimiter({ windowMs: 60_000, max: 40 }),
+	// Esplora apre 5 sezioni insieme e i filtri cambiano spesso: limite più largo.
+	discover: new RateLimiter({ windowMs: 60_000, max: 90 }),
 	add: new RateLimiter({ windowMs: 60_000, max: 20 }),
 	cover: new RateLimiter({ windowMs: 60_000, max: 15 })
 } as const;
