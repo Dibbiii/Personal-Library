@@ -136,6 +136,7 @@
 					class="item"
 					class:source={dnd.draggingId === item.book.id}
 					class:cover={item.kind === 'cover'}
+					class:previewed={preview.book?.id === item.book.id}
 					style:--pw={item.kind === 'spine' ? `${item.spec.spine.width}px` : '84px'}
 					style:--ph={item.kind === 'spine' ? `${spineHeight(item.spec)}px` : '124px'}
 					use:draggable={dnd.source({ kind: 'shelf-book', book: item.book })}
@@ -348,6 +349,30 @@
 
 	.item.cover {
 		margin: 0 8px;
+	}
+
+	/* Il libro in anteprima si solleva dallo scaffale */
+	.item {
+		transition: transform var(--duration-fast) var(--ease-out);
+	}
+
+	.item.cover:hover,
+	.item.previewed {
+		z-index: 2;
+		transform: translateY(-6px);
+	}
+
+	.item.previewed :global(.spine),
+	.item.previewed :global(.cover) {
+		box-shadow:
+			0 12px 18px -8px color-mix(in srgb, var(--color-shadow) 45%, transparent),
+			0 0 0 2px color-mix(in srgb, var(--color-primary) 35%, transparent);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.item {
+			transition: none;
+		}
 	}
 
 	.cover-link {

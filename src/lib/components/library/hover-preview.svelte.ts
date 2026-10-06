@@ -1,6 +1,6 @@
 import type { BookSummary } from '$lib/contracts';
 
-const SHOW_DELAY = 280;
+const SHOW_DELAY = 220;
 const SWITCH_DELAY = 80;
 const HIDE_DELAY = 180;
 

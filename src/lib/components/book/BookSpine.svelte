@@ -122,12 +122,6 @@
 		--ink: var(--color-wood-ink);
 	}
 
-	@media (hover: hover) {
-		.spine:not(.lean):hover {
-			transform: translateY(-6px);
-		}
-	}
-
 	.spine.lean {
 		margin-left: 6px;
 		transform: rotate(10deg);

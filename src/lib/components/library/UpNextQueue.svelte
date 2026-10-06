@@ -52,6 +52,7 @@
 			class:source={dnd.draggingId === entry.book.id}
 			class:drop={dnd.hover === `slot:${position}`}
 			class:minor={position > 3}
+			class:previewed={preview.book?.id === entry.book.id}
 			use:draggable={dnd.source({ kind: 'queue-book', book: entry.book, position })}
 			use:dropzone={dnd.slotZone(position)}
 			use:hoverPreview={{ preview, book: entry.book }}
@@ -115,6 +116,21 @@
 		touch-action: pan-x pan-y;
 		-webkit-touch-callout: none;
 		user-select: none;
+	}
+
+	.item {
+		transition: transform var(--duration-fast) var(--ease-out);
+	}
+
+	.item.previewed {
+		z-index: 2;
+		transform: translateY(-6px);
+	}
+
+	.item.previewed :global(.cover) {
+		box-shadow:
+			0 12px 18px -8px color-mix(in srgb, var(--color-shadow) 45%, transparent),
+			0 0 0 2px color-mix(in srgb, var(--color-primary) 35%, transparent);
 	}
 
 	.item.minor :global(.cover) {
