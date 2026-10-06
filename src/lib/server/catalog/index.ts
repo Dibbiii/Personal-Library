@@ -1,12 +1,14 @@
 import { GoogleBooksProvider } from './google-books';
 import { OpenLibraryProvider } from './open-library';
 import { CatalogService } from './service';
+import { BookInfoService } from './book-info';
 import { serverEnv } from '../db/env';
 
 export { CatalogService } from './service';
 export { OpenLibraryProvider } from './open-library';
 export { GoogleBooksProvider } from './google-books';
 export { RateLimiter } from './rate-limit';
+export { BookInfoService } from './book-info';
 
 const globalKey = Symbol.for('segnalibro.catalogService');
 const globals = globalThis as unknown as Record<symbol, CatalogService | undefined>;
@@ -21,5 +23,15 @@ export function getCatalogService(): CatalogService {
 			new OpenLibraryProvider(),
 			new GoogleBooksProvider({ apiKey: serverEnv('GOOGLE_BOOKS_API_KEY') })
 		]
+	}));
+}
+
+const infoKey = Symbol.for('segnalibro.bookInfoService');
+const infoGlobals = globalThis as unknown as Record<symbol, BookInfoService | undefined>;
+
+/** Informazioni pubbliche sui libri (Open Library; Google Books solo con chiave API). */
+export function getBookInfoService(): BookInfoService {
+	return (infoGlobals[infoKey] ??= new BookInfoService({
+		googleApiKey: serverEnv('GOOGLE_BOOKS_API_KEY')
 	}));
 }

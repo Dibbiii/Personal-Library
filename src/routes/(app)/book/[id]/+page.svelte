@@ -7,6 +7,8 @@
 	import BookBanner from '$lib/components/detail/BookBanner.svelte';
 	import LibraryPlaceCard from '$lib/components/detail/LibraryPlaceCard.svelte';
 	import ReadingSummaryCard from '$lib/components/detail/ReadingSummaryCard.svelte';
+	import BookOnlineInfo from '$lib/components/detail/BookOnlineInfo.svelte';
+	import type { BookInfo } from '$lib/catalog/book-info';
 	import MarkReadSheet from '$lib/components/detail/MarkReadSheet.svelte';
 	import MoveSheet from '$lib/components/detail/MoveSheet.svelte';
 	import ProgressPanel from '$lib/components/detail/ProgressPanel.svelte';
@@ -306,6 +308,51 @@
 		});
 	}
 
+	// ---- Schede e dati pubblici (Open Library, in streaming dal load) ----
+	type Tab = 'overview' | 'review' | 'history' | 'editions' | 'author';
+	let tab = $state<Tab>('overview');
+	const tabs = $derived<{ id: Tab; label: string }[]>([
+		{ id: 'overview', label: 'Panoramica' },
+		{ id: 'review', label: 'Recensione' },
+		...(detail.readings.length > 0 ? [{ id: 'history' as const, label: 'Letture' }] : []),
+		{ id: 'editions', label: 'Edizioni' },
+		{ id: 'author', label: 'Autore' }
+	]);
+
+	function onTabKey(event: KeyboardEvent) {
+		const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+		if (!step) return;
+		event.preventDefault();
+		const index = tabs.findIndex((item) => item.id === tab);
+		const next = tabs[(index + step + tabs.length) % tabs.length];
+		if (!next) return;
+		tab = next.id;
+		document.getElementById(`tab-${next.id}`)?.focus();
+	}
+
+	// Dopo un invalidate i dati restano visibili finché la nuova risposta (in cache) non arriva.
+	let info = $state<BookInfo | null>(null);
+	let infoLoading = $state(true);
+	let infoFor = '';
+	$effect(() => {
+		const pending = data.info;
+		const id = book.id;
+		if (infoFor !== id) {
+			info = null;
+			infoLoading = true;
+			infoFor = id;
+		}
+		let current = true;
+		void Promise.resolve(pending).then((value) => {
+			if (!current) return;
+			info = value;
+			infoLoading = false;
+		});
+		return () => {
+			current = false;
+		};
+	});
+
 	// Una volta sincronizzata, la pagina in coda coincide con quella del server.
 	$effect(() => {
 		if (pendingPage !== null && reading && reading.currentPage >= pendingPage) pendingPage = null;
@@ -362,6 +409,7 @@
 			<BookBanner
 				{book}
 				review={detail.review}
+				{info}
 				{status}
 				queuePosition={detail.queuePosition}
 				onstatus={() => openSheet('status')}
@@ -427,55 +475,96 @@
 			</aside>
 		</div>
 
-		<nav class="sections" aria-label="Sezioni">
-			<a href="#review">Recensione</a>
-			{#if detail.readings.length > 0}<a href="#history">Letture</a>{/if}
-			<a href="#place">Nella mia libreria</a>
-			{#if book.series}<a href="#series">Serie</a>{/if}
-		</nav>
+		<div class="sections" role="tablist" aria-label="Sezioni del libro">
+			{#each tabs as item (item.id)}
+				<button
+					type="button"
+					role="tab"
+					id="tab-{item.id}"
+					aria-selected={tab === item.id}
+					aria-controls="panel-{item.id}"
+					tabindex={tab === item.id ? 0 : -1}
+					onclick={() => (tab = item.id)}
+					onkeydown={onTabKey}
+				>
+					{item.label}
+				</button>
+			{/each}
+		</div>
 
-		<div class="review-area" id="review">
-			<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
-				{#snippet lockedFooter()}
-					<button
-						class="move"
-						type="button"
-						aria-haspopup="dialog"
-						aria-expanded={sheet === 'move'}
-						onclick={() => openSheet('move')}
-						data-testid="move-button"
-					>
-						<span class="tile"><Icon name="library" size={24} strokeWidth={1.8} /></span>
-						Sposta
-						<Icon
-							name={sheet === 'move' ? 'chevron-up' : 'chevron-down'}
-							size={18}
-							strokeWidth={2.4}
-						/>
-					</button>
-				{/snippet}
-				{#snippet afterScores()}
-					<div id="history">
-						<ReadingHistory
-							readings={detail.readings}
-							pageCount={book.pageCount}
-							canAdd={book.completedReadingsCount >= 1}
-							onadd={() => openSheet('addReading')}
-						/>
-					</div>
-				{/snippet}
-			</ReviewPanel>
-
-			{#if !unlocked && detail.readings.length > 0}
-				<div class="history-locked" id="history">
+		<div class="tab-panels">
+			{#if tab === 'overview' || tab === 'editions' || tab === 'author'}
+				<div role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
+					<BookOnlineInfo
+						{info}
+						loading={infoLoading}
+						section={tab}
+						title={book.title}
+						author={book.author}
+					/>
+				</div>
+			{/if}
+			{#if tab === 'history'}
+				<div role="tabpanel" id="panel-history" aria-labelledby="tab-history">
 					<ReadingHistory
 						readings={detail.readings}
 						pageCount={book.pageCount}
-						canAdd={false}
+						canAdd={book.completedReadingsCount >= 1}
 						onadd={() => openSheet('addReading')}
 					/>
 				</div>
 			{/if}
+
+			<div
+				class="review-area"
+				id="review"
+				hidden={tab !== 'overview' && tab !== 'review'}
+				role={tab === 'review' ? 'tabpanel' : undefined}
+				aria-labelledby={tab === 'review' ? 'tab-review' : undefined}
+			>
+				<h2 class="review-title">La mia recensione</h2>
+				<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
+					{#snippet lockedFooter()}
+						<button
+							class="move"
+							type="button"
+							aria-haspopup="dialog"
+							aria-expanded={sheet === 'move'}
+							onclick={() => openSheet('move')}
+							data-testid="move-button"
+						>
+							<span class="tile"><Icon name="library" size={24} strokeWidth={1.8} /></span>
+							Sposta
+							<Icon
+								name={sheet === 'move' ? 'chevron-up' : 'chevron-down'}
+								size={18}
+								strokeWidth={2.4}
+							/>
+						</button>
+					{/snippet}
+					{#snippet afterScores()}
+						<div id="history">
+							<ReadingHistory
+								readings={detail.readings}
+								pageCount={book.pageCount}
+								canAdd={book.completedReadingsCount >= 1}
+								onadd={() => openSheet('addReading')}
+							/>
+						</div>
+					{/snippet}
+				</ReviewPanel>
+
+				{#if !unlocked && detail.readings.length > 0}
+					<div class="history-locked" id="history">
+						<ReadingHistory
+							readings={detail.readings}
+							pageCount={book.pageCount}
+							canAdd={false}
+							onadd={() => openSheet('addReading')}
+						/>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>
@@ -729,7 +818,7 @@
 		order: 3;
 	}
 
-	.review-area {
+	.tab-panels {
 		order: 4;
 	}
 
@@ -766,23 +855,52 @@
 		scrollbar-width: none;
 	}
 
-	.sections a {
+	.sections button {
 		flex: none;
-		padding: 12px 14px;
+		min-height: 46px;
+		padding: 0 16px;
+		border: 0;
 		border-bottom: 2.5px solid transparent;
+		background: none;
 		color: var(--color-text-secondary);
+		font-family: var(--font-ui);
 		font-size: 14.5px;
 		font-weight: 600;
-		text-decoration: none;
+		cursor: pointer;
+		transition: color var(--duration-fast) var(--ease-out);
 	}
 
-	.sections a:first-child {
+	.sections button[aria-selected='true'] {
 		border-bottom-color: var(--color-primary);
 		color: var(--color-primary);
 	}
 
-	.sections a:hover {
+	.sections button:hover {
 		color: var(--color-primary);
+	}
+
+	.sections button:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: -2px;
+	}
+
+	.tab-panels {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		min-width: 0;
+	}
+
+	.review-title {
+		margin: 6px 0 -2px;
+		color: var(--color-primary);
+		font-family: var(--font-display);
+		font-size: 22px;
+		font-weight: 400;
+	}
+
+	.review-area[hidden] {
+		display: none;
 	}
 
 	/* Azioni rotonde accanto al pulsante di stato nel banner */
@@ -881,7 +999,7 @@
 			grid-area: sections;
 		}
 
-		.review-area {
+		.tab-panels {
 			grid-area: review;
 		}
 	}

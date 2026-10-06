@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { BookSummary, Review } from '$lib/contracts';
+	import type { BookInfo } from '$lib/catalog/book-info';
 	import BookCover from '$lib/components/book/BookCover.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import RatingStars from '$lib/components/ui/RatingStars.svelte';
@@ -12,6 +13,8 @@
 	interface Props {
 		book: BookSummary;
 		review: Review | null;
+		/** Dati pubblici (Open Library): voto della community e anno, quando disponibili. */
+		info?: BookInfo | null;
 		status: StatusChoice;
 		queuePosition: number | null;
 		onstatus: () => void;
@@ -23,6 +26,7 @@
 	let {
 		book,
 		review,
+		info = null,
 		status,
 		queuePosition,
 		onstatus,
@@ -54,10 +58,24 @@
 		<h1>{book.title}</h1>
 		<p class="author">{book.author}</p>
 
-		{#if rating}
-			<div class="rating">
-				<RatingStars value={rating} size={20} label="Il mio voto" />
-				<span>Il mio voto · {rating}/5</span>
+		{#if rating || info?.rating}
+			<div class="ratings">
+				{#if rating}
+					<div class="rating">
+						<RatingStars value={rating} size={20} label="Il mio voto" />
+						<span>Il mio voto · {rating}/5</span>
+					</div>
+				{/if}
+				{#if info?.rating}
+					<div class="rating community">
+						<RatingStars value={Math.round(info.rating.average)} size={16} label="Voto medio" />
+						<span>
+							{info.rating.average.toLocaleString('it-IT')} · {info.rating.count.toLocaleString(
+								'it-IT'
+							)} voti su Open Library
+						</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -80,6 +98,13 @@
 					<Icon name="book-open" size={20} />
 					<dt>Pagine</dt>
 					<dd>{formatNumber(book.pageCount)}</dd>
+				</div>
+			{/if}
+			{#if info?.firstPublishYear}
+				<div>
+					<Icon name="calendar" size={20} />
+					<dt>Prima pubblicazione</dt>
+					<dd>{info.firstPublishYear}</dd>
 				</div>
 			{/if}
 			{#if book.series}
@@ -183,6 +208,18 @@
 		margin: -6px 0 0;
 		color: var(--color-text-secondary);
 		font-size: 18px;
+	}
+
+	.ratings {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px 22px;
+	}
+
+	.rating.community {
+		--genre-current: var(--color-text-secondary);
+		font-weight: 500;
 	}
 
 	.rating {
@@ -303,7 +340,8 @@
 
 		.chips,
 		.facts,
-		.cta {
+		.cta,
+		.ratings {
 			justify-content: flex-start;
 		}
 	}

@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { DataAccessError } from '$lib/data';
 import { uuidSchema } from '$lib/contracts/primitives';
 import { requireRepository } from '$lib/server/repositories';
+import { getBookInfoService } from '$lib/server/catalog';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, depends }) => {
@@ -19,7 +20,15 @@ export const load: PageServerLoad = async ({ params, locals, depends }) => {
 			// Serve solo la lunghezza della coda ("N su 3"): basta uno scaffale per libro.
 			library.getHome({ shelfLimit: 1 })
 		]);
-		return { detail, queueCount: home.queue.length };
+		// Dati pubblici (Open Library): non bloccano la pagina, arrivano in streaming.
+		const info = getBookInfoService()
+			.get({
+				title: detail.book.title,
+				author: detail.book.author,
+				language: detail.book.language
+			})
+			.catch(() => null);
+		return { detail, queueCount: home.queue.length, info };
 	} catch (cause) {
 		if (cause instanceof DataAccessError && cause.code === 'NOT_FOUND') {
 			error(404, 'Libro non trovato');
