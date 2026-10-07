@@ -1,7 +1,7 @@
 # Segnalibro application and PostgreSQL.
 services:
   app:
-    build: .
+    image: ghcr.io/dibbiii/personal-libvrary:latest
     container_name: personal-library
     restart: unless-stopped
     environment:
@@ -22,7 +22,7 @@ services:
       - traefik.http.routers.personal-library.tls=true
       - traefik.http.routers.personal-library.tls.certresolver=le
       - traefik.http.services.personal-library.loadbalancer.server.port=3000
-      
+
   db:
     image: postgres:17
     container_name: segnalibro-db
