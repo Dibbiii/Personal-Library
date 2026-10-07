@@ -29,6 +29,12 @@
 					</a>
 				</li>
 			{/each}
+		<li>
+			<a class="link" class:active={page.url.pathname.startsWith('/friends')} href="/friends" aria-current={page.url.pathname.startsWith('/friends') ? 'page' : undefined}>
+				<Icon name="user" size={22} />
+				<span>Amici</span>
+			</a>
+		</li>
 		</ul>
 	</nav>
 

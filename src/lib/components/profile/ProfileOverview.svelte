@@ -470,7 +470,9 @@
 
 	@media (min-width: 720px) {
 		.favorites {
-			grid-auto-columns: minmax(0, 1fr);
+			grid-auto-columns: 132px;
+			grid-auto-flow: column;
+			justify-content: start;
 			margin: 0;
 			padding: 0;
 			overflow: visible;

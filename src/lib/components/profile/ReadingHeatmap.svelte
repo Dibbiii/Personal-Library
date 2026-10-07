@@ -75,26 +75,30 @@
 	}
 
 	table {
-		width: 100%;
-		border-spacing: 3px;
+		width: min(100%, 420px);
+		margin-inline: auto;
+		border-spacing: 4px;
 		table-layout: fixed;
 	}
 
 	th {
-		color: var(--color-text-muted);
-		font-size: 10px;
-		font-weight: 600;
+		color: var(--color-text-secondary);
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.02em;
 		text-align: center;
 	}
 
 	th[scope='row'] {
-		width: 30px;
-		text-align: left;
+		width: 42px;
+		padding-right: 6px;
+		text-align: right;
 	}
 
 	.cell {
-		height: 14px;
-		border-radius: 3px;
+		height: 16px;
+		max-width: 22px;
+		border-radius: 4px;
 	}
 
 	.l0 {
