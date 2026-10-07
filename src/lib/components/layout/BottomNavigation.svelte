@@ -12,6 +12,10 @@
 			<span class="label">{item.label}</span>
 		</a>
 	{/each}
+
+	<a class="add-book" href="/add" aria-label="Aggiungi libro">
+		<Icon name="plus" size={28} strokeWidth={2.2} />
+	</a>
 </nav>
 
 <style>
@@ -28,7 +32,7 @@
 	}
 
 	.item {
-		flex: 1;
+		flex: 0 0 25%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -67,8 +71,29 @@
 		color: var(--nav-active-fg, var(--color-on-primary));
 	}
 
+	.item:nth-of-type(2) {
+		margin-left: auto;
+	}
+
 	.item.active .label {
 		font-weight: 700;
+	}
+
+	.add-book {
+		position: absolute;
+		left: 50%;
+		top: 8px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 48px;
+		height: 48px;
+		translate: -50% 0;
+		border-radius: 50%;
+		background: var(--nav-active-bg, var(--color-primary));
+		color: var(--nav-active-fg, var(--color-on-primary));
+		text-decoration: none;
+		box-shadow: var(--shadow-button);
 	}
 
 	@media (min-width: 1024px) {

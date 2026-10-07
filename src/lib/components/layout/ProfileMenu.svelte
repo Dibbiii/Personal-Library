@@ -88,7 +88,9 @@
 >
 	<Icon name="user" size={22} />
 	<span>{mobile ? 'Profilo' : label}</span>
-	{#if !mobile}<Icon name="chevron-up" size={16} />{/if}
+	{#if !mobile}
+		<span class="trigger-chevron" aria-hidden="true"><Icon name="chevron-up" size={16} /></span>
+	{/if}
 </button>
 
 {#snippet identity()}
@@ -119,7 +121,7 @@
 {#snippet desktopContent()}
 	{@render identity()}
 	<div class="preferences">
-		<span class="section-label">Aspetto</span>
+		<span class="section-label">Personalizzazione</span>
 		<AppearancePicker active={opened} />
 		<div class="palette-row">
 			<label for="{panelId}-palette">Palette</label>
@@ -200,9 +202,27 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.profile-trigger {
+		transition:
+			background-color var(--duration-fast) var(--ease-out),
+			color var(--duration-fast) var(--ease-out);
+	}
 	.profile-trigger:hover,
 	.profile-trigger[aria-expanded='true'] {
 		background: var(--color-surface);
+		color: var(--color-text-primary);
+	}
+	.profile-trigger:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+	.trigger-chevron {
+		display: grid;
+		place-items: center;
+		transition: transform var(--duration-fast) var(--ease-out);
+	}
+	.profile-trigger[aria-expanded='true'] .trigger-chevron {
+		transform: rotate(180deg);
 	}
 	.profile-trigger.mobile {
 		flex: 1;
@@ -220,34 +240,53 @@
 		position: fixed;
 		inset: auto;
 		box-sizing: border-box;
-		width: 296px;
+		width: 320px;
 		max-width: calc(100vw - var(--sidebar-width) - 32px);
 		max-height: calc(100dvh - 24px);
 		margin: 0;
-		padding: 6px;
-		border: 1px solid var(--color-border);
-		border-radius: 18px;
+		padding: 8px;
+		border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+		border-radius: 20px;
 		background: var(--color-surface-elevated);
 		color: var(--color-text-primary);
-		box-shadow: 0 8px 28px color-mix(in srgb, var(--color-shadow) 16%, transparent);
+		box-shadow:
+			0 20px 48px color-mix(in srgb, var(--color-shadow) 18%, transparent),
+			0 4px 12px color-mix(in srgb, var(--color-shadow) 10%, transparent);
 		overflow: auto;
+		transform-origin: left bottom;
+	}
+	.profile-dropdown:popover-open {
+		animation: dropdown-in 160ms var(--ease-out);
+	}
+	@keyframes dropdown-in {
+		from {
+			opacity: 0;
+			transform: translateX(-6px) scale(0.98);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0) scale(1);
+		}
 	}
 	.identity {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 12px 10px;
+		gap: 12px;
+		padding: 14px 12px 16px;
+		border-radius: 14px;
+		background: linear-gradient(135deg, var(--color-primary-subtle), transparent);
 	}
 	.avatar {
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		width: 36px;
-		height: 36px;
+		width: 42px;
+		height: 42px;
+		border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
 		border-radius: 50%;
-		background: var(--color-primary-subtle);
+		background: var(--color-surface-elevated);
 		color: var(--color-primary);
-		font-size: 16px;
+		font-size: 17px;
 		font-weight: 700;
 	}
 	.user-info {
@@ -262,8 +301,8 @@
 		white-space: nowrap;
 	}
 	.user-info strong {
-		font-size: 14px;
-		font-weight: 600;
+		font-size: 15px;
+		font-weight: 700;
 	}
 	.user-info span {
 		font-size: 12px;
@@ -271,13 +310,14 @@
 	}
 	.preferences {
 		display: grid;
-		gap: 8px;
-		padding: 12px 10px 8px;
-		border-top: 1px solid var(--color-divider);
+		gap: 10px;
+		padding: 16px 10px 12px;
 	}
 	.section-label {
-		font-size: 12px;
-		font-weight: 600;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 		color: var(--color-text-secondary);
 	}
 	.palette-row {
@@ -288,16 +328,22 @@
 		font-size: 13px;
 	}
 	select {
-		max-width: 172px;
-		min-height: 44px;
-		padding: 6px 10px;
+		max-width: 180px;
+		min-height: 40px;
+		padding: 6px 30px 6px 10px;
 		border: 1px solid var(--color-border);
 		border-radius: 10px;
-		background: var(--color-surface-elevated);
+		background: var(--color-surface);
+		color: var(--color-text-primary);
+		font: inherit;
 		font-size: 13px;
 	}
+	select:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
 	.actions {
-		padding-top: 6px;
+		padding: 8px 0 0;
 		border-top: 1px solid var(--color-divider);
 	}
 	.action {
@@ -313,15 +359,23 @@
 		background: transparent;
 		color: var(--color-text-primary);
 		font-size: 13px;
-		font-weight: 500;
+		font-weight: 600;
 		text-align: left;
 		text-decoration: none;
+		transition:
+			background-color var(--duration-fast) var(--ease-out),
+			transform var(--duration-fast) var(--ease-out);
 	}
 	.action span {
 		flex: 1;
 	}
 	.action:hover {
 		background: var(--color-surface);
+		transform: translateX(2px);
+	}
+	.action:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: -2px;
 	}
 	.logout {
 		color: var(--color-danger);
@@ -344,7 +398,7 @@
 		background: transparent;
 	}
 	.identity.sheet {
-		padding: 20px 0 12px;
+		padding: 20px 14px;
 		gap: 14px;
 	}
 	.sheet .avatar {
@@ -369,5 +423,15 @@
 		border: 0;
 		background: transparent;
 		font-size: 12px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.profile-dropdown:popover-open {
+			animation: none;
+		}
+		.trigger-chevron,
+		.action {
+			transition: none;
+		}
 	}
 </style>

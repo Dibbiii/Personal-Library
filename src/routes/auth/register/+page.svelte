@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Card from '$lib/components/ui/Card.svelte';
+
 	import TextField from '$lib/components/ui/TextField.svelte';
 	import type { ActionData } from './$types';
 
@@ -11,7 +11,7 @@
 
 <svelte:head><title>Registrati · Segnalibro</title></svelte:head>
 
-<Card as="section" class="auth-card">
+<section class="auth-card">
 	<form
 		method="POST"
 		novalidate
@@ -23,7 +23,11 @@
 			};
 		}}
 	>
-		<h2>Crea il tuo account</h2>
+		<div class="form-heading">
+			<p>Inizia da qui</p>
+			<h2>Crea il tuo account</h2>
+			<span>Bastano pochi secondi per iniziare la tua libreria.</span>
+		</div>
 
 		{#if form?.message}<p class="alert" role="alert">{form.message}</p>{/if}
 
@@ -57,26 +61,56 @@
 
 		<Button type="submit" fullWidth loading={pending}>Registrati</Button>
 	</form>
-</Card>
+</section>
 
 <p class="switch">Hai già un account? <a href="/auth/login">Accedi</a></p>
 
 <style>
 	:global(.auth-card) {
 		width: 100%;
-		max-width: 420px;
-		padding: 28px 24px;
+		max-width: none;
+		padding: 0;
+		background: transparent;
 	}
 
 	form {
 		display: flex;
 		flex-direction: column;
-		gap: 16px;
+		gap: 18px;
+	}
+
+	.form-heading {
+		display: grid;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+
+	.form-heading p,
+	.form-heading span {
+		margin: 0;
+	}
+
+	.form-heading p {
+		color: var(--color-primary);
+		font-size: 12px;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 	}
 
 	h2 {
-		font-size: 24px;
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(36px, 4vw, 48px);
+		font-weight: 400;
+		line-height: 1.05;
 		color: var(--color-text-primary);
+	}
+
+	.form-heading span {
+		color: var(--color-text-secondary);
+		font-size: 15px;
+		line-height: 1.5;
 	}
 
 	.alert {
@@ -92,6 +126,7 @@
 	.switch {
 		margin: 0;
 		font-size: 14px;
+		text-align: center;
 		color: var(--color-text-secondary);
 	}
 
