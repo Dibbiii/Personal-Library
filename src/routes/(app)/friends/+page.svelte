@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import type { PageProps } from './$types';
-	import type { FriendLibraryVisibility, Friend } from '$lib/contracts/friendships';
+	import type { FriendLibraryVisibility, Friend, FriendPrivacy } from '$lib/contracts/friendships';
 
 	let { data }: PageProps = $props();
 	// La pagina viene caricata dal server e questi sono lo stato iniziale del form.
@@ -9,14 +9,24 @@
 	let friends = $state<Friend[]>([...data.friendships]);
 	// svelte-ignore state_referenced_locally
 	let visibility = $state<FriendLibraryVisibility>(data.visibility);
+	let privacy = $state<FriendPrivacy | null>(null);
+
+	$effect(() => {
+		fetch('/api/friends?privacy=1')
+			.then((response) => response.json())
+			.then((value: FriendPrivacy) => {
+				if (value.library) privacy = value;
+			})
+			.catch(() => undefined);
+	});
 	let invite = $state<string | null>(null);
 	let token = $state('');
 	let busy = $state(false);
 	let message = $state<string | null>(null);
 	let error = $state<string | null>(null);
 
-	async function request<T>(body: unknown): Promise<T> {
-		const response = await fetch('/api/friends', {
+	async function request<T>(url: string, body: unknown): Promise<T> {
+		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json', accept: 'application/json' },
 			body: JSON.stringify(body)
@@ -31,7 +41,7 @@
 		message = null;
 		error = null;
 		try {
-			const result = await request<{ invite: { token: string; expiresAt: string } }>({ action: 'create' });
+			const result = await request<{ invite: { token: string; expiresAt: string } }>('/api/friends', { action: 'create' });
 			invite = result.invite.token;
 			message = 'Invito creato. Copialo e invialo alla persona che vuoi aggiungere.';
 		} catch (cause) {
@@ -47,7 +57,7 @@
 		message = null;
 		error = null;
 		try {
-			const result = await request<{ friendship: Friend }>({ action: 'redeem', token: token.trim() });
+			const result = await request<{ friendship: Friend }>('/api/friends', { action: 'redeem', token: token.trim() });
 			if (!friends.some((friend) => friend.userId === result.friendship.userId)) friends = [...friends, result.friendship];
 			token = '';
 			message = 'Amicizia accettata.';
@@ -58,10 +68,33 @@
 		}
 	}
 
+	async function setSection(
+		key: 'library' | 'reviews' | 'stats' | 'quotes' | 'activity',
+		next: FriendLibraryVisibility
+	) {
+		busy = true;
+		try {
+			const response = await fetch('/api/friends/privacy', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json', accept: 'application/json' },
+				body: JSON.stringify({ [key]: next })
+			});
+			const result = (await response.json()) as FriendPrivacy;
+			if (!response.ok) throw new Error('Impossibile aggiornare la privacy.');
+			privacy = result;
+			if (key === 'library') visibility = next;
+			message = 'Privacy aggiornata.';
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Impossibile aggiornare la privacy.';
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function setVisibility(next: FriendLibraryVisibility) {
 		busy = true;
 		try {
-			await request({ action: 'visibility', visibility: next });
+			await request('/api/friends', { action: 'visibility', visibility: next });
 			visibility = next;
 			message = next === 'friends' ? 'La libreria è visibile agli amici.' : 'La libreria è privata.';
 		} catch (cause) {
@@ -120,6 +153,27 @@
 			<input type="radio" name="visibility" checked={visibility === 'friends'} onchange={() => setVisibility('friends')} />
 			<span><strong>Amici</strong><small>Gli amici approvati possono vedere la libreria.</small></span>
 		</label>
+		{#if privacy}
+			<div class="privacy-grid">
+				{#each [
+					['reviews', 'Recensioni'],
+					['stats', 'Statistiche'],
+					['quotes', 'Citazioni'],
+					['activity', 'Attività']
+				] as [key, label] (key)}
+					<label>
+						{label}
+						<select
+							value={privacy[key as keyof Omit<FriendPrivacy, 'contractVersion'>]}
+							onchange={(event) => setSection(key as 'reviews', (event.currentTarget as HTMLSelectElement).value as FriendLibraryVisibility)}
+						>
+							<option value="private">Privato</option>
+							<option value="friends">Amici</option>
+						</select>
+					</label>
+				{/each}
+			</div>
+		{/if}
 	</section>
 
 	<section class="card">
@@ -129,7 +183,7 @@
 		{:else}
 			<ul>
 				{#each friends as friend (friend.userId)}
-					<li><span>{friend.displayName ?? 'Lettore'}</span><button type="button" disabled={busy} onclick={() => remove(friend)}>Rimuovi</button></li>
+					<li><a href="/friends/{friend.userId}">{friend.displayName ?? 'Lettore'}</a><button type="button" disabled={busy} onclick={() => remove(friend)}>Rimuovi</button></li>
 				{/each}
 			</ul>
 		{/if}

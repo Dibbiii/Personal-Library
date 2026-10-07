@@ -58,6 +58,8 @@ import type {
 import type {
 	CreateFriendInviteResponse,
 	DeleteFriendshipInput,
+	FriendPrivacy,
+	FriendProfile,
 	FriendLibraryVisibilityResponse,
 	FriendshipsResponse,
 	RedeemFriendInviteInput,
@@ -145,6 +147,12 @@ export interface BingoRepository {
 	listBoards(): Promise<BingoBoardListResponse>;
 	/** Crea la card dell'anno con le 16 sfide di default (CONFLICT se esiste già). */
 	createBoard(year: number): Promise<BingoBoard>;
+	updateBoard(input: {
+		year: number;
+		title: string;
+		challenges: string[];
+	}): Promise<BingoBoard>;
+	deleteBoard(year: number): Promise<void>;
 }
 
 /** Letture di Statistiche non coperte da StatsRepository: elenco citazioni e ripartizione generi. */
@@ -190,6 +198,9 @@ export interface FriendshipsRepository {
 	redeemInvite(input: RedeemFriendInviteInput): Promise<RedeemFriendInviteResponse>;
 	remove(input: DeleteFriendshipInput): Promise<void>;
 	setLibraryVisibility(input: SetFriendLibraryVisibilityInput): Promise<FriendLibraryVisibilityResponse>;
+	getPrivacy(): Promise<FriendPrivacy>;
+	setVisibility(input: Partial<Omit<FriendPrivacy, 'contractVersion'>>): Promise<FriendPrivacy>;
+	getProfile(friendId: string): Promise<FriendProfile>;
 }
 
 export interface SegnalibroRepositories {

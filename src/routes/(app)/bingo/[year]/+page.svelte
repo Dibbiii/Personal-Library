@@ -49,8 +49,56 @@
 	}
 
 	let newOpen = $state(false);
+	let editing = $state(false);
+	let editTitle = $state('');
+	let editChallenges = $state<string[]>([]);
 	let creating = $state(false);
 	let createError = $state<string | null>(null);
+	let savingBoard = $state(false);
+	let boardError = $state<string | null>(null);
+
+	function startEdit() {
+		if (!board) return;
+		editTitle = board.title ?? `La card del ${board.year}`;
+		editChallenges = board.cells.map((cell) => cell.challenge);
+		boardError = null;
+		editing = true;
+	}
+
+	async function saveBoard() {
+		if (!board) return;
+		savingBoard = true;
+		boardError = null;
+		try {
+			const response = await fetch('/api/bingo/board', {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					year: board.year,
+					title: editTitle.trim(),
+					challenges: editChallenges.map((item) => item.trim())
+				})
+			});
+			if (!response.ok) {
+				boardError = 'Controlla titolo e 16 sfide: ogni sfida deve avere un testo.';
+				return;
+			}
+			await onChange(bingoBoardSchema.parse(await response.json()));
+			editing = false;
+		} finally {
+			savingBoard = false;
+		}
+	}
+
+	async function deleteBoard() {
+		if (!board || !confirm('Eliminare questa card? I libri collegati restano in libreria.')) return;
+		const response = await fetch('/api/bingo/board', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ year: board.year })
+		});
+		if (response.ok) await goto('/bingo', { invalidateAll: true });
+	}
 
 	async function createBoard(year: number) {
 		creating = true;
@@ -96,6 +144,24 @@
 	<div class="layout" data-testid="bingo-page">
 		<div class="main">
 			<BingoSummary {completed} />
+			<div class="board-actions">
+				<h2>{board.title ?? `La card del ${board.year}`}</h2>
+				<button type="button" onclick={startEdit}>Modifica card</button>
+				<button type="button" class="danger" onclick={deleteBoard}>Elimina</button>
+			</div>
+			{#if editing}
+				<form class="editor" onsubmit={(event) => (event.preventDefault(), saveBoard())}>
+					<label>Titolo<input bind:value={editTitle} maxlength="80" required /></label>
+					{#each editChallenges as challenge, index (index)}
+						<label>Sfida {index + 1}<input bind:value={editChallenges[index]} maxlength="120" required /></label>
+					{/each}
+					{#if boardError}<p class="error" role="alert">{boardError}</p>{/if}
+					<div class="editor-actions">
+						<button type="button" onclick={() => (editing = false)}>Annulla</button>
+						<button type="submit" disabled={savingBoard}>Salva card</button>
+					</div>
+				</form>
+			{/if}
 			<div class="grid-wrap">
 				<BingoGrid year={data.year} cells={board.cells} onselect={openCell} />
 			</div>

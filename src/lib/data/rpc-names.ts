@@ -19,6 +19,8 @@ export const RPC = {
 	bingoAssignBook: 'assign_bingo_book',
 	bingoListBoards: 'list_bingo_boards',
 	bingoCreateBoard: 'create_bingo_board',
+	bingoUpdateBoard: 'update_bingo_board',
+	bingoDeleteBoard: 'delete_bingo_board',
 
 	listQuotes: 'list_quotes',
 	listCompletedBooks: 'list_completed_books',
@@ -61,7 +63,10 @@ export const RPC = {
 	createFriendInvite: 'create_friend_invite',
 	redeemFriendInvite: 'redeem_friend_invite',
 	deleteFriendship: 'delete_friendship',
-	setFriendLibraryVisibility: 'set_friend_library_visibility'
+	setFriendLibraryVisibility: 'set_friend_library_visibility',
+	getFriendPrivacy: 'get_friend_privacy',
+	setFriendVisibility: 'set_friend_visibility',
+	getFriendProfile: 'get_friend_profile'
 } as const;
 
 export type RpcName = (typeof RPC)[keyof typeof RPC];

@@ -2,6 +2,8 @@ import {
 	createFriendInviteResponseSchema,
 	friendLibraryVisibilityResponseSchema,
 	friendshipMutationResponseSchema,
+	friendPrivacySchema,
+	friendProfileSchema,
 	friendshipsResponseSchema,
 	redeemFriendInviteResponseSchema,
 	type DeleteFriendshipInput,
@@ -48,5 +50,34 @@ export class RpcFriendshipsRepository implements FriendshipsRepository {
 			{ p_visibility: input.visibility },
 			friendLibraryVisibilityResponseSchema
 		);
+	}
+
+	getPrivacy() {
+		return callRpc(this.transport, RPC.getFriendPrivacy, {}, friendPrivacySchema);
+	}
+
+	setVisibility(input: {
+		library?: 'private' | 'friends';
+		reviews?: 'private' | 'friends';
+		stats?: 'private' | 'friends';
+		quotes?: 'private' | 'friends';
+		activity?: 'private' | 'friends';
+	}) {
+		return callRpc(
+			this.transport,
+			RPC.setFriendVisibility,
+			{
+				p_library: input.library ?? null,
+				p_reviews: input.reviews ?? null,
+				p_stats: input.stats ?? null,
+				p_quotes: input.quotes ?? null,
+				p_activity: input.activity ?? null
+			},
+			friendPrivacySchema
+		);
+	}
+
+	getProfile(friendId: string) {
+		return callRpc(this.transport, RPC.getFriendProfile, { p_friend_id: friendId }, friendProfileSchema);
 	}
 }

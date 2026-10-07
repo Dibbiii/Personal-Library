@@ -47,6 +47,38 @@ export const setFriendLibraryVisibilityInputSchema = z.object({
 	visibility: friendLibraryVisibilitySchema
 });
 
+export const friendPrivacySchema = z.object({
+	contractVersion: contractVersionSchema,
+	library: friendLibraryVisibilitySchema,
+	reviews: friendLibraryVisibilitySchema,
+	stats: friendLibraryVisibilitySchema,
+	quotes: friendLibraryVisibilitySchema,
+	activity: friendLibraryVisibilitySchema
+});
+
+export const friendProfileSchema = z.object({
+	contractVersion: contractVersionSchema,
+	userId: uuidSchema,
+	displayName: z.string().nullable(),
+	privacy: friendPrivacySchema.omit({ contractVersion: true }),
+	library: z.array(z.object({
+		id: uuidSchema,
+		title: z.string(),
+		author: z.string(),
+		format: z.string(),
+		lifecycleState: z.string(),
+		rating: z.number().nullable()
+	})).nullable(),
+	reviews: z.array(z.object({
+		bookId: uuidSchema,
+		rating: z.number(),
+		adjectives: z.array(z.string())
+	})).nullable(),
+	stats: z.object({ booksFinished: z.number(), dnf: z.number() }).nullable(),
+	quotes: z.array(z.object({ id: uuidSchema, body: z.string(), page: z.number().nullable() })).nullable(),
+	activity: z.array(z.object({ bookId: uuidSchema, title: z.string(), at: isoTimestampSchema })).nullable()
+});
+
 export const friendLibraryVisibilityResponseSchema = z.object({
 	contractVersion: contractVersionSchema,
 	friendLibraryVisibility: friendLibraryVisibilitySchema
@@ -58,6 +90,8 @@ export const friendshipMutationResponseSchema = z.object({
 });
 
 export type FriendLibraryVisibility = z.infer<typeof friendLibraryVisibilitySchema>;
+export type FriendPrivacy = z.infer<typeof friendPrivacySchema>;
+export type FriendProfile = z.infer<typeof friendProfileSchema>;
 export type Friend = z.infer<typeof friendSchema>;
 export type FriendshipsResponse = z.infer<typeof friendshipsResponseSchema>;
 export type FriendInvite = z.infer<typeof friendInviteSchema>;

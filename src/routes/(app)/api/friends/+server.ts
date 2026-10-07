@@ -11,6 +11,9 @@ export const GET: RequestHandler = async (event) => {
 	try {
 		requireUserId(event);
 		const friends = requireRepository(event.locals.repos, 'friendships');
+		if (event.url.searchParams.has('privacy')) {
+			return json(await friends.getPrivacy(), { headers: PRIVATE_NO_STORE });
+		}
 		return json(await friends.getAll(), { headers: PRIVATE_NO_STORE });
 	} catch (cause) {
 		return errorResponse(cause, PRIVATE_NO_STORE);
