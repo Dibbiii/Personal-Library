@@ -4,7 +4,11 @@
 	import AddReadingSheet, {
 		type AddReadingChoice
 	} from '$lib/components/detail/AddReadingSheet.svelte';
-	import BookHero from '$lib/components/detail/BookHero.svelte';
+	import BookBanner from '$lib/components/detail/BookBanner.svelte';
+	import LibraryPlaceCard from '$lib/components/detail/LibraryPlaceCard.svelte';
+	import ReadingSummaryCard from '$lib/components/detail/ReadingSummaryCard.svelte';
+	import BookOnlineInfo from '$lib/components/detail/BookOnlineInfo.svelte';
+	import type { BookInfo } from '$lib/catalog/book-info';
 	import MarkReadSheet from '$lib/components/detail/MarkReadSheet.svelte';
 	import MoveSheet from '$lib/components/detail/MoveSheet.svelte';
 	import ProgressPanel from '$lib/components/detail/ProgressPanel.svelte';
@@ -304,6 +308,51 @@
 		});
 	}
 
+	// ---- Schede e dati pubblici (Open Library, in streaming dal load) ----
+	type Tab = 'overview' | 'review' | 'history' | 'editions' | 'author';
+	let tab = $state<Tab>('overview');
+	const tabs = $derived<{ id: Tab; label: string }[]>([
+		{ id: 'overview', label: 'Panoramica' },
+		{ id: 'review', label: 'Recensione' },
+		...(detail.readings.length > 0 ? [{ id: 'history' as const, label: 'Letture' }] : []),
+		{ id: 'editions', label: 'Edizioni' },
+		{ id: 'author', label: 'Autore' }
+	]);
+
+	function onTabKey(event: KeyboardEvent) {
+		const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+		if (!step) return;
+		event.preventDefault();
+		const index = tabs.findIndex((item) => item.id === tab);
+		const next = tabs[(index + step + tabs.length) % tabs.length];
+		if (!next) return;
+		tab = next.id;
+		document.getElementById(`tab-${next.id}`)?.focus();
+	}
+
+	// Dopo un invalidate i dati restano visibili finché la nuova risposta (in cache) non arriva.
+	let info = $state<BookInfo | null>(null);
+	let infoLoading = $state(true);
+	let infoFor = '';
+	$effect(() => {
+		const pending = data.info;
+		const id = book.id;
+		if (infoFor !== id) {
+			info = null;
+			infoLoading = true;
+			infoFor = id;
+		}
+		let current = true;
+		void Promise.resolve(pending).then((value) => {
+			if (!current) return;
+			info = value;
+			infoLoading = false;
+		});
+		return () => {
+			current = false;
+		};
+	});
+
 	// Una volta sincronizzata, la pagina in coda coincide con quella del server.
 	$effect(() => {
 		if (pendingPage !== null && reading && reading.currentPage >= pendingPage) pendingPage = null;
@@ -332,7 +381,11 @@
 <div class="page" style={genreScopeStyle(slug)}>
 	<header class="top">
 		<IconButton icon="chevron-left" label="Indietro" onclick={back} />
-		<h2>Dettaglio</h2>
+		<nav class="crumbs" aria-label="Percorso">
+			<a href="/library">Libreria</a>
+			<Icon name="chevron-right" size={14} strokeWidth={2.2} />
+			<a href="/genre/{slug}">{book.genre.name}</a>
+		</nav>
 		<ActionsMenu
 			{book}
 			queued={detail.queuePosition !== null}
@@ -351,81 +404,168 @@
 		</p>
 	{/if}
 
-	<div class="layout" class:compact={unlocked}>
-		<div class="hero-area">
-			<BookHero
+	<div class="layout">
+		<div class="banner-area">
+			<BookBanner
 				{book}
-				compact={unlocked}
+				review={detail.review}
+				{info}
 				{status}
 				queuePosition={detail.queuePosition}
 				onstatus={() => openSheet('status')}
 				statusOpen={sheet === 'status'}
-			/>
-		</div>
-
-		{#if reading}
-			<div class="progress-area">
-				<ProgressPanel
-					currentPage={reading.currentPage}
-					pageCount={book.pageCount}
-					paused={reading.status === 'paused'}
-					{pendingPage}
-					{busy}
-					onupdate={() => openSheet('progress')}
-					onfinish={finishReading}
-					onpause={pause}
-					onresume={resume}
-				/>
-			</div>
-		{/if}
-
-		<div class="review-area">
-			<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
-				{#snippet lockedFooter()}
+			>
+				{#snippet actions()}
+					{#if canQueue}
+						<button
+							type="button"
+							class="round"
+							class:on={detail.queuePosition !== null}
+							aria-pressed={detail.queuePosition !== null}
+							aria-label={detail.queuePosition !== null
+								? 'Togli dai prossimi'
+								: 'Aggiungi ai prossimi'}
+							title={detail.queuePosition !== null ? 'Togli dai prossimi' : 'Aggiungi ai prossimi'}
+							onclick={toggleQueue}
+						>
+							<Icon name="bookmark" size={20} />
+						</button>
+					{/if}
 					<button
-						class="move"
 						type="button"
+						class="round"
+						aria-label="Apri le opzioni di spostamento"
+						title="Sposta: genere, prossimi, letto"
 						aria-haspopup="dialog"
-						aria-expanded={sheet === 'move'}
 						onclick={() => openSheet('move')}
-						data-testid="move-button"
 					>
-						<span class="tile"><Icon name="library" size={24} strokeWidth={1.8} /></span>
-						Sposta
-						<Icon
-							name={sheet === 'move' ? 'chevron-up' : 'chevron-down'}
-							size={18}
-							strokeWidth={2.4}
-						/>
+						<Icon name="library" size={20} />
 					</button>
 				{/snippet}
-				{#snippet afterScores()}
+			</BookBanner>
+		</div>
+
+		<div class="right">
+			<aside class="progress-area" aria-label="Il mio progresso">
+				{#if reading}
+					<ProgressPanel
+						currentPage={reading.currentPage}
+						pageCount={book.pageCount}
+						paused={reading.status === 'paused'}
+						{pendingPage}
+						{busy}
+						onupdate={() => openSheet('progress')}
+						onfinish={finishReading}
+						onpause={pause}
+						onresume={resume}
+					/>
+				{:else}
+					<ReadingSummaryCard
+						{book}
+						readings={detail.readings}
+						onstatus={() => openSheet('status')}
+					/>
+				{/if}
+			</aside>
+			<aside class="side-area" aria-label="Il libro nella libreria">
+				<div id="place"><LibraryPlaceCard {book} queuePosition={detail.queuePosition} /></div>
+				{#if book.series}
+					<div id="series"><SeriesCard series={book.series} /></div>
+				{/if}
+			</aside>
+		</div>
+
+		<div class="sections" role="tablist" aria-label="Sezioni del libro">
+			{#each tabs as item (item.id)}
+				<button
+					type="button"
+					role="tab"
+					id="tab-{item.id}"
+					aria-selected={tab === item.id}
+					aria-controls="panel-{item.id}"
+					tabindex={tab === item.id ? 0 : -1}
+					onclick={() => (tab = item.id)}
+					onkeydown={onTabKey}
+				>
+					{item.label}
+				</button>
+			{/each}
+		</div>
+
+		<div class="tab-panels">
+			{#if tab === 'overview' || tab === 'editions' || tab === 'author'}
+				<div role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
+					<BookOnlineInfo
+						{info}
+						loading={infoLoading}
+						section={tab}
+						title={book.title}
+						author={book.author}
+					/>
+				</div>
+			{/if}
+			{#if tab === 'history'}
+				<div role="tabpanel" id="panel-history" aria-labelledby="tab-history">
 					<ReadingHistory
 						readings={detail.readings}
 						pageCount={book.pageCount}
 						canAdd={book.completedReadingsCount >= 1}
 						onadd={() => openSheet('addReading')}
 					/>
-				{/snippet}
-			</ReviewPanel>
-
-			{#if !unlocked && detail.readings.length > 0}
-				<div class="history-locked">
-					<ReadingHistory
-						readings={detail.readings}
-						pageCount={book.pageCount}
-						canAdd={false}
-						onadd={() => openSheet('addReading')}
-					/>
 				</div>
 			{/if}
-		</div>
 
-		{#if book.series}
-			<div class="series-area">
-				<SeriesCard series={book.series} />
+			<div
+				class="review-area"
+				id="review"
+				hidden={tab !== 'overview' && tab !== 'review'}
+				role={tab === 'review' ? 'tabpanel' : undefined}
+				aria-labelledby={tab === 'review' ? 'tab-review' : undefined}
+			>
+				<h2 class="review-title">La mia recensione</h2>
+				<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
+					{#snippet lockedFooter()}
+						<button
+							class="move"
+							type="button"
+							aria-haspopup="dialog"
+							aria-expanded={sheet === 'move'}
+							onclick={() => openSheet('move')}
+							data-testid="move-button"
+						>
+							<span class="tile"><Icon name="library" size={24} strokeWidth={1.8} /></span>
+							Sposta
+							<Icon
+								name={sheet === 'move' ? 'chevron-up' : 'chevron-down'}
+								size={18}
+								strokeWidth={2.4}
+							/>
+						</button>
+					{/snippet}
+					{#snippet afterScores()}
+						<div id="history">
+							<ReadingHistory
+								readings={detail.readings}
+								pageCount={book.pageCount}
+								canAdd={book.completedReadingsCount >= 1}
+								onadd={() => openSheet('addReading')}
+							/>
+						</div>
+					{/snippet}
+				</ReviewPanel>
+
+				{#if !unlocked && detail.readings.length > 0}
+					<div class="history-locked" id="history">
+						<ReadingHistory
+							readings={detail.readings}
+							pageCount={book.pageCount}
+							canAdd={false}
+							onadd={() => openSheet('addReading')}
+						/>
+					</div>
+				{/if}
 			</div>
-		{/if}
+		</div>
 	</div>
 </div>
 
@@ -599,30 +739,53 @@
 	}
 
 	.page {
-		padding-bottom: 32px;
+		box-sizing: border-box;
+		max-width: 1360px;
+		margin: 0 auto;
+		padding: 0 0 40px;
 	}
 
 	.top {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 12px;
 		box-sizing: border-box;
-		height: 72px;
-		padding: 14px 16px 0;
+		min-height: 72px;
+		padding: 14px 16px 6px;
 	}
 
-	.top h2 {
-		margin: 0;
-		font-family: var(--font-ui);
-		font-size: 15px;
-		font-weight: 700;
+	.crumbs {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		color: var(--color-text-secondary);
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.crumbs a {
+		overflow: hidden;
+		color: inherit;
+		text-decoration: none;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.crumbs a:last-child {
+		color: var(--color-primary);
+	}
+
+	.crumbs a:hover {
+		text-decoration: underline;
 	}
 
 	.notice {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		margin: 8px var(--page-gutter) 0;
+		margin: 8px var(--page-gutter) 12px;
 		padding: 10px 14px;
 		border-radius: 14px;
 		background: var(--color-surface);
@@ -634,20 +797,16 @@
 	.layout {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 16px;
 		padding: 0 var(--page-gutter);
 	}
 
-	/* Il layout compatto (mockup 05) ha il proprio respiro laterale già nella hero */
-	.layout.compact .hero-area {
-		margin: 0 calc(-1 * var(--page-gutter));
+	/* Mobile: progresso subito dopo il banner, "Nella mia libreria" in fondo. */
+	.right {
+		display: contents;
 	}
 
-	.layout :global(.hero) {
-		padding-bottom: 4px;
-	}
-
-	.hero-area {
+	.banner-area {
 		order: 1;
 	}
 
@@ -655,21 +814,124 @@
 		order: 2;
 	}
 
-	.review-area {
+	.sections {
 		order: 3;
+	}
+
+	.tab-panels {
+		order: 4;
+	}
+
+	.side-area {
+		order: 5;
+	}
+
+	.review-area {
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
 		min-width: 0;
+		scroll-margin-top: 16px;
 	}
 
-	.series-area {
-		order: 4;
+	.side-area {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		min-width: 0;
 	}
 
-	/* nel layout compatto la serie è già sotto il titolo (mockup 05) */
-	.layout.compact .series-area {
+	#place,
+	#series,
+	#history {
+		scroll-margin-top: 16px;
+	}
+
+	.sections {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		border-bottom: 1px solid color-mix(in srgb, var(--color-border) 30%, transparent);
+		scrollbar-width: none;
+	}
+
+	.sections button {
+		flex: none;
+		min-height: 46px;
+		padding: 0 16px;
+		border: 0;
+		border-bottom: 2.5px solid transparent;
+		background: none;
+		color: var(--color-text-secondary);
+		font-family: var(--font-ui);
+		font-size: 14.5px;
+		font-weight: 600;
+		cursor: pointer;
+		transition: color var(--duration-fast) var(--ease-out);
+	}
+
+	.sections button[aria-selected='true'] {
+		border-bottom-color: var(--color-primary);
+		color: var(--color-primary);
+	}
+
+	.sections button:hover {
+		color: var(--color-primary);
+	}
+
+	.sections button:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: -2px;
+	}
+
+	.tab-panels {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		min-width: 0;
+	}
+
+	.review-title {
+		margin: 6px 0 -2px;
+		color: var(--color-primary);
+		font-family: var(--font-display);
+		font-size: 22px;
+		font-weight: 400;
+	}
+
+	.review-area[hidden] {
 		display: none;
+	}
+
+	/* Azioni rotonde accanto al pulsante di stato nel banner */
+	.round {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 50px;
+		height: 50px;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+		border-radius: 50%;
+		background: var(--color-surface-elevated);
+		color: var(--color-primary);
+		cursor: pointer;
+		transition: background-color var(--duration-fast) var(--ease-out);
+	}
+
+	.round:hover {
+		background: var(--color-background);
+	}
+
+	.round.on {
+		border-color: transparent;
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+	}
+
+	.round:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 
 	.move {
@@ -703,43 +965,42 @@
 
 	@media (min-width: 1024px) {
 		.top {
-			height: 88px;
-			padding: 28px var(--page-gutter) 0;
+			min-height: 80px;
+			padding: 22px var(--page-gutter) 10px;
 		}
+	}
 
+	/* Desktop largo (mockup dettaglio): banner, sezioni e recensione a sinistra; progresso e libreria a destra. */
+	@media (min-width: 1180px) {
 		.layout {
 			display: grid;
-			grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+			grid-template-columns: minmax(0, 1fr) 360px;
 			grid-template-areas:
-				'hero review'
-				'progress review'
-				'series review'
-				'. review';
-			grid-template-rows: auto auto auto 1fr;
-			column-gap: 40px;
+				'banner right'
+				'sections right'
+				'review right';
+			grid-template-rows: auto auto 1fr;
+			gap: 20px 24px;
 			align-items: start;
 		}
 
-		.layout.compact .hero-area {
-			margin: 0;
+		.right {
+			grid-area: right;
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
 		}
 
-		.hero-area {
-			grid-area: hero;
+		.banner-area {
+			grid-area: banner;
 		}
 
-		.progress-area {
-			grid-area: progress;
+		.sections {
+			grid-area: sections;
 		}
 
-		.review-area {
+		.tab-panels {
 			grid-area: review;
-		}
-
-		.series-area,
-		.layout.compact .series-area {
-			display: block;
-			grid-area: series;
 		}
 	}
 </style>

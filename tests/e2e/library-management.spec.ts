@@ -64,7 +64,7 @@ async function followAddLink(page: Page, link: Locator, slug: GenreSlug) {
 test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 	test.setTimeout(60_000);
 
-	test('il + resta sulla plancia degli scaffali popolati e vuoti e nell’header genere', async ({
+	test('aggiunta contestuale: scaffale vuoto in Home e header genere (niente + sugli scaffali popolati)', async ({
 		page,
 		account
 	}, testInfo) => {
@@ -84,26 +84,23 @@ test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 			name: `Scaffale ${GENRE_LABELS[MYTHOLOGY]}, 0 libri`,
 			exact: true
 		});
-		const populatedAdd = populated.getByRole('link', { name: addLabel(CLASSICS), exact: true });
-		const emptyAdd = empty.getByRole('link', { name: addLabel(MYTHOLOGY), exact: true });
+		const emptyAdd = empty.getByRole('link', {
+			name: `${addLabel(MYTHOLOGY)}, scaffale vuoto`,
+			exact: true
+		});
 		await expect(populated.locator(`a[href="/book/${bookId}"]`)).toBeVisible();
-		await expect(populatedAdd).toHaveAttribute('href', `/add?genre=${CLASSICS}`);
+		// L'aggiunta generica sta nella toolbar: gli scaffali popolati non hanno il +.
+		await expect(populated.locator('a[href^="/add"]')).toHaveCount(0);
 		await expect(emptyAdd).toHaveAttribute('href', `/add?genre=${MYTHOLOGY}`);
-		await expect(
-			empty.getByRole('link', {
-				name: `${addLabel(MYTHOLOGY)}, scaffale vuoto`,
-				exact: true
-			})
-		).toHaveAttribute('href', `/add?genre=${MYTHOLOGY}`);
 		// Il link del titolo resta indipendente dall’azione +.
-		await expect(populated.locator('.plank-link')).toHaveAttribute('href', `/genre/${CLASSICS}`);
+		await expect(populated.getByRole('link', { name: /^Vedi tutti/ })).toHaveAttribute(
+			'href',
+			`/genre/${CLASSICS}`
+		);
 		await testInfo.attach('library-home', {
 			body: await page.screenshot({ fullPage: true, scale: 'css' }),
 			contentType: 'image/png'
 		});
-		await followAddLink(page, populatedAdd, CLASSICS);
-		await page.goto('/library');
-		await page.waitForLoadState('networkidle');
 		await followAddLink(page, emptyAdd, MYTHOLOGY);
 		for (const slug of [CLASSICS, MYTHOLOGY]) {
 			await page.goto(`/genre/${slug}`);
@@ -133,20 +130,20 @@ test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 								name: `Scaffale ${GENRE_LABELS[CLASSICS]}, 0 libri`,
 								exact: true
 							})
-							.getByRole('link', { name: addLabel(CLASSICS), exact: true })
+							.getByRole('link', { name: `${addLabel(CLASSICS)}, scaffale vuoto`, exact: true })
 					: page.getByRole('link', { name: addLabel(CLASSICS), exact: true });
 			await followAddLink(page, add, CLASSICS);
 			for (const [name, path] of [
-				[/Scansiona l’ISBN/, 'scan'],
-				[/Cerca per titolo/, 'search'],
-				[/Inserisci a mano/, 'manual']
+				[/Scansiona ISBN/, 'scan'],
+				[/^Cerca/, 'search'],
+				[/Inserisci manualmente/, 'manual']
 			] as const) {
 				await expect(page.getByRole('link', { name })).toHaveAttribute(
 					'href',
 					`/add/${path}?genre=${CLASSICS}`
 				);
 			}
-			await page.getByRole('link', { name: /Inserisci a mano/ }).click();
+			await page.getByRole('link', { name: /Inserisci manualmente/ }).click();
 			await expect(page).toHaveURL(
 				(url) => url.pathname === '/add/manual' && url.searchParams.get('genre') === CLASSICS
 			);

@@ -533,7 +533,7 @@ test.describe('PWA', () => {
 			await expect(page.getByText('Offline', { exact: true })).toBeVisible();
 
 			// Pagina mai visitata: pagina di cortesia in italiano
-			await page.goto('/stats/2019').catch(() => undefined);
+			await page.goto('/profile/2019').catch(() => undefined);
 			await expect(page.getByRole('heading', { name: 'Sei offline' })).toBeVisible();
 
 			await context.setOffline(false);

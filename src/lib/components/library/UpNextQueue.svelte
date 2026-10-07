@@ -8,13 +8,15 @@
 	import ShelfFrame from './ShelfFrame.svelte';
 	import type { HomeDnd } from './home-dnd.svelte';
 	import type { HomeState } from './home-state.svelte';
+	import { hoverPreview, type HoverPreview } from './hover-preview.svelte';
 
 	interface Props {
 		home: HomeState;
 		dnd: HomeDnd;
+		preview: HoverPreview;
 	}
 
-	let { home, dnd }: Props = $props();
+	let { home, dnd, preview }: Props = $props();
 
 	const queue = $derived(home.sortedQueue);
 	const count = $derived(queue.length);
@@ -34,7 +36,7 @@
 <ShelfFrame
 	title="I prossimi 3"
 	accent="var(--color-divider)"
-	height={224}
+	height={140}
 	inset={11}
 	{pill}
 	target={dnd.hover === 'queue'}
@@ -50,8 +52,10 @@
 			class:source={dnd.draggingId === entry.book.id}
 			class:drop={dnd.hover === `slot:${position}`}
 			class:minor={position > 3}
+			class:previewed={preview.book?.id === entry.book.id}
 			use:draggable={dnd.source({ kind: 'queue-book', book: entry.book, position })}
 			use:dropzone={dnd.slotZone(position)}
+			use:hoverPreview={{ preview, book: entry.book }}
 		>
 			<a
 				class="cover-link"
@@ -77,6 +81,8 @@
 		<span>Trascina<br />qui</span>
 	</div>
 	<Decoration kind="mug" />
+	<Decoration kind="stack" />
+	<Decoration kind="cactus" />
 
 	{#snippet below()}
 		<div class="titles" bind:this={titles} aria-hidden="true">
@@ -110,6 +116,21 @@
 		touch-action: pan-x pan-y;
 		-webkit-touch-callout: none;
 		user-select: none;
+	}
+
+	.item {
+		transition: transform var(--duration-fast) var(--ease-out);
+	}
+
+	.item.previewed {
+		z-index: 2;
+		transform: translateY(-6px);
+	}
+
+	.item.previewed :global(.cover) {
+		box-shadow:
+			0 12px 18px -8px color-mix(in srgb, var(--color-shadow) 45%, transparent),
+			0 0 0 2px color-mix(in srgb, var(--color-primary) 35%, transparent);
 	}
 
 	.item.minor :global(.cover) {
@@ -185,7 +206,7 @@
 		border: 2px dashed color-mix(in srgb, var(--color-divider) 70%, transparent);
 		border-radius: 8px;
 		background: color-mix(in srgb, var(--color-divider) 10%, transparent);
-		color: var(--color-shelf-axis);
+		color: var(--color-text-secondary);
 		font-size: 11px;
 		font-weight: 600;
 		line-height: 13px;

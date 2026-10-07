@@ -29,6 +29,8 @@ export class HomeState {
 	shelves = $state<ShelfState[]>([]);
 	/** Messaggio per l'utente (errori/conferme), letto da una live region. */
 	message = $state('');
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- registro interno, non letto dalla UI
+	#pending = new Map<GenreSlug, Promise<void>>();
 
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- derived: viene ricreato, non mutato
 	queuedIds = $derived(new Set(this.queue.map((entry) => entry.book.id)));
@@ -113,20 +115,37 @@ export class HomeState {
 	 * Carica la pagina successiva dello scaffale (keyset). `getHome` non espone il cursore: la prima volta
 	 * si richiede l'inizio dello scaffale con un limite maggiore e si scartano i libri gia' presenti.
 	 */
-	async loadMore(slug: GenreSlug) {
+	loadMore(slug: GenreSlug, pageSize = PAGE_SIZE): Promise<void> {
+		const pending = this.#pending.get(slug);
+		if (pending) return pending;
+		const request = this.#fetchPage(slug, pageSize).finally(() => this.#pending.delete(slug));
+		this.#pending.set(slug, request);
+		return request;
+	}
+
+	/** Carica tutti gli scaffali per intero: ricerca e ordinamento devono vedere l'intera libreria. */
+	async loadAll() {
+		await Promise.all(
+			this.shelves.map(async (shelf) => {
+				while (shelf.hasMore && !shelf.failed) await this.loadMore(shelf.genre.slug, 100);
+			})
+		);
+	}
+
+	async #fetchPage(slug: GenreSlug, pageSize: number) {
 		const shelf = this.shelf(slug);
-		if (!shelf || shelf.loading || !shelf.hasMore) return;
+		if (!shelf || !shelf.hasMore) return;
 		shelf.loading = true;
 		shelf.failed = false;
 		try {
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- locale alla richiesta
 			const params = new URLSearchParams({ genre: slug });
 			if (shelf.cursor) {
-				params.set('limit', String(PAGE_SIZE));
+				params.set('limit', String(pageSize));
 				params.set('cursorCreatedAt', shelf.cursor.createdAt);
 				params.set('cursorId', shelf.cursor.id);
 			} else {
-				params.set('limit', String(Math.min(100, shelf.books.length + PAGE_SIZE)));
+				params.set('limit', String(Math.min(100, shelf.books.length + pageSize)));
 			}
 			const response = await fetch(`/api/library/shelf?${params}`);
 			if (!response.ok) throw new Error(String(response.status));

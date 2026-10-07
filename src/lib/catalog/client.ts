@@ -4,6 +4,7 @@
  */
 import type { z } from 'zod';
 import type { DataErrorCode } from '$lib/data/errors';
+import { bookInfoResponseSchema, type BookInfo } from './book-info';
 import {
 	addBookResponseSchema,
 	apiErrorSchema,
@@ -91,6 +92,17 @@ export function lookupIsbn(isbn: string, signal?: AbortSignal): Promise<IsbnLook
 	return request(isbnLookupResponseSchema, `/api/catalog/isbn?${new URLSearchParams({ isbn })}`, {
 		signal
 	});
+}
+
+/** Descrizione, voto, temi ed edizioni da Open Library; null se il libro non si trova. */
+export async function fetchBookInfo(
+	params: { title: string; author: string; language?: string | null },
+	signal?: AbortSignal
+): Promise<BookInfo | null> {
+	const query = new URLSearchParams({ title: params.title, author: params.author });
+	if (params.language) query.set('language', params.language);
+	const response = await request(bookInfoResponseSchema, `/api/catalog/info?${query}`, { signal });
+	return response.info;
 }
 
 export function addBookToLibrary(input: AddBookRequest): Promise<AddBookResponse> {

@@ -7,12 +7,14 @@
 	interface Props {
 		candidate: EditionCandidate;
 		onselect: (candidate: EditionCandidate) => void;
+		/** Il candidato mostrato nel pannello di dettaglio. */
+		selected?: boolean;
 		/** Mostra lo stato di attesa mentre si completano i dati dell'edizione. */
 		busy?: boolean;
 		disabled?: boolean;
 	}
 
-	let { candidate, onselect, busy = false, disabled = false }: Props = $props();
+	let { candidate, onselect, selected = false, busy = false, disabled = false }: Props = $props();
 
 	const meta = $derived(candidateMeta(candidate));
 	const isbn = $derived(candidate.isbn13 ?? candidate.isbn10);
@@ -21,12 +23,14 @@
 
 <button
 	class="result"
+	class:selected
 	type="button"
 	disabled={disabled || busy}
 	aria-busy={busy}
+	aria-pressed={selected}
 	onclick={() => onselect(candidate)}
 >
-	<CoverImage src={candidate.coverUrl} width={56} height={84} />
+	<CoverImage src={candidate.coverUrl} width={64} height={96} />
 	<span class="text">
 		<span class="title">{candidate.editionTitle}</span>
 		<span class="author">{candidate.authors.join(', ')}</span>
@@ -36,12 +40,13 @@
 			<span class="flag"><Icon name="check" size={13} strokeWidth={2.6} />Stesso ISBN</span>
 		{/if}
 	</span>
-	<span class="chevron" aria-hidden="true">
-		{#if busy}<span class="spinner"></span>{:else}<Icon
-				name="chevron-right"
-				size={20}
-				strokeWidth={2.2}
-			/>{/if}
+	<span class="pick" aria-hidden="true">
+		{#if busy}
+			<span class="spinner"></span>
+		{:else}
+			<span class="pick-label">{selected ? 'Selezionato' : 'Seleziona'}</span>
+			<Icon name={selected ? 'check' : 'arrow-right'} size={16} strokeWidth={2.2} />
+		{/if}
 	</span>
 </button>
 
@@ -49,21 +54,33 @@
 	.result {
 		display: flex;
 		align-items: center;
-		gap: 14px;
+		gap: 16px;
 		box-sizing: border-box;
 		width: 100%;
 		min-height: var(--tap-size);
-		padding: 12px 14px 12px 12px;
-		border: 0;
-		border-radius: 20px;
+		padding: 10px 14px 10px 10px;
+		border: 1.5px solid transparent;
+		border-radius: var(--radius-lg);
 		background: var(--color-card);
-		box-shadow: var(--shadow-card);
 		text-align: left;
 		color: var(--color-text-primary);
+		transition:
+			background-color var(--duration-fast) var(--ease-out),
+			border-color var(--duration-fast) var(--ease-out);
 	}
 
 	.result:hover:not(:disabled) {
 		background: var(--color-surface);
+	}
+
+	.result.selected {
+		border-color: var(--color-primary-outline);
+		background: color-mix(in srgb, var(--color-primary) 7%, var(--color-card));
+	}
+
+	.result:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 
 	.result:disabled {
@@ -75,7 +92,7 @@
 		flex: 1;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 2px;
+		gap: 3px;
 		min-width: 0;
 	}
 
@@ -86,19 +103,18 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 		font-family: var(--font-display);
-		font-size: 17px;
+		font-size: 18px;
 		line-height: 1.2;
 	}
 
 	.author {
-		font-size: 13.5px;
-		font-weight: 600;
-		color: var(--color-text-link);
+		font-size: 14px;
+		color: var(--color-text-secondary);
 	}
 
 	.meta,
 	.isbn {
-		font-size: 12px;
+		font-size: 12.5px;
 		line-height: 1.35;
 		color: var(--color-text-secondary);
 	}
@@ -113,7 +129,7 @@
 		align-items: center;
 		gap: 4px;
 		height: 22px;
-		margin-top: 4px;
+		margin-top: 2px;
 		padding: 0 10px 0 8px;
 		border-radius: 11px;
 		background: var(--color-info-tint);
@@ -122,9 +138,39 @@
 		color: var(--color-info);
 	}
 
-	.chevron {
+	.pick {
 		display: inline-flex;
-		color: var(--color-nav-inactive);
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		min-width: 40px;
+		height: 40px;
+		padding: 0 12px;
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--color-primary);
+	}
+
+	.selected .pick {
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+	}
+
+	.pick-label {
+		display: none;
+	}
+
+	@media (min-width: 560px) {
+		.pick {
+			padding: 0 16px 0 18px;
+		}
+
+		.pick-label {
+			display: inline;
+		}
 	}
 
 	.spinner {

@@ -2,7 +2,22 @@ import type { BookSummary, GenreSlug } from '$lib/contracts';
 import { fnv1a, type BookStatusBadge, type SpineSpec } from './spine';
 import { bookStatus, spineSpecFor } from './palette';
 
-export type DecorationKind = 'plant' | 'candle' | 'mug' | 'stack';
+export type DecorationKind =
+	| 'plant'
+	| 'candle'
+	| 'mug'
+	| 'stack'
+	| 'vase'
+	| 'globe'
+	| 'bust'
+	| 'succulent'
+	| 'cactus'
+	| 'trailing'
+	| 'fern'
+	| 'hourglass'
+	| 'lantern'
+	| 'bookends'
+	| 'figurine';
 
 /** Una decorazione per scaffale, ciclo fisso come nel mockup. */
 export const SHELF_DECORATION: Record<GenreSlug, DecorationKind> = {

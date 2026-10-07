@@ -161,18 +161,24 @@ test.describe('aggiungi un libro', () => {
 	test('/add offre i tre modi', async ({ page }) => {
 		await page.goto('/add');
 		await expect(page.getByRole('heading', { name: 'Aggiungi un libro' })).toBeVisible();
-		await expect(page.getByRole('link', { name: /Scansiona l’ISBN/ })).toHaveAttribute(
+		const modes = page.getByRole('navigation', { name: 'Modi per aggiungere un libro' });
+		await expect(modes.getByRole('link', { name: /Scansiona ISBN/ })).toHaveAttribute(
 			'href',
 			'/add/scan'
 		);
-		await expect(page.getByRole('link', { name: /Cerca per titolo/ })).toHaveAttribute(
+		await expect(modes.getByRole('link', { name: /^Cerca/ })).toHaveAttribute(
 			'href',
 			'/add/search'
 		);
-		await expect(page.getByRole('link', { name: /Inserisci a mano/ })).toHaveAttribute(
+		await expect(modes.getByRole('link', { name: /^Cerca/ })).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+		await expect(modes.getByRole('link', { name: /Inserisci manualmente/ })).toHaveAttribute(
 			'href',
 			'/add/manual'
 		);
+		await expect(page.getByRole('link', { name: 'Annulla' })).toHaveAttribute('href', '/library');
 	});
 
 	test('inserimento manuale senza alcuna rete verso i cataloghi', async ({ page, account }) => {
@@ -264,6 +270,7 @@ test.describe('aggiungi un libro', () => {
 		await page.route('https://books.google.com/**', (route) =>
 			route.fulfill({ body: PNG_1X1, contentType: 'image/png' })
 		);
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
 
 		await page.goto('/add/search');
 		await page.waitForLoadState('networkidle');
@@ -278,6 +285,10 @@ test.describe('aggiungi un libro', () => {
 			.getByRole('button', { name: /^La sfida del mago Ada Verdi/ })
 			.first()
 			.click();
+		// Il dettaglio a lato mostra il libro scelto; l'aggiunta passa sempre dalla conferma.
+		const detail = page.getByRole('complementary', { name: 'Libro selezionato' });
+		await expect(detail.getByRole('heading', { name: 'La sfida del mago' })).toBeVisible();
+		await detail.getByRole('button', { name: 'Aggiungi alla mia libreria' }).click();
 		const sheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
 		await expect(sheet.getByText('Ada Verdi')).toBeVisible();
 		await choose(sheet, 'Thriller, Gialli e Mistero');
@@ -359,6 +370,7 @@ test.describe('aggiungi un libro', () => {
 				}
 			});
 		});
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
 		await page.goto('/add/scan');
 		await page.waitForLoadState('networkidle');
 		// Senza fotocamera (o con permesso negato) resta l'inserimento a mano dell'ISBN.
@@ -369,6 +381,10 @@ test.describe('aggiungi un libro', () => {
 		await page.getByLabel('Oppure digita l’ISBN').fill(isbn.replace(/^(\d{3})(\d{2})/, '$1-$2-'));
 		await page.getByRole('button', { name: 'Cerca' }).click();
 
+		// ISBN identico: il libro è già selezionato nel dettaglio.
+		const detail = page.getByRole('complementary', { name: 'Libro selezionato' });
+		await expect(detail.getByRole('heading', { name: 'Il libro scansionato' })).toBeVisible();
+		await detail.getByRole('button', { name: 'Aggiungi alla mia libreria' }).click();
 		const sheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
 		await expect(sheet.getByText('Il libro scansionato')).toBeVisible();
 		await choose(sheet, 'Classici');
@@ -495,8 +511,8 @@ test.describe('scanner ISBN: fotocamera', () => {
 		await expect
 			.poll(() => page.evaluate(() => (window as unknown as { __tracks: number }).__tracks))
 			.toBeGreaterThan(0);
-		await page.getByRole('link', { name: 'Indietro' }).click();
-		await page.waitForURL('**/add');
+		await page.getByRole('link', { name: 'Annulla' }).click();
+		await page.waitForURL('**/library');
 		const { stops, tracks } = await page.evaluate(() => {
 			const w = window as unknown as { __stops: number; __tracks: number };
 			return { stops: w.__stops, tracks: w.__tracks };

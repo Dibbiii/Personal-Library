@@ -1,4 +1,5 @@
 import type { EditionCandidate } from '$lib/contracts/books';
+import type { BookInfo } from './book-info';
 import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 import { languageLabel } from './language';
 import type { AddBookRequest } from './schemas';
@@ -90,4 +91,57 @@ export function candidateMeta(candidate: {
 export function seriesLabel(number: number | null, total: number | null): string | null {
 	if (number === null) return null;
 	return total === null ? `Vol. ${number}` : `Vol. ${number} di ${total}`;
+}
+
+/** Chiave stabile di un candidato (per liste e selezione). */
+export function candidateKey(candidate: EditionCandidate): string {
+	const ids = candidate.providerIds;
+	return (
+		candidate.isbn13 ??
+		ids.googleBooksId ??
+		ids.openLibraryEditionId ??
+		ids.openLibraryWorkId ??
+		candidate.editionTitle
+	);
+}
+
+type InfoEdition = BookInfo['editions'][number];
+
+function lastSegment(url: string): string | null {
+	return url.split('/').filter(Boolean).pop() ?? null;
+}
+
+/**
+ * Passa a un'altra edizione dello stesso libro (dalle edizioni di Open Library):
+ * editore, anno, pagine, ISBN e copertina sono quelli dell'edizione scelta.
+ */
+export function draftWithEdition(
+	draft: BookDraft,
+	edition: InfoEdition,
+	workUrl: string
+): BookDraft {
+	const publishedDate = edition.year ? String(edition.year) : null;
+	return {
+		...draft,
+		title: edition.title === 'Senza titolo' ? draft.title : edition.title,
+		pageCount: edition.pages ?? draft.pageCount,
+		language: edition.language ?? draft.language,
+		isbn: edition.isbn13,
+		// Le miniature delle edizioni sono medie: per la libreria si usa la grande.
+		coverUrl: edition.coverUrl?.replace(/-M\.jpg$/, '-L.jpg') ?? draft.coverUrl,
+		publisher: edition.publisher,
+		publishedDate,
+		edition: {
+			provider: 'open-library',
+			providerIds: {
+				openLibraryWorkId: lastSegment(workUrl),
+				openLibraryEditionId: lastSegment(edition.url),
+				googleBooksId: null
+			},
+			workTitle: draft.edition?.workTitle ?? draft.title,
+			authors: draft.edition?.authors ?? [draft.author],
+			publisher: edition.publisher,
+			publishedDate
+		}
+	};
 }
