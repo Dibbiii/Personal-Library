@@ -7,7 +7,7 @@ const query = (input: Record<string, string> = {}) => discoverQuerySchema.parse(
 describe('buildDiscoverSearch', () => {
 	it('ricerca semplice: testo e lingua, ordinamento per rilevanza', () => {
 		expect(buildDiscoverSearch(query({ q: 'Il nome della rosa' }), 2026)).toEqual({
-			q: 'Il nome della rosa language:ita',
+			q: '(title:(Il nome della rosa) OR author:(Il nome della rosa) OR publisher:(Il nome della rosa)) language:ita',
 			sort: 'relevance'
 		});
 	});
@@ -39,9 +39,9 @@ describe('buildDiscoverSearch', () => {
 		);
 	});
 
-	it('toglie i caratteri speciali dal testo', () => {
+	it('toglie i caratteri speciali dal testo e cerca in tutti i metadati testuali', () => {
 		expect(buildDiscoverSearch(query({ q: 'dune) OR (x:*', lang: 'all' }), 2026).q).toBe(
-			'dune OR x'
+			'(title:(dune OR x) OR author:(dune OR x) OR publisher:(dune OR x))'
 		);
 	});
 

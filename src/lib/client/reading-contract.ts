@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { genreSlugSchema } from '$lib/contracts/enums';
+import { bookFormatSchema, genreSlugSchema } from '$lib/contracts/enums';
+import { bookSummarySchema } from '$lib/contracts/books';
 import {
 	isoTimestampSchema,
 	localDateSchema,
@@ -13,7 +14,7 @@ import {
 } from '$lib/contracts/rpc';
 
 /**
- * Contratto JSON degli endpoint /api/reading/* e /api/books/[id]/genre.
+ * Contratto JSON degli endpoint /api/reading/* e /api/books/[id]/*.
  * Importabile sia dal server (validazione in ingresso) sia dal client (tipi e parsing in uscita).
  */
 
@@ -48,6 +49,15 @@ export const changeGenreResponseSchema = z.object({
 	genreSlug: genreSlugSchema
 });
 export type ChangeGenreResponse = z.infer<typeof changeGenreResponseSchema>;
+
+export const changeFormatRequestSchema = z.object({ format: bookFormatSchema });
+export type ChangeFormatRequest = z.infer<typeof changeFormatRequestSchema>;
+
+export const changeFormatResponseSchema = z.object({
+	contractVersion: z.literal(1),
+	book: bookSummarySchema
+});
+export type ChangeFormatResponse = z.infer<typeof changeFormatResponseSchema>;
 
 export const apiErrorSchema = z.object({
 	code: z.enum([

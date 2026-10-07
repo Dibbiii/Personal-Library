@@ -27,7 +27,15 @@ export const reviewSchema = z.object({
 
 	rating: ratingSchema,
 
-	adjectives: z.tuple([nonEmptyTextSchema, nonEmptyTextSchema, nonEmptyTextSchema]),
+	adjectives: z
+		.array(nonEmptyTextSchema.max(24))
+		.max(3)
+		.refine(
+			(values) =>
+							new Set(values.map((value) => value.normalize('NFC').toLocaleLowerCase('it'))).size ===
+							values.length,
+			'Gli aggettivi devono essere distinti.'
+		),
 
 	scores: z.array(reviewScoreSchema),
 	tags: z.array(tagSchema),

@@ -17,6 +17,7 @@ const USER_OWNED_TABLES = [
 	'profiles',
 	'user_preferences',
 	'custom_themes',
+	'user_genre_shelves',
 	'user_books',
 	'reading_queue',
 	'readings',
@@ -26,7 +27,9 @@ const USER_OWNED_TABLES = [
 	'user_book_tags',
 	'quotes',
 	'bingo_boards',
-	'bingo_cells'
+	'bingo_cells',
+	'friendships',
+	'friend_invites'
 ];
 
 (runDb ? describe : describe.skip)('migrations, roles and privileges', () => {
@@ -73,13 +76,14 @@ const USER_OWNED_TABLES = [
 		});
 
 		it('loads the reference data', async () => {
-			const [counts] = await scratchSql<{ genres: number; dims: number; tags: number }[]>`
+			const [counts] = await scratchSql<{ genres: number; dims: number; tags: number; activeTags: number }[]>`
 				select
 					(select count(*)::int from public.genres) as genres,
 					(select count(*)::int from public.rating_dimensions) as dims,
-					(select count(*)::int from public.tags) as tags
+					(select count(*)::int from public.tags) as tags,
+					(select count(*)::int from public.tags where is_active) as "activeTags"
 			`;
-			expect(counts).toEqual({ genres: 7, dims: 35, tags: 27 });
+			expect(counts).toEqual({ genres: 7, dims: 35, tags: 41, activeTags: 18 });
 		});
 	});
 

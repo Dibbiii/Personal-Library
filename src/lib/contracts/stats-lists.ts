@@ -48,6 +48,12 @@ export const createBingoBoardInputSchema = z.object({
 	year: z.number().int().min(1900).max(2200)
 });
 
+export const updateBingoBoardInputSchema = z.object({
+	year: z.number().int().min(1900).max(2200),
+	title: z.string().trim().min(1).max(80),
+	challenges: z.array(z.string().trim().min(1).max(120)).length(16)
+});
+
 export type CompletedBooksResponse = z.infer<typeof completedBooksResponseSchema>;
 export type QuoteListResponse = z.infer<typeof quoteListResponseSchema>;
 export type BingoBoardListItem = z.infer<typeof bingoBoardListItemSchema>;

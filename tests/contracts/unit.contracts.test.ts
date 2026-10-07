@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bingoBoardResponseSchema,
   bookDetailResponseSchema,
+  bookFormatSchema,
   genreViewResponseSchema,
   libraryHomeResponseSchema,
   queueAddResponseSchema,
@@ -118,6 +119,10 @@ describe('contract schemas', () => {
       ],
     };
     expect(genreViewResponseSchema.parse(value)).toEqual(value);
+  });
+
+  it('accepts a book owned in both formats', () => {
+    expect(bookFormatSchema.parse('both')).toBe('both');
   });
 
   it('validates book detail', () => {

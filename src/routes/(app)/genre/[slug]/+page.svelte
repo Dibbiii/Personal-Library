@@ -7,6 +7,14 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import { isGenreSlug } from '$lib/genres';
 	import { buildAddHref } from '$lib/catalog/add-context';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import {
+		TBR_SORT_FIELDS,
+		captionFor,
+		sortTbr,
+		type TbrSortField,
+		type TbrView
+	} from '$lib/components/genre/tbr';
 	import { GENRE_DECOR } from '$lib/components/genre/decor';
 	import type { PageData } from './$types';
 
@@ -18,6 +26,11 @@
 	const queued = $derived(new Set(data.queuedIds));
 	const slug = $derived(data.view.genre.slug);
 	const empty = $derived(data.view.counts.total === 0);
+
+	// "Da leggere": ordine e vista indipendenti dai letti, e mai per voto (non c'è ancora).
+	let tbrSort = $state<TbrSortField>('title');
+	let tbrView = $state<TbrView>('grid');
+	const unreadBooks = $derived(sortTbr(unreadSection.books, tbrSort));
 </script>
 
 <svelte:head><title>{data.view.genre.name} · Segnalibro</title></svelte:head>
@@ -54,14 +67,43 @@
 			/>
 			<ShelfGrid
 				title="Da leggere"
-				books={unreadSection.books}
+				books={unreadBooks}
 				count={unreadSection.count}
-				caption={sortCaption(sort, false)}
+				caption={captionFor(tbrSort)}
 				queuedIds={queued}
 				priorityCount={readSection.count === 0 ? 3 : 0}
 				emptyText="Hai letto tutti i libri di questo genere."
 				decor={GENRE_DECOR[slug].slice(1)}
-			/>
+				view={tbrView}
+				showRating={false}
+			>
+				{#snippet controls()}
+					<div class="tbr-sort" role="group" aria-label="Ordina i libri da leggere">
+						{#each TBR_SORT_FIELDS as { field, label } (field)}
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={tbrSort === field}
+								onclick={() => (tbrSort = field)}>{label}</button
+							>
+						{/each}
+					</div>
+					<div class="tbr-view" role="group" aria-label="Vista dei libri da leggere">
+						<button
+							type="button"
+							aria-pressed={tbrView === 'grid'}
+							aria-label="Vista scaffale"
+							onclick={() => (tbrView = 'grid')}><Icon name="grid" size={18} /></button
+						>
+						<button
+							type="button"
+							aria-pressed={tbrView === 'list'}
+							aria-label="Vista elenco"
+							onclick={() => (tbrView = 'list')}><Icon name="list" size={18} /></button
+						>
+					</div>
+				{/snippet}
+			</ShelfGrid>
 		{/if}
 	</div>
 {/if}
@@ -76,6 +118,49 @@
 
 	.toolbar {
 		padding: 0 4px;
+	}
+
+	.tbr-sort,
+	.tbr-view {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.tbr-view {
+		margin-left: auto;
+		gap: 2px;
+	}
+
+	.chip,
+	.tbr-view button {
+		min-height: 36px;
+		padding: 0 14px;
+		border: 0;
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text-primary);
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.tbr-view button {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 10px;
+	}
+
+	.chip[aria-pressed='true'],
+	.tbr-view button[aria-pressed='true'] {
+		background: var(--genre-current);
+		color: var(--genre-current-on, var(--color-on-primary));
+	}
+
+	.chip:focus-visible,
+	.tbr-view button:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
 	}
 
 	/* Scaffale vuoto: card come le sezioni */

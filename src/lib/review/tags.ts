@@ -1,7 +1,7 @@
 import type { Tag } from '../contracts/reviews';
 
 /**
- * I 27 tag tematici predefiniti (MASTER_SPEC sez. 12), nell'ordine del DB (`tags.sort_order`).
+ * I 18 tag tematici canonici, nell'ordine del DB (`tags.sort_order`).
  * Gli id numerici li decide il DB: la UI lavora sugli slug, il server li risolve in id.
  */
 export interface ThemeTagDef {
@@ -10,33 +10,24 @@ export interface ThemeTagDef {
 }
 
 export const THEME_TAGS: readonly ThemeTagDef[] = [
-	{ slug: 'friendship', label: 'Amicizia' },
-	{ slug: 'love', label: 'Amore' },
-	{ slug: 'adventure', label: 'Avventura' },
-	{ slug: 'growth', label: 'Crescita' },
-	{ slug: 'family', label: 'Famiglia' },
-	{ slug: 'coming-of-age', label: 'Formazione' },
-	{ slug: 'war', label: 'Guerra' },
-	{ slug: 'identity', label: 'Identità' },
-	{ slug: 'magic', label: 'Magia' },
-	{ slug: 'mystery', label: 'Mistero' },
-	{ slug: 'music', label: 'Musica' },
-	{ slug: 'nature', label: 'Natura' },
-	{ slug: 'loss', label: 'Perdita' },
-	{ slug: 'politics', label: 'Politica' },
-	{ slug: 'power', label: 'Potere' },
-	{ slug: 'religion', label: 'Religione' },
-	{ slug: 'revenge', label: 'Vendetta' },
-	{ slug: 'loneliness', label: 'Solitudine' },
-	{ slug: 'survival', label: 'Sopravvivenza' },
-	{ slug: 'betrayal', label: 'Tradimento' },
-	{ slug: 'trauma', label: 'Trauma' },
-	{ slug: 'travel', label: 'Viaggio' },
-	{ slug: 'death', label: 'Morte' },
-	{ slug: 'memory', label: 'Memoria' },
-	{ slug: 'freedom', label: 'Libertà' },
-	{ slug: 'society', label: 'Società' },
-	{ slug: 'technology', label: 'Tecnologia' }
+	{ slug: 'romantico', label: 'Romantico' },
+	{ slug: 'dark-academia', label: 'Dark academia' },
+	{ slug: 'plot-twist', label: 'Plot twist' },
+	{ slug: 'inquietante', label: 'Inquietante' },
+	{ slug: 'disturbante', label: 'Disturbante' },
+	{ slug: 'contorto', label: 'Contorto' },
+	{ slug: 'claustrofobico', label: 'Claustrofobico' },
+	{ slug: 'cupo', label: 'Cupo' },
+	{ slug: 'narratore-inaffidabile', label: 'Narratore inaffidabile' },
+	{ slug: 'character-development', label: 'Character development' },
+	{ slug: 'critica-sociale', label: 'Critica sociale' },
+	{ slug: 'slow-burn', label: 'Slow burn' },
+	{ slug: 'enemies-to-lovers', label: 'Enemies to lovers' },
+	{ slug: 'friends-to-lovers', label: 'Friends to lovers' },
+	{ slug: 'multi-pov', label: 'Multi-POV' },
+	{ slug: 'doppia-linea-temporale', label: 'Doppia linea temporale' },
+	{ slug: 'crescita-personale', label: 'Crescita personale' },
+	{ slug: 'magic', label: 'Magia' }
 ];
 
 export function toggleTag(selected: readonly string[], slug: string): string[] {
@@ -63,7 +54,7 @@ export function resolveTagIds(
 export const TAG_COLLAPSED_COUNT = 9;
 
 /** Tag proposti per primi quando non selezionati (ordine del mockup 05). */
-const SUGGESTED_SLUGS = ['travel', 'revenge', 'loss', 'mystery', 'family'];
+const SUGGESTED_SLUGS = ['plot-twist', 'slow-burn', 'inquietante', 'romantico', 'magic'];
 
 /**
  * Ordine di visualizzazione fissato all'apertura: prima i tag già selezionati (ordine della spec),

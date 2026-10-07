@@ -336,6 +336,23 @@ test('cambio genere di un libro recensito avvisa del reset dei voti specifici', 
 	expect(book?.rating).toBe(4);
 });
 
+test('modifica il formato posseduto dal dettaglio', async ({ page }) => {
+	await openBook(page, 'alfa');
+	await page.getByRole('button', { name: 'Altre azioni' }).click();
+	await page.getByRole('menuitem', { name: 'Modifica formato' }).click();
+
+	const sheet = page.getByRole('dialog', { name: 'Modifica formato' });
+	await expect(sheet.getByRole('radio')).toHaveCount(3);
+	await sheet.getByRole('radio', { name: 'Entrambi' }).check();
+	await sheet.getByRole('button', { name: 'Salva formato' }).click();
+
+	await expect(page.getByTestId('notice')).toContainText('Formato aggiornato.');
+	await expect(page.getByText('Entrambi', { exact: true }).first()).toBeVisible();
+	const [book] = await sql<{ format: string }[]>`
+			select format from public.user_books where id = ${ids.alfa}::uuid`;
+	expect(book?.format).toBe('both');
+});
+
 test('soft limit della coda dal dettaglio, poi rimozione dai prossimi', async ({ page }) => {
 	await openBook(page, 'eta');
 	await page.getByTestId('move-button').click();

@@ -2,6 +2,7 @@ import type {
 	BookDetailResponse,
 	BookSearchRequest,
 	BookSearchResponse,
+	ChangeBookFormatInput,
 	ChangeBookGenreInput,
 	GenreViewResponse,
 	IsbnLookupRequest,
@@ -47,7 +48,24 @@ import type { ShelfCursor, QueueBook, BookSummary } from '../contracts/books';
 
 import type { ThemeDefinition, ThemeSelection } from '../contracts/themes';
 
-import type { UpdateSettingsInput, UserExport, UserSettings } from '../contracts/settings';
+import type {
+	UpdateSettingsInput,
+	UpdateUserGenreShelvesInput,
+	UserExport,
+	UserGenreShelvesResponse,
+	UserSettings
+} from '../contracts/settings';
+import type {
+	CreateFriendInviteResponse,
+	DeleteFriendshipInput,
+	FriendPrivacy,
+	FriendProfile,
+	FriendLibraryVisibilityResponse,
+	FriendshipsResponse,
+	RedeemFriendInviteInput,
+	RedeemFriendInviteResponse,
+	SetFriendLibraryVisibilityInput
+} from '../contracts/friendships';
 
 export interface LibraryRepository {
 	getHome(options?: { shelfLimit?: number }): Promise<LibraryHomeResponse>;
@@ -74,6 +92,8 @@ export interface LibraryRepository {
 		book: BookSummary;
 		reviewScoresReset: boolean;
 	}>;
+
+	changeFormat(input: ChangeBookFormatInput): Promise<BookSummary>;
 }
 
 export interface QueueRepository {
@@ -127,6 +147,12 @@ export interface BingoRepository {
 	listBoards(): Promise<BingoBoardListResponse>;
 	/** Crea la card dell'anno con le 16 sfide di default (CONFLICT se esiste già). */
 	createBoard(year: number): Promise<BingoBoard>;
+	updateBoard(input: {
+		year: number;
+		title: string;
+		challenges: string[];
+	}): Promise<BingoBoard>;
+	deleteBoard(year: number): Promise<void>;
 }
 
 /** Letture di Statistiche non coperte da StatsRepository: elenco citazioni e ripartizione generi. */
@@ -162,10 +188,24 @@ export interface SettingsRepository {
 	get(): Promise<UserSettings>;
 	update(input: UpdateSettingsInput): Promise<UserSettings>;
 	exportData(): Promise<UserExport>;
+	getGenreShelves(): Promise<UserGenreShelvesResponse>;
+	updateGenreShelves(input: UpdateUserGenreShelvesInput): Promise<UserGenreShelvesResponse>;
+}
+
+export interface FriendshipsRepository {
+	getAll(): Promise<FriendshipsResponse>;
+	createInvite(): Promise<CreateFriendInviteResponse>;
+	redeemInvite(input: RedeemFriendInviteInput): Promise<RedeemFriendInviteResponse>;
+	remove(input: DeleteFriendshipInput): Promise<void>;
+	setLibraryVisibility(input: SetFriendLibraryVisibilityInput): Promise<FriendLibraryVisibilityResponse>;
+	getPrivacy(): Promise<FriendPrivacy>;
+	setVisibility(input: Partial<Omit<FriendPrivacy, 'contractVersion'>>): Promise<FriendPrivacy>;
+	getProfile(friendId: string): Promise<FriendProfile>;
 }
 
 export interface SegnalibroRepositories {
 	settings: SettingsRepository;
+	friendships: FriendshipsRepository;
 	library: LibraryRepository;
 	queue: QueueRepository;
 	reading: ReadingRepository;

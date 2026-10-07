@@ -4,6 +4,7 @@
 	import type { BookInfo } from '$lib/catalog/book-info';
 	import BookCover from '$lib/components/book/BookCover.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
 	import RatingStars from '$lib/components/ui/RatingStars.svelte';
 	import { resolveCoverUrl } from '$lib/book/cover-url';
 	import { seriesVolumeLabel, type StatusChoice } from '$lib/client/reading-logic';
@@ -34,7 +35,7 @@
 		actions
 	}: Props = $props();
 
-	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
+
 
 	const art = $derived(resolveCoverUrl(book.cover));
 	const volume = $derived(
@@ -115,7 +116,7 @@
 				</div>
 			{/if}
 			<div>
-				<Icon name={book.format === 'digital' ? 'smartphone' : 'file-text'} size={20} />
+				<Icon name={FORMAT_ICONS[book.format]} size={20} />
 				<dt>Formato</dt>
 				<dd>{FORMAT_LABELS[book.format]}</dd>
 			</div>

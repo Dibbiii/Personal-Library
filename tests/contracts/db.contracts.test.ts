@@ -4,6 +4,7 @@ import {
   bingoBoardResponseSchema,
   bookDetailResponseSchema,
   explorePoolResponseSchema,
+  bookFormatChangeResponseSchema,
   genreChangeResponseSchema,
   genreViewResponseSchema,
   libraryHomeResponseSchema,
@@ -16,6 +17,7 @@ import {
   statsDashboardResponseSchema,
   themeMutationResponseSchema,
   yearStatsResponseSchema,
+  userGenreShelvesResponseSchema,
 } from '../../src/lib/contracts';
 import { runDb } from '../helpers/env'; // first: sets DATABASE_URL defaults
 import { createContractFixture, type ContractFixture } from '../helpers/fixture';
@@ -25,6 +27,7 @@ import './migrations.contracts';
 import './auth.contracts';
 import './rls.contracts';
 import './catalog.contracts';
+import './friendships.contracts';
 import './seed.contracts';
 
 (runDb ? describe : describe.skip)('PostgreSQL RPC contract v1', () => {
@@ -49,6 +52,39 @@ import './seed.contracts';
 
     expect(home.contractVersion).toBe(1);
     expect(home.shelves).toHaveLength(7);
+  });
+
+  it('renames and reorders the seven personal shelves without changing home/view contracts', async () => {
+    const initial = await expectRpcContract(
+      fx.client,
+      'get_user_genre_shelves',
+      {},
+      userGenreShelvesResponseSchema,
+    );
+    const genres = initial.genres.map((genre, index) => ({
+      slug: genre.slug,
+      name: genre.slug === 'fantasy-magical-gothic' ? 'Mondi fantastici' : genre.name,
+      sort_order: 7 - index,
+    }));
+    const saved = await expectRpcContract(
+      fx.client,
+      'update_user_genre_shelves',
+      { p_genres: genres },
+      userGenreShelvesResponseSchema,
+    );
+
+    expect(saved.genres[0]?.slug).toBe(initial.genres[6]?.slug);
+    expect(saved.genres.find((genre) => genre.slug === 'fantasy-magical-gothic')?.name).toBe('Mondi fantastici');
+
+    const home = await expectRpcContract(fx.client, 'get_library_home', { p_shelf_limit: 24 }, libraryHomeResponseSchema);
+    expect(home.shelves[0]?.genre.slug).toBe(initial.genres[6]?.slug);
+    const view = await expectRpcContract(
+      fx.client,
+      'get_genre_view',
+      { p_genre_slug: 'fantasy-magical-gothic', p_sort_field: 'title', p_sort_direction: 'asc', p_limit: 48, p_offset: 0 },
+      genreViewResponseSchema,
+    );
+    expect(view.genre.name).toBe('Mondi fantastici');
   });
 
   it('get_shelf_page uses the keyset contract', async () => {
@@ -212,7 +248,7 @@ import './seed.contracts';
           { dimension_key: 'fantasy.worldbuilding', score: 5 },
           { dimension_key: 'fantasy.characters', score: 4 },
         ],
-        p_tag_ids: [fx.tags.magic, fx.tags.friendship],
+        p_tag_ids: [fx.tags.magic, fx.tags.romantico],
       },
       reviewSaveResultSchema,
     );
@@ -366,6 +402,17 @@ import './seed.contracts';
 
     expect(changed.book.genre.slug).toBe('mythology-epic-retelling');
     expect(changed.reviewScoresReset).toBe(true);
+  });
+
+  it('book format accepts both owned formats and returns the summary contract', async () => {
+    const changed = await expectRpcContract(
+      fx.client,
+      'change_book_format',
+      { p_book_id: fx.books.classic, p_format: 'both' },
+      bookFormatChangeResponseSchema,
+    );
+
+    expect(changed.book.format).toBe('both');
   });
 
   it('stats dashboard returns nested v1 read models', async () => {

@@ -57,7 +57,7 @@
 	}
 </script>
 
-<ReviewCard title="Il libro in 3 aggettivi" required>
+<ReviewCard title="Il libro in 3 aggettivi">
 	{#snippet aside()}
 		<span class="counter" aria-live="polite">
 			<span class="sr-only">Aggettivi inseriti: </span>{adjectives.length}/{ADJECTIVE_COUNT}
@@ -107,7 +107,9 @@
 	</div>
 
 	<p id="{uid}-help" class="help" class:error={error !== null} role={error ? 'alert' : undefined}>
-		{error ? ADJECTIVE_ERROR_MESSAGES[error] : 'Campo obbligatorio: scrivine esattamente 3.'}
+		{error
+			? ADJECTIVE_ERROR_MESSAGES[error]
+			: 'Facoltativi: puoi aggiungerne fino a 3, tutti distinti.'}
 	</p>
 </ReviewCard>
 

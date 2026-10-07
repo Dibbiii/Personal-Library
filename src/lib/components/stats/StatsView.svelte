@@ -21,11 +21,21 @@
 		bingo: BingoBoardListItem | null;
 		quotes: QuotePreview[];
 		dnf: DnfBook[];
+		englishBooks: number;
 		/** Il Cimitero DNF ha anche una scheda sua nel Profilo. */
 		showDnf?: boolean;
 	}
 
-	let { year, stats, genreBreakdown, bingo, quotes, dnf, showDnf = true }: Props = $props();
+	let {
+		year,
+		stats,
+		genreBreakdown,
+		bingo,
+		quotes,
+		dnf,
+		englishBooks,
+		showDnf = true
+	}: Props = $props();
 
 	const hasData = $derived(stats.booksFinished > 0 || stats.pagesRead > 0);
 
@@ -97,9 +107,14 @@
 			<p class="sub">{plural(stats.pagesRead, 'pagina', 'pagine')} nel {year}</p>
 		</StatCard>
 
-		<StatCard icon="flame" label="Streak di lettura" class="streak">
-			<p class="value v24">{countLabel(stats.currentStreak, 'giorno', 'giorni')}</p>
-			<p class="sub">Record: {countLabel(stats.recordStreak, 'giorno', 'giorni')}</p>
+		<StatCard icon="globe" label="Letti in inglese" class="language">
+			<p class="value v24">{formatNumber(englishBooks)}</p>
+			<p class="sub">{countLabel(englishBooks, 'libro completato', 'libri completati')}</p>
+		</StatCard>
+
+		<StatCard icon="flower" label="Libri non finiti" class="dnf-count">
+			<p class="value v24">{formatNumber(dnf.length)}</p>
+			<p class="sub">{countLabel(dnf.length, 'abbandonato', 'abbandonati')} nel {year}</p>
 		</StatCard>
 
 		<StatCard icon="tag" label="Tag più usati" class="tags">

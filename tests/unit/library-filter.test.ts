@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	matchesQuery,
 	normalizeQuery,
+	parseLibraryCollection,
 	sortBooks
 } from '../../src/lib/components/library/library-filter';
 import type { BookSummary } from '../../src/lib/contracts';
@@ -28,6 +29,13 @@ function book(title: string, author: string, reviewRating: number | null = null)
 }
 
 describe('library-filter', () => {
+	it('accetta solo le raccolte raggiungibili dagli scaffali della Home', () => {
+		expect(parseLibraryCollection('reading')).toBe('reading');
+		expect(parseLibraryCollection('queue')).toBe('queue');
+		expect(parseLibraryCollection('all')).toBeNull();
+		expect(parseLibraryCollection(null)).toBeNull();
+	});
+
 	it('cerca in titolo, autore e genere senza accenti né maiuscole', () => {
 		const odissea = book('Odissèa', 'Omero');
 		expect(matchesQuery(odissea, normalizeQuery('ODISSEA'))).toBe(true);

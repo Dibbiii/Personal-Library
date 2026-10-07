@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { DataErrorCode } from '$lib/data/errors';
 import { readingMutationResultSchema, type ReadingMutationResult } from '$lib/contracts/readings';
-import type { GenreSlug } from '$lib/contracts/enums';
+import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 import {
 	newEventId,
 	OutboxRejectedError,
@@ -9,15 +9,17 @@ import {
 } from '$lib/offline/outbox';
 import {
 	apiErrorSchema,
+	changeFormatResponseSchema,
 	changeGenreResponseSchema,
 	type AddCompletedRequest,
+	type ChangeFormatResponse,
 	type ChangeGenreResponse,
 	type ReadingEventRequest,
 	type StartReadingRequest
 } from './reading-contract';
 
 /**
- * Client HTTP per gli endpoint /api/reading/* e /api/books/[id]/genre.
+ * Client HTTP per gli endpoint /api/reading/* e /api/books/[id]/*.
  * Gli errori portano un `code` (DataErrorCode): la UI reagisce al codice, mai al testo.
  */
 
@@ -115,6 +117,17 @@ export const changeBookGenre = (
 		'PATCH',
 		{ genreSlug },
 		changeGenreResponseSchema
+	);
+
+export const changeBookFormat = (
+	bookId: string,
+	format: BookFormat
+): Promise<ChangeFormatResponse> =>
+	request(
+		`/api/books/${encodeURIComponent(bookId)}/format`,
+		'PATCH',
+		{ format },
+		changeFormatResponseSchema
 	);
 
 export interface ReadingOpResult {

@@ -15,6 +15,12 @@
 		sampleSlices,
 		seededRandomInt
 	} from '$lib/explore/wheel';
+	import {
+		WHEEL_FORMAT_OPTIONS,
+		matchesWheelFormat,
+		wheelFormatCounts,
+		type WheelFormatFilter
+	} from '$lib/explore/wheel-filter';
 	import FortuneWheel from './FortuneWheel.svelte';
 	import GenreFilterChips from './GenreFilterChips.svelte';
 
@@ -28,19 +34,25 @@
 	const SPIN_MS = 4600;
 
 	let selected = $state<GenreSlug[]>([]);
+	let formatFilter = $state<WheelFormatFilter>('all');
 	let rotation = $state(0);
 	let duration = $state(0);
 	let spinning = $state(false);
 	let result = $state.raw<BookSummary | null>(null);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
+	const byFormat = $derived(pool.filter((book) => matchesWheelFormat(book, formatFilter)));
+	const formatCounts = $derived(wheelFormatCounts(pool));
+
 	const filtered = $derived(
-		selected.length === 0 ? pool : pool.filter((book) => selected.includes(book.genre.slug))
+		selected.length === 0
+			? byFormat
+			: byFormat.filter((book) => selected.includes(book.genre.slug))
 	);
 
 	const counts = $derived.by(() => {
 		const map: Partial<Record<GenreSlug, number>> = {};
-		for (const book of pool) map[book.genre.slug] = (map[book.genre.slug] ?? 0) + 1;
+		for (const book of byFormat) map[book.genre.slug] = (map[book.genre.slug] ?? 0) + 1;
 		return map;
 	});
 
@@ -69,6 +81,12 @@
 
 	function clearGenres() {
 		selected = [];
+		resetWheel();
+	}
+
+	function chooseFormat(value: WheelFormatFilter) {
+		if (value === formatFilter) return;
+		formatFilter = value;
 		resetWheel();
 	}
 
@@ -178,6 +196,19 @@
 	</p>
 
 	{#if pool.length > 0}
+		<div class="formats" role="group" aria-label="Formato dei libri">
+			{#each WHEEL_FORMAT_OPTIONS as option (option.value)}
+				<button
+					type="button"
+					class="format-chip"
+					aria-pressed={formatFilter === option.value}
+					onclick={() => chooseFormat(option.value)}
+				>
+					{option.label}
+					<span class="format-count">{formatCounts[option.value]}</span>
+				</button>
+			{/each}
+		</div>
 		<GenreFilterChips {selected} {counts} ontoggle={toggleGenre} onclear={clearGenres} />
 	{/if}
 
@@ -192,9 +223,22 @@
 		{:else if filtered.length === 0}
 			<div class="empty">
 				<Icon name="tag" size={32} strokeWidth={1.6} />
-				<h3>Nessun libro in questi generi</h3>
-				<p>Non ci sono libri non letti in {selectedLabel}. Prova con un altro genere.</p>
-				<Button variant="secondary" size="sm" onclick={clearGenres}>Mostra tutti i non letti</Button
+				<h3>Nessun libro con questi filtri</h3>
+				<p>
+					Non ci sono libri non letti{selected.length > 0 ? ` in ${selectedLabel}` : ''}{formatFilter ===
+					'physical'
+						? ' in formato cartaceo'
+						: formatFilter === 'digital'
+							? ' in formato digitale'
+							: ''}. Prova con un altro filtro.
+				</p>
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => {
+						formatFilter = 'all';
+						clearGenres();
+					}}>Mostra tutti i non letti</Button
 				>
 			</div>
 		{:else}
@@ -288,6 +332,43 @@
 		font-size: 14px;
 		line-height: 20px;
 		color: var(--color-text-secondary);
+	}
+
+	.formats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 14px;
+	}
+
+	.format-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		min-height: var(--tap-size);
+		padding: 0 16px;
+		border: 0;
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		color: var(--color-text-primary);
+		font-size: 14px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.format-chip[aria-pressed='true'] {
+		background: var(--color-primary);
+		color: var(--color-on-primary);
+	}
+
+	.format-chip:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.format-count {
+		opacity: 0.75;
+		font-size: 12.5px;
 	}
 
 	.card {

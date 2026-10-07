@@ -10,7 +10,12 @@ import {
 	shelfSchema,
 	editionCandidateSchema
 } from './books';
-import { genreSortFieldSchema, genreSlugSchema, sortDirectionSchema } from './enums';
+import {
+	bookFormatSchema,
+	genreSortFieldSchema,
+	genreSlugSchema,
+	sortDirectionSchema
+} from './enums';
 import { readingHistoryItemSchema, readingMutationResultSchema, readingSchema } from './readings';
 import { quoteSchema, reviewSchema, reviewSaveResultSchema } from './reviews';
 import {
@@ -170,11 +175,24 @@ export const changeBookGenreInputSchema = z.object({
 	genreSlug: genreSlugSchema
 });
 
+export const changeBookFormatInputSchema = z.object({
+	bookId: uuidSchema,
+	format: bookFormatSchema
+});
+
 export const saveReviewInputSchema = z.object({
 	bookId: uuidSchema,
 	rating: ratingSchema,
 
-	adjectives: z.tuple([nonEmptyTextSchema, nonEmptyTextSchema, nonEmptyTextSchema]),
+	adjectives: z
+		.array(nonEmptyTextSchema.max(24))
+		.max(3)
+		.refine(
+			(values) =>
+				new Set(values.map((value) => value.normalize('NFC').toLocaleLowerCase('it'))).size ===
+				values.length,
+			'Gli aggettivi devono essere distinti.'
+		),
 
 	scores: z.array(
 		z.object({
@@ -226,6 +244,11 @@ export const genreChangeResponseSchema = z.object({
 	contractVersion: contractVersionSchema,
 	book: bookSummarySchema,
 	reviewScoresReset: z.boolean()
+});
+
+export const bookFormatChangeResponseSchema = z.object({
+	contractVersion: contractVersionSchema,
+	book: bookSummarySchema
 });
 
 export const themeMutationResponseSchema = z.object({
@@ -283,6 +306,7 @@ export type QueueAddResponse = z.infer<typeof queueAddResponseSchema>;
 export type QueueMoveInput = z.infer<typeof queueMoveInputSchema>;
 
 export type ChangeBookGenreInput = z.infer<typeof changeBookGenreInputSchema>;
+export type ChangeBookFormatInput = z.infer<typeof changeBookFormatInputSchema>;
 export type SaveReviewInput = z.infer<typeof saveReviewInputSchema>;
 
 export type BingoAssignInput = z.infer<typeof bingoAssignInputSchema>;

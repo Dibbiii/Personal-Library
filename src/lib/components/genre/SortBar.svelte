@@ -41,7 +41,9 @@
 			</a>
 		{/each}
 	</nav>
-	<p class="note">L'ordine vale dentro ogni sezione: i libri letti restano sempre in cima.</p>
+	<p class="note">
+			Vale per i libri letti. I libri da leggere hanno i loro filtri, senza voto.
+		</p>
 </section>
 
 <style>

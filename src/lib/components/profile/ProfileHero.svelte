@@ -77,6 +77,9 @@
 					{#if email && email !== name}<p class="handle">{email}</p>{/if}
 				</div>
 				<div class="actions">
+					<a class="primary" href="/friends">
+						<Icon name="user" size={17} strokeWidth={2} />Amici
+					</a>
 					<a class="primary" href="/settings">
 						<Icon name="settings" size={17} strokeWidth={2} />Modifica profilo
 					</a>
@@ -290,7 +293,9 @@
 
 	.actions {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: center;
 		gap: 8px;
 	}
 

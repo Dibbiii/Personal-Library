@@ -19,6 +19,10 @@ export interface LibraryCounts {
 	unread: number;
 	physical: number;
 	digital: number;
+	/** Posseduti sia in cartaceo sia in digitale. */
+	both: number;
+	/** Libri completati la cui lingua è inglese (en, eng, en-GB, en-US). */
+	englishRead: number;
 	reread: number;
 }
 
@@ -38,6 +42,10 @@ export function libraryCounts(home: LibraryHomeResponse): LibraryCounts {
 		).length,
 		physical: books.filter((book) => book.format === 'physical').length,
 		digital: books.filter((book) => book.format === 'digital').length,
+		both: books.filter((book) => book.format === 'both').length,
+		englishRead: books.filter(
+			(book) => book.completedReadingsCount > 0 && /^(en|eng)(-|$)/i.test(book.language ?? '')
+		).length,
 		reread: books.filter((book) => book.completedReadingsCount > 1).length
 	};
 }

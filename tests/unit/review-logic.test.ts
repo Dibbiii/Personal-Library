@@ -33,6 +33,10 @@ const migration004 = readFileSync(
 	path.resolve(process.cwd(), 'db/migrations/004_reference_data.sql'),
 	'utf8'
 );
+const migration203 = readFileSync(
+	path.resolve(process.cwd(), 'db/migrations/203_canonical_italian_tags.sql'),
+	'utf8'
+);
 
 describe('dimensioni per genere', () => {
 	it('ogni genere ha 5 dimensioni con chiavi uniche e prefisso coerente', () => {
@@ -80,7 +84,7 @@ describe('dimensioni per genere', () => {
 	});
 });
 
-describe('tre aggettivi', () => {
+describe('aggettivi facoltativi', () => {
 	it('normalizza spazi e maiuscola iniziale', () => {
 		expect(normalizeAdjective('  epico ')).toBe('Epico');
 		expect(normalizeAdjective('fuori   dal tempo')).toBe('Fuori dal tempo');
@@ -107,9 +111,11 @@ describe('tre aggettivi', () => {
 		expect(removeAdjective(['A', 'B', 'C'], 1)).toEqual(['A', 'C']);
 	});
 
-	it('è valido solo con esattamente 3 distinti', () => {
+	it('sono validi da 0 a 3 se non vuoti e distinti', () => {
+		expect(areAdjectivesValid([])).toBe(true);
+		expect(areAdjectivesValid(['A'])).toBe(true);
+		expect(areAdjectivesValid(['A', 'B'])).toBe(true);
 		expect(areAdjectivesValid(['A', 'B', 'C'])).toBe(true);
-		expect(areAdjectivesValid(['A', 'B'])).toBe(false);
 		expect(areAdjectivesValid(['A', 'a', 'C'])).toBe(false);
 		expect(areAdjectivesValid(['A', '', 'C'])).toBe(false);
 		expect(areAdjectivesValid(['A', 'B', 'C', 'D'])).toBe(false);
@@ -117,13 +123,13 @@ describe('tre aggettivi', () => {
 });
 
 describe('tag tematici', () => {
-	it('sono i 27 predefiniti della spec e coincidono con la migration 004', () => {
-		expect(THEME_TAGS).toHaveLength(27);
-		const rows = [...migration004.matchAll(/\('([a-z-]+)',\s*'([^']+)',\s*(\d+),\s*true\)/g)].map(
+	it('sono i 18 canonici e coincidono con la migration 203', () => {
+		expect(THEME_TAGS).toHaveLength(18);
+		const rows = [...migration203.matchAll(/\('([a-z-]+)',\s*'([^']+)',\s*(\d+),\s*true\)/g)].map(
 			(m) => ({ slug: m[1]!, label: m[2]!, order: Number(m[3]) })
 		);
 		const defined = THEME_TAGS.map((t, i) => ({ slug: t.slug, label: t.label, order: i + 1 }));
-		expect(rows.filter((r) => defined.some((d) => d.slug === r.slug))).toEqual(defined);
+		expect(rows).toEqual(defined);
 	});
 
 	it('toggle aggiunge e toglie', () => {
@@ -134,32 +140,34 @@ describe('tag tematici', () => {
 	it('risolve gli slug in id e segnala quelli sconosciuti', () => {
 		const reference = [
 			{ id: 9, slug: 'magic' },
-			{ id: 1, slug: 'friendship' }
+			{ id: 2, slug: 'romantico' }
 		];
-		expect(resolveTagIds(['magic', 'friendship', 'magic'], reference)).toEqual({
-			ids: [9, 1],
+		expect(resolveTagIds(['magic', 'romantico', 'magic'], reference)).toEqual({
+			ids: [9, 2],
 			unknown: []
 		});
 		expect(resolveTagIds(['magic', 'nope'], reference).unknown).toEqual(['nope']);
 	});
 
 	it('mostra i selezionati per primi e poi i suggeriti, senza spostare i chip', () => {
-		const ordered = orderTagsForDisplay(['magic', 'coming-of-age', 'music', 'friendship']);
+		const ordered = orderTagsForDisplay(['magic', 'slow-burn', 'romantico']);
 		expect(ordered.slice(0, 9).map((t) => t.label)).toEqual([
-			'Amicizia',
-			'Formazione',
+			'Romantico',
+			'Slow burn',
 			'Magia',
-			'Musica',
-			'Viaggio',
-			'Vendetta',
-			'Perdita',
-			'Mistero',
-			'Famiglia'
+			'Plot twist',
+			'Inquietante',
+			'Dark academia',
+			'Disturbante',
+			'Contorto',
+			'Claustrofobico'
 		]);
 		expect(visibleTags(ordered, [], false)).toHaveLength(9);
-		expect(visibleTags(ordered, [], true)).toHaveLength(27);
+		expect(visibleTags(ordered, [], true)).toHaveLength(18);
 		// un tag scelto dopo l'espansione resta visibile anche se richiudi
-		expect(visibleTags(ordered, ['technology'], false).map((t) => t.slug)).toContain('technology');
+		expect(visibleTags(ordered, ['doppia-linea-temporale'], false).map((t) => t.slug)).toContain(
+			'doppia-linea-temporale'
+		);
 	});
 });
 
@@ -190,13 +198,17 @@ describe('bozza e salvataggio', () => {
 		expect(draftFromReview(null, 'classics')).toEqual(emptyDraft());
 	});
 
-	it('richiede voto e 3 aggettivi, dice cosa manca', () => {
-		expect(missingFields(emptyDraft())).toEqual(['adjectives', 'rating']);
-		expect(missingFields({ ...emptyDraft(), rating: 3 })).toEqual(['adjectives']);
-		expect(canSave({ ...emptyDraft(), rating: 3, adjectives: ['A', 'B', 'C'] })).toBe(true);
-		expect(missingMessage(['adjectives', 'rating'])).toBe(
-			'Bozza non ancora salvata: mancano i 3 aggettivi e il voto.'
-		);
+	it('richiede solo il voto e conserva 0-3 aggettivi nella richiesta', () => {
+		expect(missingFields(emptyDraft())).toEqual(['rating']);
+		expect(missingFields({ ...emptyDraft(), rating: 3 })).toEqual([]);
+		for (const adjectives of [[], ['A'], ['A', 'B'], ['A', 'B', 'C']]) {
+			const draft = { ...emptyDraft(), rating: 3, adjectives };
+			expect(canSave(draft)).toBe(true);
+			expect(toSaveRequest('11111111-1111-4111-8111-111111111111', 'classics', draft)?.adjectives).toEqual(
+				adjectives
+			);
+		}
+		expect(missingMessage(['rating'])).toBe('Bozza non ancora salvata: manca il voto.');
 	});
 
 	it('confronta le bozze ignorando l ordine di tag e punteggi', () => {

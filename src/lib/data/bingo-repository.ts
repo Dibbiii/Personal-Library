@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { bingoBoardResponseSchema } from '../contracts/rpc';
 import { bingoBoardListResponseSchema } from '../contracts/stats-lists';
 
@@ -42,5 +43,24 @@ export class RpcBingoRepository implements BingoRepository {
 			bingoBoardResponseSchema
 		);
 		return response.board;
+	}
+
+	async updateBoard(input: { year: number; title: string; challenges: string[] }) {
+		const response = await callRpc(
+			this.transport,
+			RPC.bingoUpdateBoard,
+			{ p_year: input.year, p_title: input.title, p_challenges: input.challenges },
+			bingoBoardResponseSchema
+		);
+		return response.board;
+	}
+
+	async deleteBoard(year: number) {
+		await callRpc(
+			this.transport,
+			RPC.bingoDeleteBoard,
+			{ p_year: year },
+			z.object({ contractVersion: z.literal(1), ok: z.literal(true) })
+		);
 	}
 }

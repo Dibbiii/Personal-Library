@@ -119,6 +119,22 @@ describe('ranking (ISBN > titolo > autore > lingua > cover > metadati)', () => {
 		]);
 	});
 
+	it('un editore pertinente è considerato senza superare un titolo pertinente', () => {
+		const titleMatch = candidate({ editionTitle: 'Dune', publisher: 'Altro' });
+		const publisherMatch = candidate({
+			editionTitle: 'Altro libro',
+			workTitle: 'Altro libro',
+			publisher: 'Fanucci'
+		});
+		const order = rankCandidates([publisherMatch, titleMatch], {
+			title: 'Dune',
+			author: 'Dune',
+			publisher: 'Fanucci'
+		});
+		expect(order.map((item) => item.editionTitle)).toEqual(['Dune', 'Altro libro']);
+		expect(order[1]?.matchReasons).toContain('publisher-match');
+	});
+
 	it('a parità di testo: lingua, poi cover, poi metadati', () => {
 		const base = { title: 'Dune', author: 'Frank Herbert', language: 'it' };
 		const italian = candidate({ language: 'it' });

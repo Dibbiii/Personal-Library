@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BookCover from '$lib/components/book/BookCover.svelte';
+	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
 	import { bingoRemaining, countLabel, formatNumber, plural } from '$lib/components/stats/format';
 	import QuoteListItem from '$lib/components/stats/QuoteListItem.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -15,7 +16,6 @@
 	} from '$lib/contracts';
 	import {
 		favoriteBooks,
-		lastSevenDays,
 		libraryBooks,
 		pagesByMonth,
 		percentOf,
@@ -63,25 +63,18 @@
 	const completed = $derived(bingo?.completedCount ?? 0);
 	const favorites = $derived(favoriteBooks(libraryBooks(home)));
 	const activity = $derived(recentActivity(home, dnf, 4));
-	const week = $derived(lastSevenDays(calendar));
-	const formats = $derived([
-		{
-			key: 'physical',
-			label: 'Cartaceo',
-			icon: 'book-open' as const,
-			percent: percentOf(counts.physical, counts.physical + counts.digital),
+
+	const formatTotal = $derived(counts.physical + counts.digital + counts.both);
+	const formats = $derived(
+		(['physical', 'digital', 'both'] as const).map((key) => ({
+			key,
+			label: FORMAT_LABELS[key],
+			icon: FORMAT_ICONS[key],
+			percent: percentOf(counts[key], formatTotal),
 			color: 'var(--color-primary)',
-			title: countLabel(counts.physical, 'libro', 'libri')
-		},
-		{
-			key: 'digital',
-			label: 'Digitale',
-			icon: 'smartphone' as const,
-			percent: percentOf(counts.digital, counts.physical + counts.digital),
-			color: 'var(--color-primary)',
-			title: countLabel(counts.digital, 'libro', 'libri')
-		}
-	]);
+			title: countLabel(counts[key], 'libro', 'libri')
+		}))
+	);
 
 	interface Collection {
 		key: string;
@@ -156,20 +149,15 @@
 		</div>
 	</ProfileCard>
 
-	<ProfileCard icon="flame" title="Streak di lettura" class="c-streak">
-		<p class="hero-num">{countLabel(stats.currentStreak, 'giorno', 'giorni')}</p>
-		<p class="sub">Record: {countLabel(stats.recordStreak, 'giorno', 'giorni')}</p>
-		{#if isCurrentYear}
-			<ol class="week" aria-label="Ultimi 7 giorni">
-				{#each week as day (day.key)}
-					<li class:read={day.read} class:today={day.today}>
-						<span class="dot" title={day.read ? 'Hai letto' : 'Nessuna lettura'}></span>
-						<span class="day">{day.label}</span>
-						<span class="sr-only">{day.read ? 'letto' : 'non letto'}</span>
-					</li>
-				{/each}
-			</ol>
-		{/if}
+	<ProfileCard icon="globe" title="Libri letti in inglese" class="c-language">
+		<p class="hero-num">{formatNumber(counts.englishRead)}</p>
+		<p class="sub">{countLabel(counts.englishRead, 'libro completato', 'libri completati')}</p>
+	</ProfileCard>
+
+	<ProfileCard icon="flower" title="Libri non finiti" class="c-dnf">
+		<p class="hero-num">{formatNumber(dnf.length)}</p>
+		<p class="sub">{countLabel(dnf.length, 'libro abbandonato', 'libri abbandonati')} nel {year}</p>
+		<a class="ghost-link" href={tabHref('dnf')}>Apri il cimitero DNF</a>
 	</ProfileCard>
 
 	<ProfileCard icon="file-text" title="Pagine lette" class="c-pages">
@@ -218,7 +206,7 @@
 	</ProfileCard>
 
 	<ProfileCard icon="book-open" title="Come leggi" class="c-format">
-		{#if counts.physical + counts.digital > 0}
+		{#if formatTotal > 0}
 			<ShareBars rows={formats} />
 			<p class="note">
 				{#if counts.reread > 0}
@@ -317,7 +305,8 @@
 		}
 
 		.overview :global(.c-bingo),
-		.overview :global(.c-streak),
+		.overview :global(.c-language),
+		.overview :global(.c-dnf),
 		.overview :global(.c-pages),
 		.overview :global(.c-days) {
 			grid-column: span 3;
@@ -458,44 +447,6 @@
 		background: var(--color-surface);
 	}
 
-	/* ---- Streak ------------------------------------------------------- */
-	.week {
-		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
-		gap: 2px;
-		margin: auto 0 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.week li {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.week .dot {
-		width: 14px;
-		height: 14px;
-		border-radius: 50%;
-		background: color-mix(in srgb, var(--color-divider) 55%, transparent);
-	}
-
-	.week .read .dot {
-		background: var(--color-primary-deep);
-	}
-
-	.week .today .dot {
-		box-shadow:
-			0 0 0 2px var(--color-surface-elevated),
-			0 0 0 3px var(--color-primary);
-	}
-
-	.week .day {
-		color: var(--color-text-muted);
-		font-size: 10px;
-	}
 
 	/* ---- Preferiti ---------------------------------------------------- */
 	/* Su telefono scorre in orizzontale, da tablet in su riempie la riga. */
@@ -519,7 +470,9 @@
 
 	@media (min-width: 720px) {
 		.favorites {
-			grid-auto-columns: minmax(0, 1fr);
+			grid-auto-columns: 132px;
+			grid-auto-flow: column;
+			justify-content: start;
 			margin: 0;
 			padding: 0;
 			overflow: visible;
@@ -667,12 +620,4 @@
 		color: var(--color-primary);
 	}
 
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
-	}
 </style>

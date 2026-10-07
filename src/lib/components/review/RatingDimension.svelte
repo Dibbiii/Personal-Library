@@ -16,16 +16,21 @@
 	const current = $derived(value ?? 0);
 	const stars = $derived(Array.from({ length: max }, (_, i) => i + 1));
 
-	function select(next: number) {
+	function select(star: number, event: MouseEvent) {
+		const rect =
+			event.currentTarget instanceof HTMLElement
+				? event.currentTarget.getBoundingClientRect()
+				: null;
+		const next = rect && event.clientX < rect.left + rect.width / 2 ? star - 0.5 : star;
 		onchange(next === current ? null : next);
 	}
 
 	function onkeydown(event: KeyboardEvent) {
 		let next: number | null = null;
-		if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = Math.min(max, current + 1);
+		if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = Math.min(max, current + 0.5);
 		else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown')
-			next = Math.max(1, current - 1);
-		else if (event.key === 'Home') next = 1;
+			next = Math.max(0.5, current - 0.5);
+		else if (event.key === 'Home') next = 0.5;
 		else if (event.key === 'End') next = max;
 		else if (event.key === 'Delete' || event.key === 'Backspace') {
 			event.preventDefault();
@@ -36,7 +41,7 @@
 		event.preventDefault();
 		onchange(next);
 		(event.currentTarget as HTMLElement)
-			.querySelector<HTMLElement>(`[data-star="${next}"]`)
+			.querySelector<HTMLElement>(`[data-star="${Math.ceil(next)}"]`)
 			?.focus();
 	}
 </script>
@@ -50,14 +55,21 @@
 				type="button"
 				role="radio"
 				data-star={n}
-				aria-checked={n === current}
-				aria-label={n === 1 ? '1 stella' : `${n} stelle`}
-				tabindex={n === current || (current === 0 && n === 1) ? 0 : -1}
-				onclick={() => select(n)}
+				aria-checked={Math.ceil(current) === n}
+				aria-label={`${n - 0.5} o ${n} stelle`}
+				tabindex={Math.ceil(current) === n || (current === 0 && n === 1) ? 0 : -1}
+				onclick={(event) => select(n, event)}
 			>
-				<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" class:on={n <= current}>
-					<path d={STAR_PATH} stroke-width="1.2" stroke-linejoin="round" />
-				</svg>
+				<span class="star" aria-hidden="true">
+					<svg class="empty" width="20" height="20" viewBox="0 0 24 24">
+						<path d={STAR_PATH} stroke-width="1.2" stroke-linejoin="round" />
+					</svg>
+					<span class="fill" style:width={`${Math.max(0, Math.min(1, current - n + 1)) * 100}%`}>
+						<svg width="20" height="20" viewBox="0 0 24 24">
+							<path d={STAR_PATH} stroke-width="1.2" stroke-linejoin="round" />
+						</svg>
+					</span>
+				</span>
 			</button>
 		{/each}
 	</div>
@@ -98,12 +110,27 @@
 		cursor: pointer;
 	}
 
+	.star {
+		position: relative;
+		display: inline-flex;
+		width: 20px;
+		height: 20px;
+	}
+
 	svg {
+		display: block;
 		fill: color-mix(in srgb, var(--genre-current) 22%, transparent);
 		stroke: color-mix(in srgb, var(--genre-current) 22%, transparent);
 	}
 
-	svg.on {
+	.fill {
+		position: absolute;
+		inset: 0 auto 0 0;
+		overflow: hidden;
+	}
+
+	.fill svg {
+		max-width: none;
 		fill: var(--genre-current);
 		stroke: var(--genre-current);
 	}

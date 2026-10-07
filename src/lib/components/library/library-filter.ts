@@ -2,6 +2,11 @@ import type { BookSummary } from '$lib/contracts';
 
 export type LibrarySort = 'recent' | 'title' | 'author' | 'rating';
 export type LibraryView = 'grid' | 'list';
+export type LibraryCollection = 'reading' | 'queue';
+
+export function parseLibraryCollection(value: string | null): LibraryCollection | null {
+	return value === 'reading' || value === 'queue' ? value : null;
+}
 
 export const SORT_OPTIONS: readonly { value: LibrarySort; label: string }[] = [
 	{ value: 'recent', label: 'Più recenti' },

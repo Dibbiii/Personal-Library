@@ -42,6 +42,44 @@ export const updateSettingsInputSchema = z
 export type UpdateSettingsInput = z.infer<typeof updateSettingsInputSchema>;
 
 // ---------------------------------------------------------------------------
+// Scaffali personali: i sette generi di riferimento, rinominabili e ordinabili.
+// ---------------------------------------------------------------------------
+
+export const userGenreShelfSchema = z.object({
+	id: z.number().int().positive(),
+	slug: z.string().trim().min(1),
+	name: z.string().trim().min(1).max(80),
+	sortOrder: z.number().int().min(1).max(7)
+});
+
+export const userGenreShelvesResponseSchema = z.object({
+	contractVersion: contractVersionSchema,
+	genres: z.array(userGenreShelfSchema).length(7)
+});
+
+export const updateUserGenreShelvesInputSchema = z
+	.object({
+		genres: z
+			.array(
+				userGenreShelfSchema.pick({ slug: true, name: true, sortOrder: true })
+			)
+			.length(7)
+	})
+	.strict()
+	.superRefine(({ genres }, ctx) => {
+		if (new Set(genres.map((genre) => genre.slug)).size !== 7) {
+			ctx.addIssue({ code: 'custom', message: 'I generi devono essere distinti.' });
+		}
+		if (new Set(genres.map((genre) => genre.sortOrder)).size !== 7) {
+			ctx.addIssue({ code: 'custom', message: 'Le posizioni devono essere distinte.' });
+		}
+	});
+
+export type UserGenreShelf = z.infer<typeof userGenreShelfSchema>;
+export type UserGenreShelvesResponse = z.infer<typeof userGenreShelvesResponseSchema>;
+export type UpdateUserGenreShelvesInput = z.infer<typeof updateUserGenreShelvesInputSchema>;
+
+// ---------------------------------------------------------------------------
 // Temi custom
 // ---------------------------------------------------------------------------
 

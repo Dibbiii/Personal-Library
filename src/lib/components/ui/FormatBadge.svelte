@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { BookFormat } from '$lib/contracts';
 	import Icon from './Icon.svelte';
+	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
 
 	interface Props {
 		format: BookFormat;
@@ -10,8 +11,8 @@
 
 	let { format, variant = 'chip' }: Props = $props();
 
-	const label = $derived(format === 'digital' ? 'Digitale' : 'Cartaceo');
-	const icon = $derived(format === 'digital' ? 'smartphone' : 'book-open');
+	const label = $derived(FORMAT_LABELS[format]);
+	const icon = $derived(FORMAT_ICONS[format]);
 </script>
 
 {#if variant === 'icon'}

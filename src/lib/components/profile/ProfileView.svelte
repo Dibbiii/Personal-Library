@@ -120,6 +120,7 @@
 			bingo={props.bingo}
 			quotes={props.quotes}
 			dnf={props.dnf}
+			englishBooks={counts.englishRead}
 			showDnf={false}
 		/>
 	{:else if tab === 'activity'}

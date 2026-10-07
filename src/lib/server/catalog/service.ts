@@ -106,14 +106,20 @@ export class CatalogService {
 				const collected = await this.collect((provider) => provider.search(request));
 				const ranked = rankCandidates(dedupeCandidates(collected.candidates), {
 					title: request.title,
-					author: request.author,
+					// Nel campo unico il testo può identificare autore o editore: il titolo resta
+					// comunque il segnale con peso maggiore nel ranking.
+					author: request.author ?? request.title,
+					publisher: request.title,
 					language: request.language
 				});
-				// Niente rumore: si tengono i candidati con titolo o autore pertinenti (se ce ne sono).
+				// Niente rumore: si tengono i candidati pertinenti a titolo, autore o editore.
 				const relevant = ranked.filter((candidate) =>
 					candidate.matchReasons.some(
 						(reason) =>
-							reason === 'title-exact' || reason === 'title-match' || reason === 'author-match'
+							reason === 'title-exact' ||
+							reason === 'title-match' ||
+							reason === 'author-match' ||
+							reason === 'publisher-match'
 					)
 				);
 				return {

@@ -117,10 +117,10 @@ const DEMO = { email: 'demo@segnalibro.local', password: 'segnalibro-demo' };
 		expect(stats.stats.topGenre?.genre.slug).toBe('mythology-epic-retelling');
 		expect(stats.stats.topAuthor?.name).toBe('Madeline Miller');
 		expect(stats.stats.topTags.slice(0, 4).map((t) => [t.label, t.count])).toEqual([
-			['Amicizia', 12],
+			['Friends to lovers', 12],
 			['Magia', 9],
-			['Viaggio', 7],
-			['Formazione', 6]
+			['Doppia linea temporale', 7],
+			['Character development', 6]
 		]);
 
 		const dashboard = await expectRpcContract(

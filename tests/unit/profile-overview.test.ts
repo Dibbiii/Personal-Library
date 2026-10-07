@@ -95,6 +95,8 @@ describe('conteggi della libreria', () => {
 			unread: 1,
 			physical: 4,
 			digital: 1,
+			both: 0,
+			englishRead: 0,
 			reread: 1
 		});
 	});

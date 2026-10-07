@@ -1,7 +1,9 @@
 import {
 	userExportSchema,
 	userSettingsSchema,
-	type UpdateSettingsInput
+	userGenreShelvesResponseSchema,
+	type UpdateSettingsInput,
+	type UpdateUserGenreShelvesInput
 } from '../contracts/settings';
 import type { SettingsRepository } from './repositories';
 import { callRpc, type RpcTransport } from './rpc-client';
@@ -29,5 +31,24 @@ export class RpcSettingsRepository implements SettingsRepository {
 
 	exportData() {
 		return callRpc(this.transport, RPC.exportUserData, {}, userExportSchema);
+	}
+
+	getGenreShelves() {
+		return callRpc(this.transport, RPC.getUserGenreShelves, {}, userGenreShelvesResponseSchema);
+	}
+
+	updateGenreShelves(input: UpdateUserGenreShelvesInput) {
+		return callRpc(
+			this.transport,
+			RPC.updateUserGenreShelves,
+			{
+				p_genres: input.genres.map((genre) => ({
+					slug: genre.slug,
+					name: genre.name,
+					sort_order: genre.sortOrder
+				}))
+			},
+			userGenreShelvesResponseSchema
+		);
 	}
 }

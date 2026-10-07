@@ -22,7 +22,11 @@ export const localDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const positiveIntSchema = z.number().int().positive();
 export const nonNegativeIntSchema = z.number().int().nonnegative();
-export const ratingSchema = z.number().int().min(1).max(5);
+export const ratingSchema = z
+	.number()
+	.min(0.5)
+	.max(5)
+	.refine((value) => Number.isInteger(value * 2), 'Il voto deve usare incrementi di 0,5');
 export const percentSchema = z.number().min(0).max(100);
 
 export const nonEmptyTextSchema = z.string().trim().min(1);

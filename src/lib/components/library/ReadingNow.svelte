@@ -27,6 +27,7 @@
 <div class="reading" class:has-hero={selected !== undefined}>
 	<ShelfFrame
 		title="In lettura"
+		href="/library?collection=reading"
 		accent="var(--color-danger)"
 		height={184}
 		{pill}

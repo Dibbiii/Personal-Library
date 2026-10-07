@@ -110,6 +110,11 @@
 			<span>{mobile ? 'Impostazioni e modifiche' : 'Impostazioni'}</span>
 			<Icon name="chevron-right" size={16} />
 		</a>
+		<a class="action" href="/friends" onclick={closeProfile}>
+			<Icon name="user" size={19} />
+			<span>Amici</span>
+			<Icon name="chevron-right" size={16} />
+		</a>
 		<form method="POST" action="/auth/logout">
 			<button class="action logout" type="submit">
 				<Icon name="logout" size={19} /><span>Esci dall’account</span>
