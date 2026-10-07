@@ -2,7 +2,7 @@ import type { EditionCandidate } from '$lib/contracts/books';
 import type { BookSearchRequest } from '$lib/contracts/rpc';
 
 /** Provider di metadati supportati (lato server). */
-export type CatalogProviderId = 'open-library' | 'google-books';
+export type CatalogProviderId = 'open-library' | 'google-books' | 'inventaire' | 'sbn';
 
 export interface ProviderCallOptions {
 	signal?: AbortSignal | undefined;
@@ -26,6 +26,7 @@ export interface CatalogSearchResult {
 	candidates: EditionCandidate[];
 	/** true se almeno un provider non ha risposto (risultati parziali) */
 	degraded: boolean;
+	possibleMatches?: boolean;
 	providers: Partial<Record<CatalogProviderId, ProviderStatus>>;
 }
 

@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { addBookRequestSchema, coverSelectRequestSchema } from '../../src/lib/catalog/schemas';
+import {
+	addBookRequestSchema,
+	coverSelectRequestSchema,
+	catalogSearchQuerySchema
+} from '../../src/lib/catalog/schemas';
 import {
 	buildAddRequest,
 	candidateMeta,
 	draftFromCandidate,
+	draftWithEdition,
 	seriesLabel
 } from '../../src/lib/catalog/draft';
 import type { EditionCandidate } from '../../src/lib/contracts/books';
+import type { BookInfo } from '../../src/lib/catalog/book-info';
+
+it('ricerca: accetta solo gli ordini supportati, con sort facoltativo', () => {
+	expect(catalogSearchQuerySchema.parse({ title: 'Dune' }).sort).toBeUndefined();
+	for (const sort of ['relevance', 'newest']) {
+		expect(catalogSearchQuerySchema.parse({ title: 'Dune', sort }).sort).toBe(sort);
+	}
+	expect(catalogSearchQuerySchema.safeParse({ title: 'Dune', sort: 'oldest' }).success).toBe(false);
+	expect(catalogSearchQuerySchema.safeParse({ title: 'Dune', sort: '' }).success).toBe(false);
+});
 
 const manual = {
 	source: 'manual',
@@ -172,5 +187,85 @@ describe('bozza libro', () => {
 		expect(seriesLabel(2, 3)).toBe('Vol. 2 di 3');
 		expect(seriesLabel(2, null)).toBe('Vol. 2');
 		expect(seriesLabel(null, 3)).toBeNull();
+	});
+
+	it('cambiando edizione sostituisce i dati del volume anche quando non sono disponibili', () => {
+		const edition: BookInfo['editions'][number] = {
+			title: 'Dune',
+			publisher: null,
+			year: null,
+			language: null,
+			pages: null,
+			isbn13: null,
+			coverUrl: null,
+			url: 'https://openlibrary.org/books/OL2M'
+		};
+		const draft = draftWithEdition(
+			draftFromCandidate(candidate, 'search'),
+			edition,
+			'https://openlibrary.org/works/OL1W'
+		);
+		const request = buildAddRequest(draft, {
+			genre: 'dystopia-scifi',
+			format: 'physical',
+			series: null
+		});
+
+		expect(draft).toMatchObject({
+			title: 'Dune',
+			pageCount: null,
+			language: null,
+			isbn: null,
+			coverUrl: null,
+			publisher: null,
+			publishedDate: null,
+			edition: {
+				providerIds: { openLibraryWorkId: 'OL1W', openLibraryEditionId: 'OL2M' },
+				publisher: null,
+				publishedDate: null
+			}
+		});
+		expect(request.pageCount).toBeNull();
+		expect(request.coverUrl).toBeNull();
+		expect(addBookRequestSchema.safeParse(request).success).toBe(true);
+	});
+
+	it('cambiando edizione usa i nuovi dati mantenendo il collegamento all’opera', () => {
+		const edition: BookInfo['editions'][number] = {
+			title: 'Dune',
+			publisher: 'Ace',
+			year: 2025,
+			language: 'en',
+			pages: 688,
+			isbn13: '9780140328721',
+			coverUrl: 'https://covers.openlibrary.org/b/id/2-M.jpg',
+			url: 'https://openlibrary.org/books/OL2M'
+		};
+		const draft = draftWithEdition(
+			draftFromCandidate(candidate, 'search'),
+			edition,
+			'https://openlibrary.org/works/OL1W'
+		);
+
+		expect(draft).toMatchObject({
+			title: 'Dune',
+			pageCount: 688,
+			language: 'en',
+			isbn: edition.isbn13,
+			coverUrl: 'https://covers.openlibrary.org/b/id/2-L.jpg',
+			publisher: 'Ace',
+			publishedDate: '2025',
+			edition: {
+				workTitle: 'Dune',
+				authors: candidate.authors,
+				providerIds: {
+					openLibraryWorkId: 'OL1W',
+					openLibraryEditionId: 'OL2M',
+					googleBooksId: null
+				},
+				publisher: 'Ace',
+				publishedDate: '2025'
+			}
+		});
 	});
 });

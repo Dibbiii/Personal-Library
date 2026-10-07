@@ -1,4 +1,6 @@
 import type { EditionCandidate } from '$lib/contracts/books';
+import type { BookSearchSort } from '$lib/contracts/rpc';
+import { parsePublishedDate } from './published-date';
 import { isbn13To10, parseIsbn } from './isbn';
 import { toIso2 } from './language';
 import { authorSimilarity, titleSimilarity } from './text';
@@ -13,6 +15,7 @@ export interface RankingQuery {
 	/** Preferenza, non filtro */
 	language?: string | undefined;
 	isbn13?: string | undefined;
+	sort?: BookSearchSort | undefined;
 }
 
 /**
@@ -44,7 +47,7 @@ const WEIGHTS = {
 } as const;
 
 export function hasIsbnMatch(candidate: EditionCandidate, isbn13: string): boolean {
-	if (candidate.isbn13 === isbn13) return true;
+	if (candidate.isbn13) return candidate.isbn13 === isbn13;
 	const isbn10 = isbn13To10(isbn13);
 	return isbn10 !== null && candidate.isbn10 === isbn10;
 }
@@ -121,7 +124,8 @@ export function scoreCandidate(
 
 /**
  * Assegna confidence/matchReasons e ordina dal migliore: prima chi ha l'ISBN cercato, poi per
- * punteggio, a parità ordine d'arrivo (stabile).
+ * punteggio e anno dell'edizione. Con newest: lingua preferita, anno, punteggio.
+ * L'ordine d'arrivo resta stabile a parità di tutti i criteri.
  */
 export function rankCandidates(
 	candidates: readonly EditionCandidate[],
@@ -135,8 +139,24 @@ export function rankCandidates(
 		.sort((a, b) => {
 			const exactA = a.candidate.matchReasons.includes('isbn-exact') ? 1 : 0;
 			const exactB = b.candidate.matchReasons.includes('isbn-exact') ? 1 : 0;
+			const yearA = parsePublishedDate(a.candidate.publishedDate).year ?? 0;
+			const yearB = parsePublishedDate(b.candidate.publishedDate).year ?? 0;
+			if (query.sort === 'newest') {
+				const languageA = a.candidate.matchReasons.includes('language-match') ? 1 : 0;
+				const languageB = b.candidate.matchReasons.includes('language-match') ? 1 : 0;
+				return (
+					exactB - exactA ||
+					languageB - languageA ||
+					yearB - yearA ||
+					b.candidate.confidence - a.candidate.confidence ||
+					a.index - b.index
+				);
+			}
 			return (
-				exactB - exactA || b.candidate.confidence - a.candidate.confidence || a.index - b.index
+				exactB - exactA ||
+				b.candidate.confidence - a.candidate.confidence ||
+				yearB - yearA ||
+				a.index - b.index
 			);
 		})
 		.map((entry) => entry.candidate);

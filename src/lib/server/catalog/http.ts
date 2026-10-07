@@ -1,8 +1,19 @@
 import { DataAccessError } from '$lib/data/errors';
+import { setTimeout as delay } from 'node:timers/promises';
+import { ProviderGate } from './provider-gate';
 
 export const PROVIDER_TIMEOUT_MS = 7000;
 const MAX_BODY_CHARS = 2_000_000;
 const USER_AGENT = 'Segnalibro/0.1 (libreria personale; contatto: self-hosted)';
+const gates = new Map<string, ProviderGate>();
+function gateFor(host: string) {
+	let gate = gates.get(host);
+	if (!gate) {
+		gate = new ProviderGate(host === 'openlibrary.org' ? 1000 : host === 'inventaire.io' ? 500 : 0);
+		gates.set(host, gate);
+	}
+	return gate;
+}
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -20,7 +31,13 @@ export interface FetchJsonOptions {
  */
 export async function fetchJson(url: string, options: FetchJsonOptions): Promise<unknown | null> {
 	const parsed = new URL(url);
-	if (parsed.protocol !== 'https:' || !options.allowedHosts.includes(parsed.hostname)) {
+	if (
+		parsed.protocol !== 'https:' ||
+		parsed.username ||
+		parsed.password ||
+		(parsed.port && parsed.port !== '443') ||
+		!options.allowedHosts.includes(parsed.hostname)
+	) {
 		throw new DataAccessError('VALIDATION', `Host non consentito: ${parsed.hostname}`);
 	}
 
@@ -30,12 +47,44 @@ export async function fetchJson(url: string, options: FetchJsonOptions): Promise
 
 	let response: Response;
 	try {
+		if (!options.fetch) {
+			const wait = gateFor(parsed.hostname).reserve();
+			if (wait) await delay(wait, undefined, { signal });
+			gateFor(parsed.hostname).check();
+		}
 		response = await doFetch(url, {
 			headers: { accept: 'application/json', 'user-agent': USER_AGENT },
 			signal,
-			redirect: 'follow'
+			redirect: 'manual'
 		});
+		for (let hops = 0; response.status >= 300 && response.status < 400; hops++) {
+			const location = response.headers.get('location');
+			if (!location || hops >= 3)
+				throw new DataAccessError('CONTRACT', 'Redirect del catalogo non valido');
+			const target = new URL(location, url);
+			if (
+				target.protocol !== 'https:' ||
+				target.username ||
+				target.password ||
+				(target.port && target.port !== '443') ||
+				!options.allowedHosts.includes(target.hostname)
+			)
+				throw new DataAccessError('VALIDATION', 'Redirect non consentito');
+			await response.body?.cancel();
+			url = target.toString();
+			if (!options.fetch) {
+				const wait = gateFor(target.hostname).reserve();
+				if (wait) await delay(wait, undefined, { signal });
+				gateFor(target.hostname).check();
+			}
+			response = await doFetch(url, {
+				headers: { accept: 'application/json', 'user-agent': USER_AGENT },
+				signal,
+				redirect: 'manual'
+			});
+		}
 	} catch (error) {
+		if (error instanceof DataAccessError) throw error;
 		const aborted =
 			error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 		throw new DataAccessError(
@@ -59,6 +108,7 @@ export async function fetchJson(url: string, options: FetchJsonOptions): Promise
 
 	if (response.status === 404) return null;
 	if (response.status === 429) {
+		if (!options.fetch) gateFor(parsed.hostname).pause(response.headers.get('retry-after'));
 		throw new DataAccessError('RATE_LIMITED', 'Troppe richieste al servizio di catalogo');
 	}
 	if (response.status >= 500) {

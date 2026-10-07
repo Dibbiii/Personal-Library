@@ -92,6 +92,7 @@
 			);
 			if (!signal.aborted) info = result;
 		} catch (error) {
+			if (signal.aborted) return;
 			if (error instanceof DOMException && error.name === 'AbortError') return;
 			// Le informazioni sono un extra: senza, il libro si aggiunge lo stesso.
 			info = null;
@@ -113,6 +114,7 @@
 	let isbn = $state('');
 	let scanCandidates = $state<EditionCandidate[]>([]);
 	let scanDegraded = $state(false);
+	let scanExact = $state(false);
 	let scanError = $state('');
 	const manualIsbnHref = $derived(
 		buildAddHref('/add/manual', context.genre, new URLSearchParams({ isbn }))
@@ -126,6 +128,7 @@
 			const response = await lookupIsbn(code);
 			scanCandidates = response.candidates;
 			scanDegraded = response.degraded;
+			scanExact = response.exactMatch;
 			if (scanCandidates.length === 0) {
 				scanPhase = 'notfound';
 				return;
@@ -188,14 +191,15 @@
 			{#if mode === 'search'}
 				{#key initialQuery}
 					<BookSearch
+						sbnEnabled={page.data.catalogSbnEnabled}
 						{initialQuery}
 						{selectedKey}
 						onselect={select}
-						manualHref={(title) =>
+						manualHref={(title, isbn) =>
 							buildAddHref(
 								'/add/manual',
 								context.genre,
-								new URLSearchParams(title ? { title } : {})
+								new URLSearchParams({ ...(title ? { title } : {}), ...(isbn ? { isbn } : {}) })
 							)}
 					/>
 				{/key}
@@ -209,6 +213,10 @@
 					</p>
 				{:else if scanPhase === 'results'}
 					<p class="status-line" role="status">ISBN <strong>{isbn}</strong></p>
+					{#if !scanExact}<p class="inline-note">
+							L’ISBN cercato non è confermato. Controlla queste possibili alternative prima di
+							aggiungere il libro.
+						</p>{/if}
 					{#if scanDegraded}
 						<p class="inline-note">
 							Uno dei servizi non ha risposto: i dati potrebbero essere incompleti.

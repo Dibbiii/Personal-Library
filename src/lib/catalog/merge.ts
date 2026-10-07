@@ -12,6 +12,8 @@ export function identityKeys(candidate: EditionCandidate): string[] {
 	const ids = candidate.providerIds;
 	if (ids.openLibraryEditionId) keys.push(`ol-edition:${ids.openLibraryEditionId}`);
 	if (ids.googleBooksId) keys.push(`gb:${ids.googleBooksId}`);
+	if (ids.inventaireId) keys.push(`inv:${ids.inventaireId}`);
+	if (ids.sbnId) keys.push(`sbn:${ids.sbnId}`);
 	return keys;
 }
 
@@ -35,11 +37,20 @@ export function mergeCandidates(
 				primary.providerIds.openLibraryEditionId,
 				secondary.providerIds.openLibraryEditionId
 			),
-			googleBooksId: pick(primary.providerIds.googleBooksId, secondary.providerIds.googleBooksId)
+			googleBooksId: pick(primary.providerIds.googleBooksId, secondary.providerIds.googleBooksId),
+			...(primary.providerIds.inventaireId || secondary.providerIds.inventaireId
+				? { inventaireId: primary.providerIds.inventaireId ?? secondary.providerIds.inventaireId }
+				: {}),
+			...(primary.providerIds.sbnId || secondary.providerIds.sbnId
+				? { sbnId: primary.providerIds.sbnId ?? secondary.providerIds.sbnId }
+				: {})
 		},
 		workTitle: primary.workTitle,
 		editionTitle: primary.editionTitle,
-		authors: primary.authors,
+		authors:
+			primary.authors.length === 1 && primary.authors[0] === 'Autore sconosciuto'
+				? secondary.authors
+				: primary.authors,
 		isbn10: pick(primary.isbn10, secondary.isbn10),
 		isbn13: pick(primary.isbn13, secondary.isbn13),
 		language: pick(primary.language, secondary.language),
@@ -62,8 +73,21 @@ export function dedupeCandidates(candidates: readonly EditionCandidate[]): Editi
 
 	for (const candidate of candidates) {
 		const keys = identityKeys(candidate);
+		const candidateIsbn =
+			candidate.isbn13 ?? (candidate.isbn10 ? isbn10To13(candidate.isbn10) : null);
 		const existing =
-			keys.length > 0 ? groups.find((group) => keys.some((key) => group.keys.has(key))) : undefined;
+			keys.length > 0
+				? groups.find((group) => {
+						const otherIsbn =
+							group.candidate.isbn13 ??
+							(group.candidate.isbn10 ? isbn10To13(group.candidate.isbn10) : null);
+						// Conflicting ISBNs are distinct editions even when a provider reuses an id.
+						return (
+							!(candidateIsbn && otherIsbn && candidateIsbn !== otherIsbn) &&
+							keys.some((key) => group.keys.has(key))
+						);
+					})
+				: undefined;
 
 		if (existing) {
 			existing.candidate = mergeCandidates(existing.candidate, candidate);

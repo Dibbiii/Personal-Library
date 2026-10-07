@@ -25,6 +25,8 @@ export interface CatalogEditionInput {
 	pageCount?: number | null;
 	googleBooksId?: string | null;
 	openLibraryEditionId?: string | null;
+	inventaireId?: string | null;
+	sbnId?: string | null;
 	coverProvider?: string | null;
 	coverRef?: string | null;
 	coverUrl?: string | null;
@@ -51,7 +53,7 @@ export async function upsertCatalogEdition(
 
 	return withUser(userId, async (tx) => {
 		const rows = await tx<{ result: CatalogEditionResult }[]>`
-			select app.catalog_upsert_edition(
+			select app.catalog_upsert_edition_v2(
 				p_title                   => ${input.title},
 				p_authors                 => ${input.authors ?? []}::text[],
 				p_original_title          => ${input.originalTitle ?? null},
@@ -70,7 +72,9 @@ export async function upsertCatalogEdition(
 				p_open_library_edition_id => ${input.openLibraryEditionId ?? null},
 				p_cover_provider          => ${input.coverProvider ?? null},
 				p_cover_ref               => ${input.coverRef ?? null},
-				p_cover_url               => ${input.coverUrl ?? null}
+				p_cover_url               => ${input.coverUrl ?? null},
+				p_inventaire_id           => ${input.inventaireId ?? null},
+				p_sbn_id                  => ${input.sbnId ?? null}
 			) as result
 		`;
 		const row = rows[0];

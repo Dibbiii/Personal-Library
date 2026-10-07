@@ -202,7 +202,12 @@ test.describe('aggiungi un libro', () => {
 		// Lo sheet chiede sempre genere, formato e serie
 		const sheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
 		await expect(sheet).toBeVisible();
-		await expect(sheet.getByRole('radio')).toHaveCount(9); // 7 generi + 2 formati
+		await expect(sheet.getByRole('radiogroup', { name: 'Genere' }).getByRole('radio')).toHaveCount(
+			7
+		);
+		await expect(sheet.getByRole('radiogroup', { name: 'Formato' }).getByRole('radio')).toHaveCount(
+			3
+		);
 		await sheet.getByRole('button', { name: 'Aggiungi', exact: true }).click();
 		await expect(sheet.getByRole('alert')).toHaveText('Scegli il genere del libro.');
 
@@ -277,7 +282,7 @@ test.describe('aggiungi un libro', () => {
 		await page.getByRole('searchbox').fill('l');
 		await expect(page.getByText('Scrivi almeno 2 caratteri.')).toBeVisible();
 		await page.getByRole('searchbox').fill('sfida del mago');
-		await expect(page.getByText('2 migliori risultati')).toBeVisible();
+		await expect(page.getByText('2 risultati', { exact: true })).toBeVisible();
 		expect(searches).toBe(1); // debounce: una sola chiamata
 		await expect(page.getByRole('button', { name: /La sfida del mago/ })).toHaveCount(2);
 
@@ -309,6 +314,188 @@ test.describe('aggiungi un libro', () => {
 		expect(added?.edition_id).not.toBeNull();
 	});
 
+	test('ricerca: mostra altri risultati e filtra il gruppo completo senza nuove chiamate', async ({
+		page
+	}) => {
+		const results = Array.from({ length: 25 }, (_, index) =>
+			candidate({
+				editionTitle: `Edizione di prova ${index + 1}`,
+				language: index >= 20 ? 'en' : 'it',
+				provider: index >= 10 ? 'open-library' : 'google-books'
+			})
+		);
+		let searches = 0;
+		await page.route('**/api/catalog/search*', (route) => {
+			searches++;
+			const title = new URL(route.request().url()).searchParams.get('title');
+			return route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: false,
+					providers: {},
+					candidates: title === 'Seconda ricerca' ? results.slice(0, 12) : results
+				}
+			});
+		});
+		await page.route('https://books.google.com/**', (route) =>
+			route.fulfill({ body: PNG_1X1, contentType: 'image/png' })
+		);
+		await page.goto('/add/search');
+		await page.getByRole('searchbox').fill('Edizione di prova');
+		const list = page.getByRole('list', { name: 'Risultati della ricerca' });
+		await expect(list.getByRole('listitem')).toHaveCount(10);
+		await expect(page.getByText('Mostrati 10 di 25 risultati')).toBeVisible();
+		const more = page.getByRole('button', { name: 'Mostra altri risultati' });
+		await more.click();
+		await expect(list.getByRole('listitem')).toHaveCount(20);
+		await more.click();
+		await expect(list.getByRole('listitem')).toHaveCount(25);
+		await expect(more).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Inglese', exact: true }).click();
+		await expect(list.getByRole('listitem')).toHaveCount(5);
+		await expect(list.getByRole('button', { name: /^Edizione di prova 25 / })).toBeVisible();
+		await page.getByRole('button', { name: 'Tutti', exact: true }).click();
+		await expect(list.getByRole('listitem')).toHaveCount(10);
+		await page.getByLabel('Risultati da').selectOption('open-library');
+		await expect(list.getByRole('listitem')).toHaveCount(10);
+		await more.click();
+		await expect(list.getByRole('listitem')).toHaveCount(15);
+		await page.getByLabel('Risultati da').selectOption('all');
+		await expect(list.getByRole('listitem')).toHaveCount(10);
+		expect(searches).toBe(1);
+
+		await more.click();
+		await page.getByRole('searchbox').fill('Seconda ricerca');
+		await expect(page.getByText('Mostrati 10 di 12 risultati')).toBeVisible();
+		await expect(list.getByRole('listitem')).toHaveCount(10);
+		expect(searches).toBe(2);
+	});
+
+	test('ricerca: usa sempre le edizioni più recenti senza selettore di ordinamento', async ({
+		page
+	}) => {
+		const orders: string[] = [];
+		await page.route('**/api/catalog/search?**', async (route) => {
+			const sort = new URL(route.request().url()).searchParams.get('sort') ?? 'relevance';
+			orders.push(sort);
+			await route.fulfill({
+				json: {
+					contractVersion: 1,
+					candidates: Array.from({ length: 12 }, (_, i) =>
+						candidate({
+							editionTitle: `${sort === 'newest' ? 'Nuova' : 'Vecchia'} edizione ${i + 1}`,
+							publishedDate: sort === 'newest' ? '2025' : '2000'
+						})
+					),
+					degraded: false,
+					providers: { 'google-books': 'ok' }
+				}
+			});
+		});
+		await page.goto('/add/search?q=Dune');
+		const results = page.getByRole('list', { name: 'Risultati della ricerca' });
+		await expect(page.getByLabel('Ordina per')).toHaveCount(0);
+		await expect(results.getByRole('listitem')).toHaveCount(10);
+		await expect(results.getByText('Nuova edizione 1', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Mostra altri risultati' }).click();
+		await expect(results.getByRole('listitem')).toHaveCount(12);
+		await page.getByRole('searchbox').fill('Seconda ricerca');
+		await expect(results.getByRole('listitem')).toHaveCount(10);
+		await expect(results.getByText('Nuova edizione 1', { exact: true })).toBeVisible();
+		await expect(results.getByText('Vecchia edizione 1', { exact: true })).toHaveCount(0);
+		expect(orders).toEqual(['newest', 'newest']);
+	});
+
+	test('ricerca: riusa risultati identici ma cerca di nuovo quando cambia autore', async ({
+		page
+	}) => {
+		const searches: string[] = [];
+		await page.route('**/api/catalog/search*', (route) => {
+			searches.push(new URL(route.request().url()).searchParams.get('author') ?? '');
+			return route.fulfill({
+				json: { contractVersion: 1, degraded: false, providers: {}, candidates: [candidate()] }
+			});
+		});
+		await page.goto('/add/search?q=Dune');
+		const results = page.getByRole('list', { name: 'Risultati della ricerca' });
+		await expect(results.getByRole('listitem')).toHaveCount(1);
+		await page.getByRole('searchbox').fill('Dune ');
+		await page.getByRole('searchbox').press('Enter');
+		await page.getByText('Specifica l’autore', { exact: true }).click();
+		await expect(page.locator('input[name="author"]')).toBeVisible();
+		expect(searches).toEqual(['']);
+		await page.locator('input[name="author"]').fill('Frank Herbert');
+		await expect.poll(() => searches).toEqual(['', 'Frank Herbert']);
+		await expect(results.getByRole('listitem')).toHaveCount(1);
+	});
+
+	test('ricerca: annulla la richiesta superata appena cambia il testo', async ({ page }) => {
+		await page.addInitScript(() => {
+			const originalFetch = window.fetch;
+			(window as Window & { catalogAborted?: boolean }).catalogAborted = false;
+			window.fetch = (input, init) => {
+				if (String(input).includes('/api/catalog/search')) {
+					init?.signal?.addEventListener('abort', () => {
+						(window as Window & { catalogAborted?: boolean }).catalogAborted = true;
+					});
+				}
+				return originalFetch(input, init);
+			};
+		});
+		let firstStarted = false;
+		let releaseFirst!: () => void;
+		const firstResponse = new Promise<void>((resolve) => (releaseFirst = resolve));
+		await page.route('**/api/catalog/search*', async (route) => {
+			const title = new URL(route.request().url()).searchParams.get('title');
+			if (title === 'Prima ricerca') {
+				firstStarted = true;
+				await firstResponse;
+			}
+			await route
+				.fulfill({
+					json: {
+						contractVersion: 1,
+						degraded: false,
+						providers: {},
+						candidates: [candidate({ editionTitle: title ?? '' })]
+					}
+				})
+				.catch(() => {});
+		});
+		await page.goto('/add/search?q=Prima%20ricerca');
+		await expect.poll(() => firstStarted).toBe(true);
+		const abortedImmediately = await page.getByRole('searchbox').evaluate((element) => {
+			(element as HTMLInputElement).value = 'Seconda ricerca';
+			element.dispatchEvent(new Event('input', { bubbles: true }));
+			return (window as Window & { catalogAborted?: boolean }).catalogAborted;
+		});
+		expect(abortedImmediately).toBe(true);
+		releaseFirst();
+		const results = page.getByRole('list', { name: 'Risultati della ricerca' });
+		await expect(results.getByText('Seconda ricerca', { exact: true })).toBeVisible();
+		await expect(results.getByText('Prima ricerca', { exact: true })).toHaveCount(0);
+	});
+
+	test('ricerca: ISBN assente passa al manuale conservando ISBN e genere', async ({ page }) => {
+		await page.route('**/api/catalog/isbn*', (route) =>
+			route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: false,
+					providers: {},
+					exactMatch: false,
+					candidates: []
+				}
+			})
+		);
+		await page.goto('/add/search?q=9780441013593&genre=classics');
+		await page.getByRole('link', { name: 'Inserisci a mano', exact: true }).click();
+		await expect(page.getByLabel('ISBN (facoltativo)')).toHaveValue('9780441013593');
+		await expect(page.getByLabel('Titolo', { exact: true })).toHaveValue('');
+		expect(new URL(page.url()).searchParams.get('genre')).toBe('classics');
+	});
+
 	test('ricerca: nessun risultato ed errore di rete', async ({ page }) => {
 		await page.route('**/api/catalog/search*', (route) =>
 			route.fulfill({
@@ -336,6 +523,172 @@ test.describe('aggiungi un libro', () => {
 			'Servizio momentaneamente non raggiungibile'
 		);
 		await expect(page.getByRole('button', { name: 'Riprova' })).toBeVisible();
+		await page.unroute('**/api/catalog/search*');
+		await page.route('**/api/catalog/search*', (route) =>
+			route.fulfill({
+				json: { contractVersion: 1, degraded: false, providers: {}, candidates: [] }
+			})
+		);
+		await page.getByRole('button', { name: 'Riprova' }).click();
+		await expect(page.getByText(/Nessun risultato per/)).toBeVisible();
+	});
+
+	test('SBN: ricerca esplicita e salvataggio della scheda senza ISBN', async ({
+		page,
+		account
+	}) => {
+		const sbnId = `TST${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`;
+		const sbnTitle = `Libro SBN ${randomUUID().slice(0, 8)}`;
+		await page.route('**/api/catalog/search*', (route) => {
+			const params = new URL(route.request().url()).searchParams;
+			return route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: false,
+					providers: {},
+					candidates:
+						params.get('source') === 'sbn'
+							? [
+									candidate({
+										provider: 'sbn',
+										workTitle: sbnTitle,
+										editionTitle: sbnTitle,
+										providerIds: {
+											openLibraryWorkId: null,
+											openLibraryEditionId: null,
+											googleBooksId: null,
+											sbnId
+										},
+										coverUrl: null
+									})
+								]
+							: []
+				}
+			});
+		});
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
+		await page.goto('/add/search?q=Il%20libro%20italiano');
+		await expect(page.getByText(/Nessun risultato per/)).toBeVisible();
+		const sbn = page.getByRole('button', { name: 'Cerca nel catalogo italiano SBN' });
+		test.skip(!(await sbn.count()), 'SBN_BRIDGE_URL non configurato sul server di prova');
+		await sbn.click();
+		await page.getByRole('list', { name: 'Risultati della ricerca' }).getByRole('button').click();
+		await page.getByRole('button', { name: 'Aggiungi alla mia libreria' }).click();
+		await pickGenreAndAdd(page, 'Classici');
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		const db = admin();
+		try {
+			const [row] =
+				await db`select e.sbn_id from public.editions e join public.user_books b on b.edition_id=e.id where b.user_id=${account.id}::uuid and e.sbn_id=${sbnId}`;
+			expect(row?.sbn_id).toBe(sbnId);
+		} finally {
+			await db.end();
+		}
+	});
+
+	test('edizioni: carica due pagine e salva l’edizione senza ereditare pagine o copertina', async ({
+		page,
+		account
+	}) => {
+		await page.route('**/api/catalog/search*', (route) =>
+			route.fulfill({
+				json: {
+					contractVersion: 1,
+					candidates: [
+						candidate({
+							providerIds: {
+								openLibraryWorkId: 'OL1W',
+								openLibraryEditionId: 'OL1M',
+								googleBooksId: null
+							}
+						})
+					],
+					degraded: false,
+					providers: {}
+				}
+			})
+		);
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
+		const offsets: string[] = [];
+		const isbn = randomIsbn13();
+		const title = `Edizione nuova ${randomUUID().slice(0, 8)}`;
+		await page.route('**/api/catalog/editions*', (route) => {
+			const offset = new URL(route.request().url()).searchParams.get('offset') ?? '0';
+			offsets.push(offset);
+			return route.fulfill({
+				json: {
+					total: 41,
+					nextOffset: offset === '0' ? 40 : null,
+					editions: [
+						{
+							title: offset === '0' ? title : 'Edizione precedente',
+							publisher: 'Editore nuovo',
+							year: offset === '0' ? 2025 : 2000,
+							language: 'en',
+							pages: null,
+							isbn13: offset === '0' ? isbn : null,
+							coverUrl: null,
+							url: `https://openlibrary.org/books/${offset === '0' ? 'OL2M' : 'OL3M'}`
+						}
+					]
+				}
+			});
+		});
+		await page.goto('/add/search?q=Dune');
+		await page.getByRole('list', { name: 'Risultati della ricerca' }).getByRole('button').click();
+		const detail = page.getByRole('complementary', { name: 'Libro selezionato' });
+		await detail.getByRole('button', { name: 'Carica altre edizioni' }).click();
+		await expect(
+			detail.getByRole('button', { name: /Scegli Edizione in inglese, Editore nuovo, 2025/ })
+		).toBeVisible();
+		await detail.getByRole('button', { name: 'Carica altre edizioni' }).click();
+		await expect(detail.getByRole('button', { name: 'Carica altre edizioni' })).toHaveCount(0);
+		expect(offsets).toEqual(['0', '40']);
+		await detail.getByLabel('Lingua delle edizioni').selectOption('it');
+		await expect(detail.getByText('Nessuna edizione caricata per questa lingua.')).toBeVisible();
+		await detail.getByLabel('Lingua delle edizioni').selectOption('en');
+		await detail
+			.getByRole('button', { name: /Scegli Edizione in inglese, Editore nuovo, 2025/ })
+			.click();
+		await expect(detail.getByRole('heading', { name: title })).toBeVisible();
+		await detail.getByRole('button', { name: 'Aggiungi alla mia libreria' }).click();
+		await pickGenreAndAdd(page, 'Classici');
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		expect((await userBooks(account.id)).find((book) => book.isbn_13 === isbn)).toMatchObject({
+			title,
+			page_count: null,
+			language: 'en',
+			cover_url: null
+		});
+	});
+
+	test('copertina manuale: ritenta upload senza aggiungere un secondo libro', async ({
+		page,
+		account
+	}) => {
+		let uploads = 0;
+		await page.route('**/api/covers/upload', (route) =>
+			++uploads === 1
+				? route.fulfill({ status: 502, json: { code: 'NETWORK', message: 'Upload non riuscito' } })
+				: route.continue()
+		);
+		const title = `Foto manuale ${randomUUID().slice(0, 8)}`;
+		await page.goto('/add/manual');
+		await page.getByLabel('Titolo').fill(title);
+		await page.getByLabel('Autore', { exact: true }).fill('Autore Foto');
+		await page
+			.getByLabel('Carica una copertina')
+			.setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: PNG_1X1 });
+		await expect(page.getByAltText('Anteprima della copertina personale')).toBeVisible();
+		await page.getByRole('button', { name: 'Continua' }).click();
+		await pickGenreAndAdd(page, 'Classici');
+		await expect(page.getByRole('dialog').getByText(/Il libro è stato aggiunto, ma/)).toBeVisible();
+		await page.getByRole('button', { name: 'Riprova il caricamento' }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		const books = (await userBooks(account.id)).filter((book) => book.title === title);
+		expect(books).toHaveLength(1);
+		expect(books[0]?.cover_storage_path).toBeTruthy();
+		expect(uploads).toBe(2);
 	});
 
 	test('scanner: lookup ISBN simulato con preselezione (ISBN esatto)', async ({

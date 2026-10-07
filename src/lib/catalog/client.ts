@@ -4,6 +4,8 @@
  */
 import type { z } from 'zod';
 import type { DataErrorCode } from '$lib/data/errors';
+import type { BookSearchRequest } from '$lib/contracts/rpc';
+import { editionsResponseSchema } from './editions';
 import { bookInfoResponseSchema, type BookInfo } from './book-info';
 import { discoverResponseSchema, type DiscoverRequest, type DiscoverResponse } from './discover';
 import {
@@ -80,12 +82,14 @@ async function request<S extends z.ZodType>(
 }
 
 export function searchBooks(
-	params: { title: string; author?: string; language?: string },
+	params: BookSearchRequest,
 	signal?: AbortSignal
 ): Promise<CatalogSearchResponse> {
 	const query = new URLSearchParams({ title: params.title });
 	if (params.author) query.set('author', params.author);
 	if (params.language) query.set('language', params.language);
+	if (params.sort) query.set('sort', params.sort);
+	if (params.source) query.set('source', params.source);
 	return request(catalogSearchResponseSchema, `/api/catalog/search?${query}`, { signal });
 }
 
@@ -93,6 +97,14 @@ export function lookupIsbn(isbn: string, signal?: AbortSignal): Promise<IsbnLook
 	return request(isbnLookupResponseSchema, `/api/catalog/isbn?${new URLSearchParams({ isbn })}`, {
 		signal
 	});
+}
+
+export function fetchEditions(workId: string, offset: number, signal?: AbortSignal) {
+	return request(
+		editionsResponseSchema,
+		`/api/catalog/editions?${new URLSearchParams({ workId, offset: String(offset) })}`,
+		{ signal }
+	);
 }
 
 /** Descrizione, voto, temi ed edizioni da Open Library; null se il libro non si trova. */

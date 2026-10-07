@@ -22,6 +22,11 @@ import type {
 export interface CatalogServiceOptions {
 	/** In ordine di priorità dei campi in caso di fusione (Open Library prima). */
 	providers: readonly BookProvider[];
+	/** ISBN only, in fallback order. SBN text search requires explicit source=sbn. */
+	fallbackProviders?: readonly BookProvider[];
+	/** Limite dei risultati testuali, prima della paginazione nel browser. */
+	maxSearchCandidates?: number;
+	/** Limite delle alternative nel lookup ISBN. */
 	maxCandidates?: number;
 	now?: () => number;
 }
@@ -46,12 +51,14 @@ export class CatalogService {
 	private readonly searchCache: TtlCache<CatalogSearchResult>;
 	private readonly isbnCache: TtlCache<IsbnLookupResult>;
 	private readonly maxCandidates: number;
+	private readonly maxSearchCandidates: number;
 
 	constructor(private readonly options: CatalogServiceOptions) {
 		const now = options.now;
 		this.searchCache = new TtlCache({ maxEntries: 500, ...(now ? { now } : {}) });
 		this.isbnCache = new TtlCache({ maxEntries: 1000, ...(now ? { now } : {}) });
 		this.maxCandidates = options.maxCandidates ?? 5;
+		this.maxSearchCandidates = options.maxSearchCandidates ?? 80;
 	}
 
 	clearCache(): void {
@@ -60,15 +67,15 @@ export class CatalogService {
 	}
 
 	private async collect(
-		call: (provider: BookProvider) => Promise<EditionCandidate[]>
+		call: (provider: BookProvider) => Promise<EditionCandidate[]>,
+		providers: readonly BookProvider[] = this.options.providers,
+		allowAllFailed = false
 	): Promise<Collected> {
-		const settled = await Promise.allSettled(
-			this.options.providers.map((provider) => call(provider))
-		);
+		const settled = await Promise.allSettled(providers.map((provider) => call(provider)));
 		const collected: Collected = { candidates: [], providers: {}, failures: [] };
 
 		settled.forEach((result, index) => {
-			const provider = this.options.providers[index] as BookProvider;
+			const provider = providers[index] as BookProvider;
 			if (result.status === 'fulfilled') {
 				collected.providers[provider.id] = 'ok';
 				collected.candidates.push(...result.value);
@@ -80,7 +87,8 @@ export class CatalogService {
 		});
 
 		if (
-			collected.failures.length === this.options.providers.length &&
+			!allowAllFailed &&
+			collected.failures.length === providers.length &&
 			collected.failures.length > 0
 		) {
 			const allRateLimited = collected.failures.every((failure) => failure.code === 'RATE_LIMITED');
@@ -96,34 +104,54 @@ export class CatalogService {
 	}
 
 	async search(request: BookSearchRequest): Promise<CatalogSearchResult> {
-		const key = [request.title, request.author ?? '', request.language ?? '']
+		const sort = request.sort ?? 'relevance';
+		const providers =
+			request.source === 'sbn'
+				? (this.options.fallbackProviders ?? []).filter((provider) => provider.id === 'sbn')
+				: this.options.providers;
+		if (!providers.length) throw new DataAccessError('VALIDATION', 'Catalogo SBN non configurato');
+		const key = [
+			request.title,
+			request.author ?? '',
+			request.language ?? '',
+			sort,
+			request.source ?? 'primary'
+		]
 			.map((part) => normalizeText(part))
 			.join('|');
 
 		return this.searchCache.getOrLoad(
-			`search:${key}`,
+			`search:v4:${key}`,
 			async () => {
-				const collected = await this.collect((provider) => provider.search(request));
+				const collected = await this.collect((provider) => provider.search(request), providers);
 				const ranked = rankCandidates(dedupeCandidates(collected.candidates), {
 					title: request.title,
 					// Nel campo unico il testo può identificare autore o editore: il titolo resta
 					// comunque il segnale con peso maggiore nel ranking.
 					author: request.author ?? request.title,
 					publisher: request.title,
-					language: request.language
+					language: request.language,
+					sort
 				});
 				// Niente rumore: si tengono i candidati pertinenti a titolo, autore o editore.
-				const relevant = ranked.filter((candidate) =>
-					candidate.matchReasons.some(
-						(reason) =>
-							reason === 'title-exact' ||
-							reason === 'title-match' ||
-							reason === 'author-match' ||
-							reason === 'publisher-match'
-					)
+				const relevant = ranked.filter(
+					(candidate) =>
+						(!request.author || candidate.matchReasons.includes('author-match')) &&
+						candidate.matchReasons.some(
+							(reason) =>
+								reason === 'title-exact' ||
+								reason === 'title-match' ||
+								reason === 'author-match' ||
+								reason === 'publisher-match'
+						)
 				);
 				return {
-					candidates: topCandidates(relevant.length > 0 ? relevant : ranked, this.maxCandidates),
+					possibleMatches:
+						!request.author && sort === 'relevance' && relevant.length === 0 && ranked.length > 0,
+					candidates: topCandidates(
+						sort === 'newest' || request.author || relevant.length > 0 ? relevant : ranked,
+						this.maxSearchCandidates
+					),
 					degraded: collected.failures.length > 0,
 					providers: collected.providers
 				};
@@ -143,9 +171,39 @@ export class CatalogService {
 		const { isbn13 } = parsed;
 
 		return this.isbnCache.getOrLoad(
-			`isbn:${isbn13}`,
+			`isbn:v4:${isbn13}`,
 			async () => {
-				const collected = await this.collect((provider) => provider.lookupIsbn(isbn13));
+				const collected = await this.collect(
+					(provider) => provider.lookupIsbn(isbn13),
+					this.options.providers,
+					true
+				);
+				for (const provider of this.options.fallbackProviders ?? []) {
+					const completeExact = dedupeCandidates(collected.candidates).some(
+						(candidate) =>
+							hasIsbnMatch(candidate, isbn13) &&
+							candidate.coverUrl &&
+							candidate.pageCount &&
+							candidate.publisher &&
+							!candidate.authors.includes('Autore sconosciuto')
+					);
+					if (completeExact) break;
+					const fallback = await this.collect((p) => p.lookupIsbn(isbn13), [provider], true);
+					collected.candidates.push(...fallback.candidates);
+					Object.assign(collected.providers, fallback.providers);
+					collected.failures.push(...fallback.failures);
+				}
+				if (
+					Object.keys(collected.providers).length > 0 &&
+					Object.values(collected.providers).every((status) => status !== 'ok')
+				) {
+					throw new DataAccessError(
+						collected.failures.every((failure) => failure.code === 'RATE_LIMITED')
+							? 'RATE_LIMITED'
+							: 'NETWORK',
+						'I servizi di catalogo non sono raggiungibili'
+					);
+				}
 				const ranked = rankCandidates(dedupeCandidates(collected.candidates), { isbn13 });
 				// Se c'è l'edizione con lo stesso ISBN si mostra solo quella; altrimenti il meglio disponibile.
 				const exact = ranked.filter((candidate) => hasIsbnMatch(candidate, isbn13));
@@ -160,7 +218,7 @@ export class CatalogService {
 			(value) =>
 				value.degraded
 					? CATALOG_TTL.degraded
-					: value.candidates.length > 0
+					: value.exactMatch
 						? CATALOG_TTL.isbnHit
 						: CATALOG_TTL.isbnMiss
 		);

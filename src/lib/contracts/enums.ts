@@ -28,7 +28,13 @@ export const genreSortFieldSchema = z.enum(['title', 'author', 'pages', 'rating'
 
 export const sortDirectionSchema = z.enum(['asc', 'desc']);
 
-export const providerSchema = z.enum(['open-library', 'google-books', 'manual']);
+export const providerSchema = z.enum([
+	'open-library',
+	'google-books',
+	'inventaire',
+	'sbn',
+	'manual'
+]);
 
 export type GenreSlug = z.infer<typeof genreSlugSchema>;
 export type BookFormat = z.infer<typeof bookFormatSchema>;

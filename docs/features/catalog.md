@@ -49,7 +49,7 @@ provider o `null` = placeholder).
 
 | Metodo e path                                          | Descrizione                                                                                      |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `GET /api/catalog/search?title=&author=&language=`     | fino a 5 candidati (`catalogSearchResponseSchema`: contratto + `degraded` + `providers`)         |
+| `GET /api/catalog/search?title=&author=&language=`     | fino a 80 candidati (`catalogSearchResponseSchema`: contratto + `degraded` + `providers`)        |
 | `GET /api/catalog/isbn?isbn=`                          | candidati per ISBN + `exactMatch` (true = preselezionabile)                                      |
 | `POST /api/library/add` (JSON)                         | `{ status: 'added', bookId }` (201) oppure `{ status: 'duplicate', exact, existing }` (200)      |
 | `POST /api/covers/upload` (multipart `bookId`, `file`) | cover personalizzata: png/jpeg/webp, max 5 MB, tipo dai magic bytes                              |
@@ -75,18 +75,98 @@ Google Books senza chiave ha una quota anonima condivisa molto bassa: va spesso 
 Ranking (`ranking.ts`): ISBN esatto (precedenza assoluta) > titolo > autore > lingua (preferenza, mai
 filtro) > cover > pagine/editore/data. **Titolo + autore non bastano a fondere due edizioni**:
 `dedupeCandidates` unisce solo con ISBN-13/10 o id provider in comune. La preselezione automatica
-(`exactMatch`) avviene solo con ISBN identico; il risultato è limitato a 5 candidati.
+(`exactMatch`) avviene solo con ISBN identico; il lookup ISBN è limitato a 5 candidati.
+
+La ricerca testuale richiede fino a 40 risultati per provider e restituisce fino a 80 candidati
+deduplicati e ordinati. Open Library riceve `lang` come preferenza, senza filtro `language:`:
+i libri in altre lingue restano ricercabili. `BookSearch` mostra 10 risultati alla volta;
+"Mostra altri risultati" rivela quelli già ricevuti senza nuove chiamate. I filtri lingua/fonte
+si applicano prima della paginazione; una nuova ricerca o un cambio filtro riparte dai primi 10.
+Il gruppo raccolto non rappresenta l'intero catalogo disponibile nelle fonti esterne.
+
+`sort=relevance` (predefinito) ordina per pertinenza e, a parità di punteggio, anno dell'edizione.
+`sort=newest` dà precedenza alla lingua preferita, poi all'anno dell'edizione decrescente e
+alla pertinenza; le date sconosciute vengono dopo quelle note nella stessa lingua. In questa
+modalità i candidati senza corrispondenze con titolo, autore o editore vengono esclusi.
+Google Books riceve `orderBy=newest`, recuperando anche volumi assenti dal gruppo per pertinenza.
+Open Library mantiene la ricerca delle opere per pertinenza: si ordina la data dell'edizione
+ricevuta, senza usare la prima pubblicazione dell'opera. Nel dettaglio si possono caricare altre
+edizioni dell'opera, 40 record per pagina, tramite `GET /api/catalog/editions?workId=OL…W&offset=0`.
+Filtri lingua e ordine per anno si applicano ai record caricati; non all'intero catalogo remoto.
+Il pulsante continua fino all'ultima pagina (limite operativo offset 10.000), senza nascondere
+il caricamento dietro un'etichetta "tutte". Gli errori mantengono la lista e permettono di riprovare.
+La ricerca nell'interfaccia usa sempre `sort=newest`, senza selettore di ordinamento.
+Ogni nuova ricerca riparte dai primi 10 risultati; il lookup ISBN mantiene la priorità dell'edizione esatta.
+La cache distingue i due ordini; il parametro omesso equivale a `relevance`.
 
 Cache (`TtlCache`, LRU in memoria di processo, niente Redis): ricerca 12 h, ISBN positivo 30 giorni,
 ISBN senza risultati 15 min, risposte degradate 60 s. Richieste concorrenti identiche condividono
 una sola chiamata.
+
+### Fallback ISBN e catalogo italiano
+
+Google Books e Open Library sono interrogati in parallelo. Se manca una scheda con ISBN esatto,
+autore, editore, pagine e cover, si prova Inventaire, poi SBN se configurato. Le fonti successive
+arricchiscono solo la stessa edizione, riconosciuta da ISBN o identificatori forti. Un titolo
+identico non giustifica una fusione. Si restituiscono solo le corrispondenze ISBN esatte quando
+presenti; altrimenti la UI segnala chiaramente che i risultati sono alternative da verificare.
+Le alternative senza ISBN esatto hanno una cache breve (15 minuti), non quella positiva di 30 giorni.
+
+Inventaire usa `/api/entities/by-uris`, pseudo-URI `isbn:…` e le entità collegate di opera,
+autore ed editore. Vengono accettati solo ISBN dichiarati dalle schede. Le copertine relative
+sono risolte su `https://inventaire.io`; URL di altri host non ammessi vengono scartati.
+
+SBN usa il bridge interno `services/sbn`: YAZ Z39.50 verso `opac.sbn.it:2100/nopac`,
+MARC21 e UTF-8. Un record per richiesta Present, fino a 10 schede; timeout 18 secondi.
+Il bridge non pubblica porte in Compose, non è collegato alla rete proxy e gira come utente `node`.
+Una ricerca attiva alla volta e distanza minima di un secondo; sovraccarico -> 429.
+La ricerca testuale SBN avviene solo premendo "Cerca nel catalogo italiano SBN" (`source=sbn`).
+Il pulsante è disponibile quando `SBN_BRIDGE_URL` è configurata. L'autore facoltativo viene inviato
+come campo strutturato alle fonti. La ricerca normale non contatta SBN o Inventaire.
+
+Open Library è limitata a una richiesta al secondo per processo. I provider HTTP condividono
+una pausa dopo 429, rispettando `Retry-After` fino a 5 minuti, con coda limitata; niente retry
+automatici in ciclo. I redirect sono verificati prima di seguirli e mantengono HTTPS/allow-list.
+
+La copertina può essere caricata o fotografata nel form manuale e nel dettaglio del candidato.
+Il file rimane nel browser fino alla conferma; si usa l'endpoint upload esistente dopo aver
+ottenuto l'id del libro. Se l'upload fallisce, "Riprova il caricamento" ripete solo l'upload;
+"Apri il libro" permette di proseguire. Non si crea una seconda copia.
+
+### Installazione e verifica
+
+1. Eseguire `docker compose build app sbn` per costruire le nuove immagini.
+2. Applicare le migrazioni con `node scripts/db-migrate.mjs` su una macchina con accesso al DB
+   e `DATABASE_ADMIN_URL` configurata. La migrazione `211_catalog_sources.sql` aggiunge
+   `inventaire_id`, `sbn_id`, indici unici e `app.catalog_upsert_edition_v2`.
+   La funzione v1 resta disponibile per i container precedenti durante il rollout.
+   `212_catalog_isbn_identity.sql` impedisce di fondere ISBN diversi tramite un identificatore
+   del provider riutilizzato: l'edizione nuova conserva l'ISBN, scartando l'id in conflitto.
+3. Avviare con `docker compose up -d app sbn`. L'app usa `SBN_BRIDGE_URL=http://sbn:8080`.
+   In sviluppo si può pubblicare il bridge **solo su loopback** (`127.0.0.1:8081:8080`) e
+   impostare `SBN_BRIDGE_URL=http://127.0.0.1:8081`. Senza bridge, Google/Open Library/Inventaire funzionano.
+4. Per testare: `npm run check`, `npx vitest run tests/unit`, `node --test services/sbn/bridge.test.mjs`,
+   `RUN_DB_CONTRACT_TESTS=1 npx vitest run tests/contracts/db.contracts.test.ts -t 'catalog writes'`,
+   `npx playwright test tests/e2e/add-book.spec.ts`. In PowerShell assegnare la variabile tramite `$env:RUN_DB_CONTRACT_TESTS='1'`.
+   I test browser usano dati simulati delle fonti e utenti temporanei; configurare il server
+   con `DATABASE_URL`, `ORIGIN=http://localhost:4173`, `BODY_SIZE_LIMIT=6M` e, per il test SBN, `SBN_BRIDGE_URL`.
+
+Riferimenti ufficiali: [Google Books list](https://developers.google.com/books/docs/v1/reference/volumes/list),
+[Open Library Search](https://openlibrary.org/dev/docs/api/search),
+[Open Library REST (edizioni paginate)](https://openlibrary.org/dev/docs/restful_api),
+[limiti Open Library](https://openlibrary.org/developers/api),
+[Inventaire OpenAPI](https://inventaire.io/public/api_specs.json),
+[SBN Z39.50](https://opac.sbn.it/accesso-z39.50-a-opac-sbn),
+[YAZ client](https://software.indexdata.com/yaz/doc/yaz-client.html),
+[MARC21](https://www.loc.gov/marc/bibliographic/).
+Nessuna fonte garantisce tutte le edizioni o tutte le copertine: il fallback manuale resta necessario.
 
 ## Scrittura nel database
 
 `ServerCatalogRepository` (`src/lib/data/catalog-repository.ts`, registrato in `repositories.ts`):
 `search`, `lookupIsbn` (interfaccia `CatalogRepository`) più `searchDetailed`, `lookupIsbnDetailed`,
 `addBook`, `listCoverAlternatives`, `selectProviderCover`, `setCustomCover`, `removeCustomCover`.
-I metodi di scrittura ricevono l'id utente della sessione. Nessuna migration: l'aggiunta usa
+I metodi di scrittura ricevono l'id utente della sessione. L'aggiunta usa
 `upsertCatalogEdition` (unica scrittura del catalogo) e un INSERT su `public.user_books` con le
 colonne ammesse dalla migration 006; le cover aggiornano `cover_url` / `cover_storage_path`
 (UPDATE di colonna già concesso). Duplicati: stesso ISBN o stessa edizione = duplicato esatto (si

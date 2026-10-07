@@ -4,6 +4,8 @@ import { CatalogService } from './service';
 import { BookInfoService } from './book-info';
 import { DiscoverService } from './discover';
 import { serverEnv } from '../db/env';
+import { InventaireProvider } from './inventaire';
+import { SbnProvider } from './sbn';
 
 export { CatalogService } from './service';
 export { OpenLibraryProvider } from './open-library';
@@ -12,7 +14,7 @@ export { RateLimiter } from './rate-limit';
 export { BookInfoService } from './book-info';
 export { DiscoverService } from './discover';
 
-const globalKey = Symbol.for('segnalibro.catalogService');
+const globalKey = Symbol.for('segnalibro.catalogService.v4');
 const globals = globalThis as unknown as Record<symbol, CatalogService | undefined>;
 
 /**
@@ -24,6 +26,10 @@ export function getCatalogService(): CatalogService {
 		providers: [
 			new OpenLibraryProvider(),
 			new GoogleBooksProvider({ apiKey: serverEnv('GOOGLE_BOOKS_API_KEY') })
+		],
+		fallbackProviders: [
+			new InventaireProvider(),
+			...(serverEnv('SBN_BRIDGE_URL') ? [new SbnProvider(serverEnv('SBN_BRIDGE_URL')!)] : [])
 		]
 	}));
 }

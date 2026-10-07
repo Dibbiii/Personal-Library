@@ -261,10 +261,15 @@ export const themeMutationResponseSchema = z.object({
 // Questi endpoint sono SvelteKit server endpoints, non RPC Postgres.
 // ---------------------------------------------------------------------------
 
+export const bookSearchSortSchema = z.enum(['relevance', 'newest']);
+export type BookSearchSort = z.infer<typeof bookSearchSortSchema>;
+
 export const bookSearchRequestSchema = z.object({
 	title: nonEmptyTextSchema,
 	author: z.string().trim().min(1).optional(),
-	language: z.string().trim().min(1).max(16).optional()
+	language: z.string().trim().min(1).max(16).optional(),
+	sort: bookSearchSortSchema.optional(),
+	source: z.enum(['primary', 'sbn']).optional()
 });
 
 export const isbnLookupRequestSchema = z.object({

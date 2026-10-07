@@ -1,6 +1,7 @@
 # Segnalibro application and PostgreSQL.
 services:
   app:
+    build: .
     image: ghcr.io/dibbiii/personal-libvrary:latest
     container_name: personal-library
     restart: unless-stopped
@@ -8,7 +9,9 @@ services:
       DATABASE_URL: postgres://segnalibro_app:${SEGNALIBRO_APP_PASSWORD:-segnalibro_app}@db:5432/segnalibro
       SESSION_COOKIE_NAME: sb-session
       STORAGE_DIR: /app/storage
+      BODY_SIZE_LIMIT: 6M
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+      SBN_BRIDGE_URL: http://sbn:8080
     volumes:
       - segnalibro_storage:/app/storage
     networks:
@@ -22,6 +25,23 @@ services:
       - traefik.http.routers.personal-library.tls=true
       - traefik.http.routers.personal-library.tls.certresolver=le
       - traefik.http.services.personal-library.loadbalancer.server.port=3000
+
+  sbn:
+    build: ./services/sbn
+    restart: unless-stopped
+    networks:
+      - default
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
   db:
     image: postgres:17

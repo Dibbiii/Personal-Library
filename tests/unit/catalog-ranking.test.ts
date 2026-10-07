@@ -197,6 +197,40 @@ describe('ranking (ISBN > titolo > autore > lingua > cover > metadati)', () => {
 		).toEqual(['A', 'B']);
 	});
 
+	it('pertinenza: a parità di punteggio preferisce l’anno dell’edizione recente', () => {
+		const older = candidate({ publishedDate: '2000' });
+		const newer = candidate({ publishedDate: '2025' });
+		expect(rankCandidates([older, newer], { title: 'Dune' }).map((c) => c.publishedDate)).toEqual([
+			'2025',
+			'2000'
+		]);
+	});
+
+	it('newest: lingua preferita, anno, poi date sconosciute nella stessa lingua', () => {
+		const entries = [
+			candidate({ language: 'it', publishedDate: null }),
+			candidate({ language: 'en', publishedDate: '2026' }),
+			candidate({ language: 'it', publishedDate: '2000' }),
+			candidate({ language: 'it', publishedDate: 'ristampa 2025' })
+		];
+		expect(
+			rankCandidates(entries, { title: 'Dune', language: 'it', sort: 'newest' }).map(
+				(c) => c.publishedDate
+			)
+		).toEqual(['ristampa 2025', '2000', null, '2026']);
+		expect(
+			rankCandidates(entries, { title: 'Dune', sort: 'newest' }).map((c) => c.publishedDate)
+		).toEqual(['2026', 'ristampa 2025', '2000', null]);
+	});
+
+	it('newest mantiene la precedenza dell’ISBN esatto', () => {
+		const exact = candidate({ isbn13: query.isbn13, publishedDate: '1965' });
+		const newer = candidate({ language: 'it', publishedDate: '2025' });
+		expect(rankCandidates([newer, exact], { ...query, sort: 'newest' })[0]?.isbn13).toBe(
+			query.isbn13
+		);
+	});
+
 	it('mostra al massimo 5 candidati', () => {
 		const many = Array.from({ length: 12 }, (_, i) => candidate({ editionTitle: `Dune ${i}` }));
 		expect(topCandidates(rankCandidates(many, { title: 'Dune' }))).toHaveLength(5);
@@ -205,6 +239,12 @@ describe('ranking (ISBN > titolo > autore > lingua > cover > metadati)', () => {
 });
 
 describe('preselezione automatica', () => {
+	it('non conferma un ISBN-10 quando l’ISBN-13 del record lo contraddice', () => {
+		const entries = rankCandidates([candidate({ isbn13: '9788804678106', isbn10: '0441013597' })], {
+			isbn13: '9780441013593'
+		});
+		expect(isStrongIsbnMatch(entries, '9780441013593')).toBe(false);
+	});
 	it('solo con ISBN esatto, mai con titolo + autore identici', () => {
 		const sameText = rankCandidates([candidate({ isbn13: '9788804678106' })], {
 			title: 'Dune',
@@ -228,6 +268,14 @@ describe('preselezione automatica', () => {
 });
 
 describe('dedupe e merge', () => {
+	it('non fonde ISBN diversi anche se un provider riusa lo stesso identificativo', () => {
+		const a = candidate({
+			isbn13: '9788804678106',
+			providerIds: { openLibraryWorkId: null, openLibraryEditionId: 'OL1M', googleBooksId: null }
+		});
+		const b = { ...a, isbn13: '9780441013593' };
+		expect(dedupeCandidates([a, b])).toHaveLength(2);
+	});
 	it('fonde solo con ISBN o id provider in comune', () => {
 		const ol = candidate({
 			isbn13: '9788804678106',
