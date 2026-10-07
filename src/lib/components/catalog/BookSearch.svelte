@@ -163,7 +163,7 @@
 
 <section class="search" aria-label="Cerca un libro">
 	<form class="field" role="search" method="dialog" onsubmit={submitNow}>
-		<label class="sr-only" for="book-search-input">Titolo, autore o ISBN</label>
+		<label class="sr-only" for="book-search-input">Titolo, autore, editore o ISBN</label>
 		<span class="lead" aria-hidden="true"><Icon name="search" size={22} /></span>
 		<input
 			id="book-search-input"
@@ -173,7 +173,7 @@
 			autocapitalize="none"
 			spellcheck="false"
 			enterkeyhint="search"
-			placeholder="Titolo, autore o ISBN"
+			placeholder="Titolo, autore, editore o ISBN"
 			bind:value={query}
 			oninput={schedule}
 			aria-describedby="book-search-hint"
@@ -185,7 +185,9 @@
 		{/if}
 	</form>
 	<p id="book-search-hint" class="hint" class:warn={tooShort}>
-		{tooShort ? 'Scrivi almeno 2 caratteri.' : 'Cerco su Open Library e Google Books.'}
+		{tooShort
+			? 'Scrivi almeno 2 caratteri.'
+			: 'Cerco per titolo, autore o editore su Open Library e Google Books.'}
 	</p>
 
 	{#if status === 'done' && candidates.length > 0}
@@ -242,8 +244,8 @@
 			<div class="notice">
 				<p class="strong">Nessun risultato per “{lastQuery}”.</p>
 				<p>
-					Controlla l’ortografia, prova solo il titolo oppure aggiungi il libro a mano: funziona
-					senza servizi esterni.
+					Controlla l’ortografia, prova titolo, autore o editore, oppure aggiungi il libro a mano:
+					funziona senza servizi esterni.
 				</p>
 				{#if degraded}
 					<p class="warn-text">
@@ -285,7 +287,7 @@
 		{:else}
 			<div class="idle">
 				<Icon name="book-open" size={28} strokeWidth={1.7} />
-				<p>Scrivi titolo, autore o ISBN: ti mostro le edizioni migliori da scegliere.</p>
+				<p>Scrivi titolo, autore, editore o ISBN: ti mostro le edizioni migliori da scegliere.</p>
 			</div>
 		{/if}
 	</div>

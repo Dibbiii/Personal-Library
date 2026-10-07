@@ -11,7 +11,7 @@ import {
 } from '$lib/catalog/discover';
 import { toIso2, toIso3 } from '$lib/catalog/language';
 import { fetchJson, type FetchLike } from './http';
-import { OPEN_LIBRARY_HOSTS, sanitizeQuery } from './open-library';
+import { buildTextSearchQuery, OPEN_LIBRARY_HOSTS } from './open-library';
 
 const BASE = 'https://openlibrary.org';
 const MINUTE = 60 * 1000;
@@ -79,7 +79,7 @@ export function buildDiscoverSearch(
 	const parts: string[] = [];
 	let sort: DiscoverSort = query.sort;
 
-	const text = sanitizeQuery(query.q);
+	const text = buildTextSearchQuery(query.q);
 	if (text) parts.push(text);
 
 	const topics = [...query.topics];

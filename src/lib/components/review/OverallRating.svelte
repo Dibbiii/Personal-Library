@@ -8,6 +8,12 @@
 	}
 
 	let { rating, onchange }: Props = $props();
+
+	const formattedRating = $derived(
+		rating === null
+			? '–'
+			: new Intl.NumberFormat('it-IT', { minimumFractionDigits: rating % 1 ? 1 : 0 }).format(rating)
+	);
 </script>
 
 <ReviewCard title="Voto">
@@ -20,7 +26,7 @@
 			onchange={(value) => value !== null && onchange(value)}
 		/>
 		<p class="value" aria-hidden="true">
-			<span class="number">{rating ?? '–'}</span><span class="max">/5</span>
+			<span class="number">{formattedRating}</span><span class="max">/5</span>
 		</p>
 	</div>
 </ReviewCard>

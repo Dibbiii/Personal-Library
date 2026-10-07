@@ -8,7 +8,7 @@ import {
 	requireUserId
 } from '$lib/server/catalog/api';
 
-/** GET /api/catalog/search?title=…&author=…&language=it -> migliori 3-5 candidati (Open Library + Google Books). */
+/** GET /api/catalog/search?title=…&author=…&language=it -> migliori 3-5 candidati (titolo, autore o editore; Open Library + Google Books). */
 export const GET: RequestHandler = async (event) => {
 	try {
 		const userId = requireUserId(event);

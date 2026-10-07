@@ -4,6 +4,7 @@
 	import ChoiceGroup from '$lib/components/settings/ChoiceGroup.svelte';
 	import DeleteAccountSheet from '$lib/components/settings/DeleteAccountSheet.svelte';
 	import InstallPanel from '$lib/components/settings/InstallPanel.svelte';
+	import GenreShelvesEditor from '$lib/components/settings/GenreShelvesEditor.svelte';
 	import SettingsCard from '$lib/components/settings/SettingsCard.svelte';
 	import SyncPanel from '$lib/components/settings/SyncPanel.svelte';
 	import ThemeEditor from '$lib/components/settings/ThemeEditor.svelte';
@@ -21,6 +22,7 @@
 		SHELF_COOKIE,
 		type MotionPreference,
 		type ShelfMode,
+		type UserGenreShelf,
 		type UserSettings
 	} from '$lib/contracts/settings';
 	import type { ThemeDefinition, ThemeSelection } from '$lib/contracts/themes';
@@ -40,6 +42,9 @@
 
 	let message = $state<{ kind: 'ok' | 'error'; text: string } | null>(null);
 	let themeBusy = $state(false);
+	/* svelte-ignore state_referenced_locally */
+	let genreShelves = $state<UserGenreShelf[]>(data.genreShelves.map((genre) => ({ ...genre })));
+	let genreShelvesBusy = $state(false);
 
 	function say(kind: 'ok' | 'error', text: string) {
 		message = { kind, text };
@@ -203,6 +208,23 @@
 		}
 	}
 
+	// ---- Scaffali personali -------------------------------------------------
+
+	async function saveGenreShelves(genres: UserGenreShelf[]) {
+		genreShelvesBusy = true;
+		try {
+			const result = await sendJson<{ genres: UserGenreShelf[] }>('/api/settings/genres', 'PUT', {
+				genres: genres.map(({ slug, name, sortOrder }) => ({ slug, name, sortOrder }))
+			});
+			genreShelves = result.genres;
+			say('ok', 'Scaffali aggiornati.');
+		} catch (cause) {
+			say('error', cause instanceof Error ? cause.message : 'Non sono riuscito a salvare gli scaffali.');
+		} finally {
+			genreShelvesBusy = false;
+		}
+	}
+
 	// ---- Account ------------------------------------------------------------
 
 	let deleteSheetOpen = $state(false);
@@ -266,7 +288,11 @@
 			/>
 		</SettingsCard>
 
-		<SettingsCard icon="library" title="Scaffali">
+		<SettingsCard icon="library" title="I tuoi scaffali" wide>
+			<GenreShelvesEditor genres={genreShelves} busy={genreShelvesBusy} onsave={saveGenreShelves} />
+		</SettingsCard>
+
+		<SettingsCard icon="library" title="Visualizzazione scaffali">
 			<ChoiceGroup
 				legend="Modalità degli scaffali"
 				name="shelf-mode"

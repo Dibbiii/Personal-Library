@@ -22,7 +22,7 @@ export interface ContractFixture {
 	};
 	tags: {
 		magic: number;
-		friendship: number;
+		romantico: number;
 	};
 	cleanup(): Promise<void>;
 }
@@ -59,7 +59,7 @@ export async function createContractFixture(): Promise<ContractFixture> {
 		return row.id;
 	};
 	const magic = await tagId('magic', 'Magia', 9);
-	const friendship = await tagId('friendship', 'Amicizia', 1);
+	const romantico = await tagId('romantico', 'Romantico', 1);
 
 	const workSuffix = `contract-${suffix}`;
 	const [work] = await sql<{ id: string }[]>`
@@ -167,7 +167,7 @@ export async function createContractFixture(): Promise<ContractFixture> {
 		sql,
 		books,
 		bingo: { boardId, firstCellId: cells[0]!.id },
-		tags: { magic, friendship },
+		tags: { magic, romantico },
 		async cleanup() {
 			// Also exercises "delete account": the user owns a book assigned to a
 			// Bingo cell, which must not block the cascade (migration 005).

@@ -2,6 +2,7 @@ import type {
 	BookDetailResponse,
 	BookSearchRequest,
 	BookSearchResponse,
+	ChangeBookFormatInput,
 	ChangeBookGenreInput,
 	GenreViewResponse,
 	IsbnLookupRequest,
@@ -47,7 +48,22 @@ import type { ShelfCursor, QueueBook, BookSummary } from '../contracts/books';
 
 import type { ThemeDefinition, ThemeSelection } from '../contracts/themes';
 
-import type { UpdateSettingsInput, UserExport, UserSettings } from '../contracts/settings';
+import type {
+	UpdateSettingsInput,
+	UpdateUserGenreShelvesInput,
+	UserExport,
+	UserGenreShelvesResponse,
+	UserSettings
+} from '../contracts/settings';
+import type {
+	CreateFriendInviteResponse,
+	DeleteFriendshipInput,
+	FriendLibraryVisibilityResponse,
+	FriendshipsResponse,
+	RedeemFriendInviteInput,
+	RedeemFriendInviteResponse,
+	SetFriendLibraryVisibilityInput
+} from '../contracts/friendships';
 
 export interface LibraryRepository {
 	getHome(options?: { shelfLimit?: number }): Promise<LibraryHomeResponse>;
@@ -74,6 +90,8 @@ export interface LibraryRepository {
 		book: BookSummary;
 		reviewScoresReset: boolean;
 	}>;
+
+	changeFormat(input: ChangeBookFormatInput): Promise<BookSummary>;
 }
 
 export interface QueueRepository {
@@ -162,10 +180,21 @@ export interface SettingsRepository {
 	get(): Promise<UserSettings>;
 	update(input: UpdateSettingsInput): Promise<UserSettings>;
 	exportData(): Promise<UserExport>;
+	getGenreShelves(): Promise<UserGenreShelvesResponse>;
+	updateGenreShelves(input: UpdateUserGenreShelvesInput): Promise<UserGenreShelvesResponse>;
+}
+
+export interface FriendshipsRepository {
+	getAll(): Promise<FriendshipsResponse>;
+	createInvite(): Promise<CreateFriendInviteResponse>;
+	redeemInvite(input: RedeemFriendInviteInput): Promise<RedeemFriendInviteResponse>;
+	remove(input: DeleteFriendshipInput): Promise<void>;
+	setLibraryVisibility(input: SetFriendLibraryVisibilityInput): Promise<FriendLibraryVisibilityResponse>;
 }
 
 export interface SegnalibroRepositories {
 	settings: SettingsRepository;
+	friendships: FriendshipsRepository;
 	library: LibraryRepository;
 	queue: QueueRepository;
 	reading: ReadingRepository;

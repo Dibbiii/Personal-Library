@@ -80,14 +80,14 @@
 		<h1 id="{uid}-title">Scopri il tuo prossimo libro</h1>
 		<p>Esplora, lasciati ispirare e trova nuove storie da aggiungere alla tua libreria.</p>
 		<form class="search" role="search" {onsubmit}>
-			<label class="sr-only" for="{uid}-q">Cerca libri, autori, generi</label>
+			<label class="sr-only" for="{uid}-q">Cerca per titolo, autore o editore</label>
 			<Icon name="search" size={22} />
 			<input
 				id="{uid}-q"
 				type="search"
 				autocomplete="off"
 				enterkeyhint="search"
-				placeholder="Cerca libri, autori, generi…"
+				placeholder="Cerca titolo, autore o editore…"
 				bind:value
 				{oninput}
 			/>

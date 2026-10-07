@@ -1,4 +1,4 @@
-/** I 3 aggettivi della recensione (MASTER_SPEC sez. 10). */
+/** Fino a 3 aggettivi facoltativi della recensione. */
 export const ADJECTIVE_COUNT = 3;
 export const ADJECTIVE_MAX_LENGTH = 24;
 
@@ -41,9 +41,9 @@ export function removeAdjective(current: readonly string[], index: number): stri
 	return current.filter((_, i) => i !== index);
 }
 
-/** Esattamente 3, non vuoti, distinti senza distinguere le maiuscole. */
+/** Da 0 a 3 elementi, non vuoti e distinti senza distinguere le maiuscole. */
 export function areAdjectivesValid(adjectives: readonly string[]): boolean {
-	if (adjectives.length !== ADJECTIVE_COUNT) return false;
+	if (adjectives.length > ADJECTIVE_COUNT) return false;
 	const keys = adjectives.map(adjectiveKey);
-	return keys.every((k) => k.length > 0) && new Set(keys).size === ADJECTIVE_COUNT;
+	return keys.every((k) => k.length > 0) && new Set(keys).size === adjectives.length;
 }

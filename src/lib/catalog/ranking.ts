@@ -9,6 +9,7 @@ export const MAX_CANDIDATES = 5;
 export interface RankingQuery {
 	title?: string | undefined;
 	author?: string | undefined;
+	publisher?: string | undefined;
 	/** Preferenza, non filtro */
 	language?: string | undefined;
 	isbn13?: string | undefined;
@@ -16,25 +17,27 @@ export interface RankingQuery {
 
 /**
  * Codici motivo in `matchReasons` (la UI li traduce):
- * isbn-exact, title-exact, title-match, author-match, language-match, has-cover, complete-metadata.
+ * isbn-exact, title-exact, title-match, author-match, publisher-match, language-match, has-cover, complete-metadata.
  */
 export type MatchReason =
 	| 'isbn-exact'
 	| 'title-exact'
 	| 'title-match'
 	| 'author-match'
+	| 'publisher-match'
 	| 'language-match'
 	| 'has-cover'
 	| 'complete-metadata';
 
 /**
- * Pesi nell'ordine della specifica: ISBN > titolo > autore > lingua > cover > pagine/editore/data.
+ * Pesi nell'ordine della specifica: ISBN > titolo > autore/editore > lingua > cover > metadati.
  * L'ISBN esatto è in più un criterio di precedenza assoluta in `rankCandidates`.
  */
 const WEIGHTS = {
 	isbn: 0.3,
 	title: 0.34,
 	author: 0.12,
+	publisher: 0.1,
 	language: 0.1,
 	cover: 0.08,
 	meta: 0.06
@@ -80,6 +83,15 @@ export function scoreCandidate(
 		const similarity = authorSimilarity(query.author, candidate.authors);
 		score += WEIGHTS.author * similarity;
 		if (similarity >= 0.5) reasons.push('author-match');
+	}
+
+	if (query.publisher) {
+		applicable += WEIGHTS.publisher;
+		const similarity = candidate.publisher
+			? titleSimilarity(query.publisher, candidate.publisher)
+			: 0;
+		score += WEIGHTS.publisher * similarity;
+		if (similarity >= 0.5) reasons.push('publisher-match');
 	}
 
 	const preferredLanguage = toIso2(query.language);

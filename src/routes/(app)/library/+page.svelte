@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import CollectionView from '$lib/components/library/CollectionView.svelte';
 	import GenreShelf from '$lib/components/library/GenreShelf.svelte';
 	import HomeHeader from '$lib/components/library/HomeHeader.svelte';
 	import LibraryToolbar from '$lib/components/library/LibraryToolbar.svelte';
@@ -13,6 +15,7 @@
 		isLibrarySort,
 		matchesQuery,
 		normalizeQuery,
+		parseLibraryCollection,
 		sortBooks,
 		type LibrarySort,
 		type LibraryView
@@ -69,6 +72,20 @@
 		}
 	});
 
+	const collection = $derived(parseLibraryCollection(page.url.searchParams.get('collection')));
+	const collectionBooks = $derived(
+		collection === 'reading'
+			? home.reading.map((entry) => entry.book)
+			: collection === 'queue'
+				? home.sortedQueue.map((entry) => entry.book)
+				: []
+	);
+	const collectionTitle = $derived(collection === 'reading' ? 'Letture in corso' : 'I prossimi');
+	const collectionDescription = $derived(
+		collection === 'reading'
+			? 'Tutti i libri che stai leggendo o hai messo in pausa.'
+			: 'Tutti i libri della tua coda di lettura, nel relativo ordine.'
+	);
 	const needle = $derived(normalizeQuery(query));
 	const searching = $derived(needle !== '');
 	const customized = $derived(searching || sort !== 'recent');
@@ -107,7 +124,13 @@
 		<div class="header"><HomeHeader name={data.user?.displayName ?? null} /></div>
 	</div>
 
-	{#if searching}
+	{#if collection}
+		<CollectionView
+			title={collectionTitle}
+			description={collectionDescription}
+			books={collectionBooks}
+		/>
+	{:else if searching}
 		<p class="results" role="status">
 			{#if stillLoading}
 				Cerco in tutta la libreria…
@@ -125,13 +148,15 @@
 		</div>
 	{/if}
 
-	<div class="shelves">
-		{#each sections as section (section.shelf.genre.slug)}
-			<GenreShelf shelf={section.shelf} books={section.books} {view} {home} {dnd} {preview} />
-		{/each}
-	</div>
+	{#if !collection}
+		<div class="shelves">
+			{#each sections as section (section.shelf.genre.slug)}
+				<GenreShelf shelf={section.shelf} books={section.books} {view} {home} {dnd} {preview} />
+			{/each}
+		</div>
 
-	<BookPreviewPopover {preview} {home} {dnd} />
+		<BookPreviewPopover {preview} {home} {dnd} />
+	{/if}
 
 	<p class="toast" role="status" aria-live="polite" class:visible={home.message !== ''}>
 		{home.message}

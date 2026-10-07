@@ -10,6 +10,7 @@
 	import BookOnlineInfo from '$lib/components/detail/BookOnlineInfo.svelte';
 	import type { BookInfo } from '$lib/catalog/book-info';
 	import MarkReadSheet from '$lib/components/detail/MarkReadSheet.svelte';
+	import FormatSheet from '$lib/components/detail/FormatSheet.svelte';
 	import MoveSheet from '$lib/components/detail/MoveSheet.svelte';
 	import ProgressPanel from '$lib/components/detail/ProgressPanel.svelte';
 	import ProgressSheet from '$lib/components/detail/ProgressSheet.svelte';
@@ -28,6 +29,7 @@
 	import { addToQueue, removeFromQueue } from '$lib/client/queue.svelte';
 	import {
 		addCompletedReading,
+		changeBookFormat,
 		changeBookGenre,
 		describeReadingError,
 		pauseReading,
@@ -50,7 +52,7 @@
 		type PlanContext,
 		type StatusChoice
 	} from '$lib/client/reading-logic';
-	import type { GenreSlug } from '$lib/contracts';
+	import type { BookFormat, GenreSlug } from '$lib/contracts';
 	import { genreScopeStyle } from '$lib/genres';
 	import type { PageData } from './$types';
 
@@ -70,7 +72,7 @@
 	});
 
 	// ---- sheet e stato dell'interfaccia ----
-	type SheetName = 'move' | 'status' | 'progress' | 'markRead' | 'addReading' | null;
+	type SheetName = 'move' | 'format' | 'status' | 'progress' | 'markRead' | 'addReading' | null;
 	let sheet = $state<SheetName>(null);
 	let busy = $state(false);
 	let sheetError = $state<string | null>(null);
@@ -207,6 +209,13 @@
 			return result.reviewScoresReset && hadReview
 				? 'Genere cambiato: le valutazioni specifiche sono state azzerate.'
 				: 'Genere cambiato.';
+		});
+	}
+
+	async function changeFormat(next: BookFormat) {
+		await perform(async () => {
+			await changeBookFormat(book.id, next);
+			return 'Formato aggiornato.';
 		});
 	}
 
@@ -391,6 +400,7 @@
 			queued={detail.queuePosition !== null}
 			{canQueue}
 			onmove={() => openSheet('move')}
+			onformat={() => openSheet('format')}
 			onqueue={toggleQueue}
 			oncover={() => (coverOpen = true)}
 			onremove={openRemoval}
@@ -617,6 +627,16 @@
 	bind:open={coverOpen}
 	showTrigger={false}
 	onchanged={() => say('Copertina aggiornata.')}
+/>
+
+<FormatSheet
+	open={sheet === 'format'}
+	title={book.title}
+	format={book.format}
+	{busy}
+	error={sheetError}
+	onclose={closeSheet}
+	onsave={changeFormat}
 />
 
 <MoveSheet

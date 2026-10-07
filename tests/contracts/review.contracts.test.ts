@@ -37,7 +37,7 @@ describe('review/quote contracts (senza DB)', () => {
     expect(
       reviewReferenceResponseSchema.safeParse({
         contractVersion: 1,
-        tags: [{ id: 1, slug: 'friendship', label: 'Amicizia' }],
+        tags: [{ id: 2, slug: 'romantico', label: 'Romantico' }],
         dimensions: [
           {
             dimensionKey: 'fantasy.magic',
@@ -65,10 +65,10 @@ describe('review/quote contracts (senza DB)', () => {
     await closeAdminSql();
   });
 
-  it('get_review_reference restituisce 27 tag e 35 dimensioni', async () => {
+  it('get_review_reference restituisce i 18 tag canonici e 35 dimensioni', async () => {
     const ref = await expectRpcContract(fx.client, 'get_review_reference', {}, reviewReferenceResponseSchema);
-    expect(ref.tags).toHaveLength(27);
-    expect(ref.tags[0]).toMatchObject({ slug: 'friendship', label: 'Amicizia' });
+    expect(ref.tags).toHaveLength(18);
+    expect(ref.tags[0]).toMatchObject({ slug: 'romantico', label: 'Romantico' });
     expect(ref.dimensions).toHaveLength(35);
     expect(
       ref.dimensions.filter((d) => d.genreSlug === 'fantasy-magical-gothic').map((d) => d.dimensionKey),
@@ -119,19 +119,20 @@ describe('review/quote contracts (senza DB)', () => {
       'save_review',
       {
         p_book_id: fx.books.fantasy,
-        p_rating: 4,
+        p_rating: 4.5,
         p_adjectives: ['Epico', 'Malinconico', 'Immersivo'],
         p_scores: [
-          { dimension_key: 'fantasy.worldbuilding', score: 5 },
-          { dimension_key: 'fantasy.pacing', score: 3 },
+          { dimension_key: 'fantasy.worldbuilding', score: 4.5 },
+          { dimension_key: 'fantasy.pacing', score: 3.5 },
         ],
         p_tag_ids: [magic.id],
       },
       reviewSaveResultSchema,
     );
-    expect(saved.review.scores.map((s) => s.dimensionKey)).toEqual([
-      'fantasy.worldbuilding',
-      'fantasy.pacing',
+    expect(saved.review.rating).toBe(4.5);
+    expect(saved.review.scores.map((s) => [s.dimensionKey, s.score])).toEqual([
+      ['fantasy.worldbuilding', 4.5],
+      ['fantasy.pacing', 3.5],
     ]);
     expect(saved.review.tags.map((t) => t.slug)).toEqual(['magic']);
 
@@ -189,7 +190,7 @@ describe('review/quote contracts (senza DB)', () => {
       { p_book_id: fx.books.fantasy },
       bookDetailResponseSchema,
     );
-    expect(after.review).toMatchObject({ rating: 4, adjectives: ['Epico', 'Malinconico', 'Immersivo'] });
+    expect(after.review).toMatchObject({ rating: 4.5, adjectives: ['Epico', 'Malinconico', 'Immersivo'] });
     expect(after.review?.scores).toEqual([]);
     expect(after.review?.tags.map((t) => t.slug)).toEqual(['magic']);
     expect(after.quotes).toHaveLength(1);
@@ -203,6 +204,27 @@ describe('review/quote contracts (senza DB)', () => {
     expect((await expectRpcError(fx.client, 'delete_quote', { p_quote_id: added.quote.id })).dataCode).toBe(
       'NOT_FOUND',
     );
+  });
+
+  it('save_review accetta da zero a tre aggettivi e rifiuta valori non validi', async () => {
+    for (const adjectives of [[], ['Epico'], ['Epico', 'Malinconico'], ['Epico', 'Malinconico', 'Immersivo']]) {
+      const saved = await expectRpcContract(
+        fx.client,
+        'save_review',
+        { p_book_id: fx.books.fantasy, p_rating: 4, p_adjectives: adjectives },
+        reviewSaveResultSchema,
+      );
+      expect(saved.review.adjectives).toEqual(adjectives);
+    }
+
+    for (const adjectives of [[''], ['Epico', 'epico'], ['A', 'B', 'C', 'D']]) {
+      const error = await expectRpcError(fx.client, 'save_review', {
+        p_book_id: fx.books.fantasy,
+        p_rating: 4,
+        p_adjectives: adjectives,
+      });
+      expect(error.dataCode).toBe('VALIDATION');
+    }
   });
 
   it('un altro utente non vede né modifica le citazioni', async () => {

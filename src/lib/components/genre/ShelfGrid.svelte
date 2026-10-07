@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { BookSummary } from '$lib/contracts';
 	import type { DecorationKind } from '$lib/book/shelf-layout';
 	import { bookStatus } from '$lib/book/palette';
@@ -18,7 +19,15 @@
 		priorityCount?: number;
 		/** Oggetti in fondo all'ultima mensola (il secondo solo su schermi larghi). */
 		decor?: readonly DecorationKind[];
+		/** Griglia con mensole (default) oppure elenco compatto. */
+		view?: 'grid' | 'list';
+		/** Per i libri ancora da leggere il voto non ha senso. */
+		showRating?: boolean;
+		/** Controlli (ordine, vista) sotto l'intestazione. */
+		controls?: Snippet;
 	}
+
+	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale', both: 'Entrambi' } as const;
 
 	let {
 		title,
@@ -28,7 +37,10 @@
 		queuedIds,
 		emptyText,
 		priorityCount = 0,
-		decor = []
+		decor = [],
+		view = 'grid',
+		showRating = true,
+		controls
 	}: Props = $props();
 
 	const headingId = $props.id();
@@ -46,8 +58,34 @@
 		<span class="caption">{caption}</span>
 	</div>
 
+	{#if controls}<div class="controls">{@render controls()}</div>{/if}
+
 	{#if books.length === 0}
 		<p class="empty">{emptyText}</p>
+	{:else if view === 'list'}
+		<ul class="rows" role="list">
+			{#each books as book, index (book.id)}
+				<li>
+					<a class="row" href="/book/{book.id}" data-book-id={book.id}>
+						<BookCover {book} size="xs" priority={index < priorityCount} />
+						<span class="row-text">
+							<span class="title">{book.title}</span>
+							<span class="meta">{book.author}</span>
+							<span class="row-info">
+								{#if queuedIds.has(book.id)}<span class="tag strong">Prossimo</span>{/if}
+								<span class="tag">{FORMAT_LABELS[book.format]}</span>
+								{#if book.pageCount}<span>{book.pageCount} pag.</span>{/if}
+								{#if showRating && book.reviewRating}
+									<span class="stars-inline">
+										<RatingStars value={book.reviewRating} size={13} />
+									</span>
+								{/if}
+							</span>
+						</span>
+					</a>
+				</li>
+			{/each}
+		</ul>
 	{:else}
 		<div class="shelf">
 			<ul class="grid" role="list">
@@ -67,7 +105,7 @@
 								<span class="title">{book.title}</span>
 								<span class="meta">{book.author}</span>
 								{#if book.pageCount}<span class="meta">{book.pageCount} pag.</span>{/if}
-								{#if book.reviewRating}
+								{#if showRating && book.reviewRating}
 									<span class="stars"><RatingStars value={book.reviewRating} size={13} /></span>
 								{/if}
 							</span>
@@ -154,6 +192,74 @@
 		color: var(--color-text-secondary);
 		font-size: 12.5px;
 		text-align: right;
+	}
+
+	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 12px;
+		padding: 4px 20px 6px;
+	}
+
+	.rows {
+		display: flex;
+		flex-direction: column;
+		margin: 6px 0 0;
+		padding: 0 12px 10px;
+		list-style: none;
+	}
+
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		min-height: 56px;
+		padding: 8px;
+		border-radius: var(--radius-md);
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.row:hover {
+		background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+	}
+
+	.row:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+
+	.row-text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.row-info {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px 8px;
+		margin-top: 4px;
+		color: var(--color-text-secondary);
+		font-size: 12px;
+	}
+
+	.tag {
+		padding: 1px 8px;
+		border-radius: var(--radius-pill);
+		background: var(--color-surface);
+		font-weight: 600;
+	}
+
+	.tag.strong {
+		background: var(--genre-current);
+		color: var(--genre-current-on, var(--color-on-primary));
+	}
+
+	.stars-inline {
+		line-height: 0;
 	}
 
 	.empty {

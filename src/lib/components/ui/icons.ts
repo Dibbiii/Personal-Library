@@ -14,6 +14,12 @@ export const ICONS = {
 	'chevron-up': '<path d="M6 15l6-6 6 6"/>',
 	plus: '<path d="M12 5v14M5 12h14"/>',
 	smartphone: '<rect x="5.5" y="2.5" width="13" height="19" rx="2.5"/><path d="M10 18h4"/>',
+	'format-paper':
+		'<path d="M6 3.5h12a1 1 0 0 1 1 1v13H7.5A1.5 1.5 0 0 0 6 19z"/><path d="M6 19a1.5 1.5 0 0 0 1.5 1.5H19M10 8h6"/>',
+	'format-digital':
+		'<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M9 7h6M9 10.5h6M9 14h3.5"/>',
+	'format-both':
+		'<path d="M3.5 5h7a1 1 0 0 1 1 1v11H5a1.5 1.5 0 0 0-1.5 1.5z"/><path d="M3.5 18.5A1.5 1.5 0 0 0 5 20h6.5"/><rect x="13" y="8" width="8" height="12" rx="1.5"/><path d="M15.5 11.5h3M15.5 14h3"/>',
 	library:
 		'<rect x="4" y="3" width="16" height="18" rx="1.8"/><path d="M4 12h16"/><path d="M8 6.5v3M11 6v3.5M15.5 6.8v2.7M8 15v3M12 14.5v3.5M15.5 15.2v2.8"/>',
 	compass: '<circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2z"/>',

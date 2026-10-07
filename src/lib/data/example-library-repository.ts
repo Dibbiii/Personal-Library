@@ -5,7 +5,7 @@ import {
 	shelfPageResponseSchema
 } from '../contracts/rpc';
 
-import type { ChangeBookGenreInput } from '../contracts/rpc';
+import type { ChangeBookFormatInput, ChangeBookGenreInput } from '../contracts/rpc';
 
 import type { LibraryRepository } from './repositories';
 
@@ -13,7 +13,7 @@ import type { RpcTransport } from './rpc-client';
 
 import { callRpc } from './rpc-client';
 import { RPC } from './rpc-names';
-import { genreChangeResponseSchema } from '../contracts/rpc';
+import { bookFormatChangeResponseSchema, genreChangeResponseSchema } from '../contracts/rpc';
 import { bookRemovalResultSchema } from '../contracts/library-mutations';
 
 /**
@@ -88,5 +88,15 @@ export class RpcLibraryRepository implements LibraryRepository {
 			book: result.book,
 			reviewScoresReset: result.reviewScoresReset
 		};
+	}
+
+	async changeFormat(input: ChangeBookFormatInput) {
+		const result = await callRpc(
+			this.transport,
+			RPC.changeBookFormat,
+			{ p_book_id: input.bookId, p_format: input.format },
+			bookFormatChangeResponseSchema
+		);
+		return result.book;
 	}
 }

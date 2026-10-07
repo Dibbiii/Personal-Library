@@ -1,20 +1,19 @@
 <script lang="ts">
-	import Icon from '$lib/components/ui/Icon.svelte';
+	import BookCover from '$lib/components/book/BookCover.svelte';
+	import type { BookSummary } from '$lib/contracts';
 
 	interface Props {
-		bookId: string;
-		title: string;
-		author: string;
+		book: BookSummary;
 		page: number | null;
 	}
 
-	let { bookId, title, author, page }: Props = $props();
+	let { book, page }: Props = $props();
 </script>
 
-<a class="tomb" href="/book/{bookId}" data-testid="tombstone">
-	<span class="icon"><Icon name="book-open" size={18} strokeWidth={1.7} /></span>
-	<span class="title">{title}</span>
-	<span class="author">{author}</span>
+<a class="tomb" href="/book/{book.id}" data-testid="tombstone">
+	<span class="cover"><BookCover {book} size="xs" /></span>
+	<span class="title">{book.title}</span>
+	<span class="author">{book.author}</span>
 	<span class="rule" aria-hidden="true"></span>
 	<span class="rest"
 		>{#if page}Riposa a pag. {page}{:else}Riposa qui{/if}</span
@@ -28,20 +27,25 @@
 		align-items: center;
 		box-sizing: border-box;
 		min-width: 0;
-		min-height: 156px;
-		padding: 26px 6px 10px;
-		border: 1.5px solid color-mix(in srgb, var(--color-shelf-axis) 22%, transparent);
+		min-height: 212px;
+		padding: 20px 8px 10px;
+		border: 1.5px solid color-mix(in srgb, var(--color-text-secondary) 34%, transparent);
 		border-radius: 52px 52px 10px 10px;
-		background: linear-gradient(180deg, var(--tomb-top), var(--tomb-bottom));
-		box-shadow: 0 8px 12px -6px color-mix(in srgb, var(--color-shelf-axis) 40%, transparent);
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-surface-elevated) 88%, var(--color-text-secondary)),
+			color-mix(in srgb, var(--color-surface) 78%, var(--color-text-secondary))
+		);
+		box-shadow: 0 8px 12px -6px color-mix(in srgb, var(--color-text-secondary) 42%, transparent);
 		color: var(--color-shelf-axis);
 		text-align: center;
 		text-decoration: none;
 	}
 
-	.icon {
-		line-height: 0;
-		opacity: 0.7;
+	.cover {
+		display: block;
+		width: 44px;
+		filter: grayscale(0.18);
 	}
 
 	.title {

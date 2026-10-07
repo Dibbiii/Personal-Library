@@ -10,7 +10,8 @@ const STATE_LABELS: Record<string, string> = {
 
 const FORMAT_LABELS: Record<string, string> = {
 	physical: 'Cartaceo',
-	digital: 'Digitale'
+	digital: 'Digitale',
+	both: 'Cartaceo e digitale'
 };
 
 export const BOOK_CSV_HEADER = [

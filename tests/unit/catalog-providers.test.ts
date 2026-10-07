@@ -5,6 +5,7 @@ import type { BookProvider } from '../../src/lib/catalog/types';
 import { GoogleBooksProvider, parseVolumes } from '../../src/lib/server/catalog/google-books';
 import { fetchJson } from '../../src/lib/server/catalog/http';
 import {
+	buildTextSearchQuery,
 	OpenLibraryProvider,
 	parseSearchResponse,
 	sanitizeQuery
@@ -66,6 +67,12 @@ describe('parser Open Library', () => {
 
 	it('sanitizeQuery elimina gli operatori Solr', () => {
 		expect(sanitizeQuery('title:(dune) OR "herbert" /x\\')).toBe('title dune OR herbert x');
+	});
+
+	it('compone la ricerca libera su titolo, autore ed editore', () => {
+		expect(buildTextSearchQuery('Fanucci')).toBe(
+			'(title:(Fanucci) OR author:(Fanucci) OR publisher:(Fanucci))'
+		);
 	});
 });
 
@@ -267,6 +274,7 @@ describe('OpenLibraryProvider', () => {
 		const { fetch: fetchImpl, calls } = router({ 'search.json': () => json(OL_SEARCH_DUNE) });
 		await new OpenLibraryProvider({ fetch: fetchImpl }).search({ title: 'dune', language: 'it' });
 		expect(calls).toHaveLength(2);
+		expect(new URL(calls[0] ?? '').searchParams.get('q')).toContain('publisher:(dune)');
 		expect(new URL(calls[0] ?? '').searchParams.get('q')).toContain('language:ita');
 		expect(new URL(calls[1] ?? '').searchParams.get('q')).not.toContain('language:');
 	});
@@ -275,16 +283,14 @@ describe('OpenLibraryProvider', () => {
 describe('GoogleBooksProvider', () => {
 	it('la chiave API resta nella richiesta server e non compare nei candidati', async () => {
 		const { fetch: fetchImpl, calls } = router({ 'googleapis.com': () => json(GB_SEARCH_DUNE) });
-		const candidates = await new GoogleBooksProvider({
-			fetch: fetchImpl,
-			apiKey: 'SEGRETA'
-		}).search({
-			title: 'Dune',
-			author: 'Herbert'
-		});
+		const provider = new GoogleBooksProvider({ fetch: fetchImpl, apiKey: 'SEGRETA' });
+		const candidates = await provider.search({ title: 'Dune', author: 'Herbert' });
 		expect(calls[0]).toContain('key=SEGRETA');
 		expect(new URL(calls[0] ?? '').searchParams.get('q')).toBe('intitle:"Dune" inauthor:"Herbert"');
 		expect(JSON.stringify(candidates)).not.toContain('SEGRETA');
+
+		await provider.search({ title: 'Fanucci' });
+		expect(new URL(calls[1] ?? '').searchParams.get('q')).toBe('Fanucci');
 	});
 
 	it('senza chiave non la invia; 429 -> RATE_LIMITED', async () => {

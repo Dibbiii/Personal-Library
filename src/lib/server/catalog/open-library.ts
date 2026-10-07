@@ -76,6 +76,16 @@ export function sanitizeQuery(value: string): string {
 		.slice(0, 200);
 }
 
+/**
+ * Ricerca testuale libera: Open Library distingue i campi, quindi li interroghiamo tutti.
+ * Il testo è già sanificato prima di essere inserito nella query Solr.
+ */
+export function buildTextSearchQuery(value: string): string {
+	const text = sanitizeQuery(value);
+	if (!text) return '';
+	return `(title:(${text}) OR author:(${text}) OR publisher:(${text}))`;
+}
+
 function lastKeySegment(key: string): string {
 	return key.split('/').filter(Boolean).pop() ?? key;
 }
@@ -192,8 +202,12 @@ export class OpenLibraryProvider implements BookProvider {
 		request: BookSearchRequest,
 		options?: ProviderCallOptions
 	): Promise<EditionCandidate[]> {
-		const terms = sanitizeQuery([request.title, request.author ?? ''].join(' '));
-		if (!terms) return [];
+		const text = sanitizeQuery(request.title);
+		if (!text) return [];
+		// Mantiene la ricerca strutturata titolo + autore per i chiamanti che la usano;
+		// il flusso con campo unico cerca invece nei tre metadati bibliografici.
+		const author = request.author ? sanitizeQuery(request.author) : '';
+		const terms = author ? `title:(${text}) author:(${author})` : buildTextSearchQuery(text);
 
 		const iso3 = toIso3(request.language);
 		const queries = iso3 ? [`${terms} language:${iso3}`, terms] : [terms];

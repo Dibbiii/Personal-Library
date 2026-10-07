@@ -5,7 +5,7 @@ import { errorResponse, handle, parseBody } from './_http';
 import type { RequestHandler } from './$types';
 
 /**
- * Salva (crea o sostituisce) la recensione di un libro: voto, 3 aggettivi, rating per genere, tag.
+ * Salva (crea o sostituisce) la recensione di un libro: voto, fino a 3 aggettivi, rating per genere, tag.
  * I tag arrivano come slug e sono risolti in id dal server. Idempotente: la RPC riscrive lo stato.
  */
 export const PUT: RequestHandler = (event) =>

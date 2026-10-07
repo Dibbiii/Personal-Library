@@ -6,6 +6,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CoverImage from './CoverImage.svelte';
+	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
 	import { addBookToLibrary, CatalogClientError } from '$lib/catalog/client';
 	import { buildAddRequest, candidateMeta, seriesLabel, type BookDraft } from '$lib/catalog/draft';
 	import { GENRE_LABELS, GENRE_ORDER, isGenreSlug } from '$lib/genres';
@@ -193,16 +194,13 @@
 				<fieldset class="group">
 					<legend>Formato</legend>
 					<div class="formats" role="radiogroup" aria-label="Formato">
-						<label class="format">
-							<input type="radio" name="{uid}-format" value="physical" bind:group={format} />
-							<Icon name="book-open" size={18} strokeWidth={2} />
-							Cartaceo
-						</label>
-						<label class="format">
-							<input type="radio" name="{uid}-format" value="digital" bind:group={format} />
-							<Icon name="smartphone" size={18} strokeWidth={2} />
-							Digitale
-						</label>
+						{#each ['physical', 'digital', 'both'] as const as option (option)}
+							<label class="format">
+								<input type="radio" name="{uid}-format" value={option} bind:group={format} />
+								<Icon name={FORMAT_ICONS[option]} size={18} strokeWidth={2} />
+								{FORMAT_LABELS[option]}
+							</label>
+						{/each}
 					</div>
 				</fieldset>
 
@@ -392,7 +390,7 @@
 
 	.formats {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 10px;
 	}
 

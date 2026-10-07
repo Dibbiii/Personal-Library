@@ -89,6 +89,21 @@ test.describe('Home Libreria', () => {
 			);
 			await expect(page.getByRole('region', { name: /^I prossimi, 3 libri/ })).toBeVisible();
 			await expect(page.getByText('3 su 3')).toBeVisible();
+			// I link di raccolta stanno nell'intestazione, senza avvolgere i controlli dello scaffale.
+			await expect(page.getByRole('link', { name: 'Vedi tutti: In lettura' })).toHaveAttribute(
+				'href',
+				'/library?collection=reading'
+			);
+			await expect(page.getByRole('link', { name: 'Vedi tutti: I prossimi 3' })).toHaveAttribute(
+				'href',
+				'/library?collection=queue'
+			);
+			await page.getByRole('link', { name: 'Vedi tutti: I prossimi 3' }).click();
+			await expect(page).toHaveURL(/\/library\?collection=queue$/);
+			await expect(page.getByRole('heading', { name: 'I prossimi', level: 2 })).toBeVisible();
+			await expect(page.getByText('3 libri', { exact: true })).toBeVisible();
+			await page.getByRole('link', { name: 'Tutti gli scaffali' }).click();
+			await expect(page).toHaveURL(/\/library$/);
 			// 7 scaffali nell'ordine della spec, titolo toccabile
 			const genres = page.getByRole('link', {
 				name: /Classici|Mitologia|Distopia|Thriller|Fantasy|Romance|Contemporanea/

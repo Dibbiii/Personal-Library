@@ -34,7 +34,7 @@
 	const count = $derived(books ? books.length : shelf.totalCount);
 	const pill = $derived(`${count} ${count === 1 ? 'libro' : 'libri'}`);
 
-	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
+	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale', both: 'Entrambi' } as const;
 	/** Oggetti a tema ai due capi dello scaffale (mockup: busto e pianta a sinistra, vaso a destra). */
 	const SHELF_ENDS: Record<GenreSlug, readonly [DecorationKind, DecorationKind]> = {
 		classics: ['globe', 'fern'],
@@ -113,7 +113,7 @@
 								{#if book.pageCount}<span>{book.pageCount} pagine</span>{/if}
 								{#if book.reviewRating}
 									<span class="stars" aria-label="Voto {book.reviewRating} su 5">
-										{'★'.repeat(book.reviewRating)}
+										★ {book.reviewRating.toLocaleString('it-IT')}
 									</span>
 								{/if}
 							</span>

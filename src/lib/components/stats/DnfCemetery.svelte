@@ -44,12 +44,7 @@
 		<ul class="tombs">
 			{#each books as item (item.book.id)}
 				<li>
-					<Tombstone
-						bookId={item.book.id}
-						title={item.book.title}
-						author={item.book.author}
-						page={item.stoppedAtPage}
-					/>
+					<Tombstone book={item.book} page={item.stoppedAtPage} />
 				</li>
 			{/each}
 		</ul>

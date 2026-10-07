@@ -10,7 +10,7 @@ export const genreSlugSchema = z.enum([
 	'contemporary-historical'
 ]);
 
-export const bookFormatSchema = z.enum(['physical', 'digital']);
+export const bookFormatSchema = z.enum(['physical', 'digital', 'both']);
 
 export const lifecycleStateSchema = z.enum(['unread', 'reading', 'paused', 'finished', 'dnf']);
 

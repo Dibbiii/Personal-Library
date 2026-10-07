@@ -10,6 +10,7 @@ import { RpcBingoRepository } from '$lib/data/bingo-repository';
 import { RpcStatsExtrasRepository } from '$lib/data/stats-extras-repository';
 import { RpcThemeRepository } from '$lib/data/theme-repository';
 import { RpcSettingsRepository } from '$lib/data/settings-repository';
+import { RpcFriendshipsRepository } from '$lib/data/friendships-repository';
 import { ServerCatalogRepository } from '$lib/data/catalog-repository';
 
 /**
@@ -34,7 +35,8 @@ export function createRepositories(rpc: RpcTransport): Repositories {
 		statsExtras: new RpcStatsExtrasRepository(rpc),
 		catalog: new ServerCatalogRepository(),
 		themes: new RpcThemeRepository(rpc),
-		settings: new RpcSettingsRepository(rpc)
+		settings: new RpcSettingsRepository(rpc),
+		friendships: new RpcFriendshipsRepository(rpc)
 	};
 }
 

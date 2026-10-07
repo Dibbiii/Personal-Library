@@ -8,3 +8,14 @@ export * from './reviews';
 export * from './stats';
 export * from './rpc';
 export * from './stats-lists';
+export * from './friendships';
+export {
+	userGenreShelfSchema,
+	userGenreShelvesResponseSchema,
+	updateUserGenreShelvesInputSchema
+} from './settings';
+export type {
+	UserGenreShelf,
+	UserGenreShelvesResponse,
+	UpdateUserGenreShelvesInput
+} from './settings';

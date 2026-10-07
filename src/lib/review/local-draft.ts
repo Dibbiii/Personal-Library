@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ratingSchema } from '../contracts/primitives';
 import type { ReviewDraft } from './draft';
 
 /**
@@ -7,13 +8,23 @@ import type { ReviewDraft } from './draft';
  */
 const KEY_PREFIX = 'sb-review-draft:';
 
+const localDraftAdjectivesSchema = z
+	.array(z.string().trim().min(1).max(24))
+	.max(3)
+	.refine(
+		(values) =>
+			new Set(values.map((value) => value.normalize('NFC').toLocaleLowerCase('it'))).size ===
+			values.length,
+		'Gli aggettivi devono essere distinti.'
+	);
+
 const localDraftSchema = z.object({
 	savedAt: z.number(),
 	genre: z.string(),
 	draft: z.object({
-		rating: z.number().int().min(1).max(5).nullable(),
-		adjectives: z.array(z.string()).max(3),
-		scores: z.record(z.string(), z.number().int().min(1).max(5)),
+		rating: ratingSchema.nullable(),
+		adjectives: localDraftAdjectivesSchema,
+		scores: z.record(z.string(), ratingSchema),
 		tags: z.array(z.string())
 	})
 });

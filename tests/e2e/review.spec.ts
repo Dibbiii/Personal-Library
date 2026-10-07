@@ -127,24 +127,35 @@ test.describe('Recensione', () => {
 		await expect(page.getByText('Date di lettura')).toBeVisible(); // afterScores
 	});
 
-	test('3 aggettivi obbligatori, voto, rating per genere, tag e persistenza', async ({ page }) => {
+	test('aggettivi facoltativi, voto, rating per genere, tag e persistenza', async ({ page }) => {
 		fixture = await registerWithBook(page);
 		await finishReading(fixture);
 		await open(page, fixture);
 		const panel = page.getByTestId('review-panel');
 
-		await expect(panel.getByText('Campo obbligatorio: scrivine esattamente 3.')).toBeVisible();
+		await expect(panel.getByText('Facoltativi: puoi aggiungerne fino a 3, tutti distinti.')).toBeVisible();
+
+		// Con il solo voto la recensione si salva anche senza aggettivi.
+		await panel.getByRole('radio', { name: '4 stelle' }).first().click();
+		await saved(page);
+		let [row] = await admin<{ adjectives: string[] }[]>`
+			select adjectives from public.reviews where user_book_id = ${fixture.bookId}::uuid`;
+		expect(row?.adjectives).toEqual([]);
+
 		await addAdjective(page, 'epico');
+		await saved(page);
+		[row] = await admin<{ adjectives: string[] }[]>`
+			select adjectives from public.reviews where user_book_id = ${fixture.bookId}::uuid`;
+		expect(row?.adjectives).toEqual(['Epico']);
 		await addAdjective(page, 'EPICO');
 		await expect(panel.getByRole('alert')).toHaveText('Hai già usato questo aggettivo.');
-		await page.getByLabel('Aggiungi un aggettivo').fill('');
+
 		await addAdjective(page, 'malinconico');
 		await expect(panel.getByText('2/3')).toBeVisible();
-
-		// voto con 2 aggettivi: resta bozza locale, nessun salvataggio
-		await panel.getByRole('radio', { name: '4 stelle' }).first().click();
-		await expect(status(page)).toHaveAttribute('data-state', 'local');
-		await expect(status(page)).toContainText('mancano i 3 aggettivi');
+		await saved(page);
+		[row] = await admin<{ adjectives: string[] }[]>`
+			select adjectives from public.reviews where user_book_id = ${fixture.bookId}::uuid`;
+		expect(row?.adjectives).toEqual(['Epico', 'Malinconico']);
 
 		await addAdjective(page, 'immersivo');
 		await expect(panel.getByText('3/3')).toBeVisible();
@@ -184,12 +195,14 @@ test.describe('Recensione', () => {
 			'true'
 		);
 
-		// togliere un aggettivo rende la recensione non salvabile: bozza locale, dati del server intatti
+		// Anche togliendo un aggettivo la recensione resta salvabile.
 		await again.getByRole('button', { name: 'Rimuovi Epico' }).click();
-		await expect(status(page)).toHaveAttribute('data-state', 'local');
-		const [row] = await admin<{ adjectives: string[] }[]>`
+		await saved(page);
+		await expect(again.getByText('4/5')).toBeVisible();
+		await expect(again.getByRole('button', { name: 'Magia' })).toHaveAttribute('aria-pressed', 'true');
+		const [savedRow] = await admin<{ adjectives: string[] }[]>`
 			select adjectives from public.reviews where user_book_id = ${fixture.bookId}::uuid`;
-		expect(row?.adjectives).toEqual(['Epico', 'Malinconico', 'Immersivo']);
+		expect(savedRow?.adjectives).toEqual(['Malinconico', 'Immersivo']);
 	});
 
 	test('citazioni: aggiungi, modifica, elimina', async ({ page }) => {

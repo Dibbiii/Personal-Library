@@ -35,6 +35,7 @@
 
 <ShelfFrame
 	title="I prossimi 3"
+	href="/library?collection=queue"
 	accent="var(--color-divider)"
 	height={140}
 	inset={11}

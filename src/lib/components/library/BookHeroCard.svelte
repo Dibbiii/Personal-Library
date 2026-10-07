@@ -29,7 +29,7 @@
 		onmove
 	}: Props = $props();
 
-	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale' } as const;
+	const FORMAT_LABELS = { physical: 'Cartaceo', digital: 'Digitale', both: 'Entrambi' } as const;
 	const STATE_LABELS = {
 		unread: 'Da leggere',
 		reading: 'In lettura',
