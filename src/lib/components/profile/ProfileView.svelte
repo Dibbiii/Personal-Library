@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import ReadingCalendar from '$lib/components/explore/ReadingCalendar.svelte';
+	import WheelSection from '$lib/components/explore/WheelSection.svelte';
 	import DnfCemetery from '$lib/components/stats/DnfCemetery.svelte';
 	import StatsView from '$lib/components/stats/StatsView.svelte';
 	import YearPicker from '$lib/components/stats/YearPicker.svelte';
 	import type {
+		BookSummary,
 		BingoBoardListItem,
 		DnfBook,
 		GenreSlug,
@@ -30,6 +33,8 @@
 		dnf: DnfBook[];
 		calendar: ReadingCalendarDay[];
 		home: LibraryHomeResponse;
+		/** Libri non letti, per la Ruota della fortuna. */
+		pool: BookSummary[];
 	}
 
 	let props: Props = $props();
@@ -38,6 +43,8 @@
 		{ key: 'overview', label: 'Panoramica' },
 		{ key: 'stats', label: 'Statistiche' },
 		{ key: 'activity', label: 'Attività' },
+		{ key: 'wheel', label: 'Ruota della fortuna' },
+		{ key: 'calendar', label: 'Calendario' },
 		{ key: 'dnf', label: 'Abbandonati' }
 	] as const;
 	type TabKey = (typeof TABS)[number]['key'];
@@ -119,6 +126,12 @@
 		<ProfileCard icon="calendar" title="Attività recente" class="activity-full">
 			<ActivityList items={recentActivity(props.home, props.dnf, 30)} />
 		</ProfileCard>
+	{:else if tab === 'wheel'}
+		<div class="tool">
+			<WheelSection pool={props.pool} />
+		</div>
+	{:else if tab === 'calendar'}
+		<ReadingCalendar year={props.year} days={props.calendar} currentYear={props.currentYear} />
 	{:else}
 		<DnfCemetery books={props.dnf} />
 	{/if}
@@ -134,6 +147,12 @@
 		max-width: var(--content-max);
 		margin: 0 auto;
 		padding: 16px var(--page-gutter) 32px;
+	}
+
+	.tool {
+		width: 100%;
+		max-width: 520px;
+		margin-inline: auto;
 	}
 
 	.tabbar {

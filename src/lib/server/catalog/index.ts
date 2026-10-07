@@ -2,6 +2,7 @@ import { GoogleBooksProvider } from './google-books';
 import { OpenLibraryProvider } from './open-library';
 import { CatalogService } from './service';
 import { BookInfoService } from './book-info';
+import { DiscoverService } from './discover';
 import { serverEnv } from '../db/env';
 
 export { CatalogService } from './service';
@@ -9,6 +10,7 @@ export { OpenLibraryProvider } from './open-library';
 export { GoogleBooksProvider } from './google-books';
 export { RateLimiter } from './rate-limit';
 export { BookInfoService } from './book-info';
+export { DiscoverService } from './discover';
 
 const globalKey = Symbol.for('segnalibro.catalogService');
 const globals = globalThis as unknown as Record<symbol, CatalogService | undefined>;
@@ -34,4 +36,12 @@ export function getBookInfoService(): BookInfoService {
 	return (infoGlobals[infoKey] ??= new BookInfoService({
 		googleApiKey: serverEnv('GOOGLE_BOOKS_API_KEY')
 	}));
+}
+
+const discoverKey = Symbol.for('segnalibro.discoverService');
+const discoverGlobals = globalThis as unknown as Record<symbol, DiscoverService | undefined>;
+
+/** Libri da scoprire per Esplora (Open Library). */
+export function getDiscoverService(): DiscoverService {
+	return (discoverGlobals[discoverKey] ??= new DiscoverService());
 }

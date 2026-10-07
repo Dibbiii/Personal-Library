@@ -166,6 +166,24 @@
 			<Icon name="book-open" size={18} strokeWidth={2.1} />
 			Vedi dettagli
 		</a>
+		<a
+			class="round"
+			href="/book/{book.id}#review"
+			aria-label="Vai alla recensione di {book.title}"
+			data-tip="Recensione"
+		>
+			<Icon name="pencil" size={18} />
+		</a>
+		{#if book.completedReadingsCount > 0}
+			<a
+				class="round"
+				href="/book/{book.id}#history"
+				aria-label="Vedi cronologia letture di {book.title}"
+				data-tip="Cronologia"
+			>
+				<Icon name="calendar" size={18} />
+			</a>
+		{/if}
 		{#if inProgress}
 			<a
 				class="round"
@@ -225,31 +243,29 @@
 
 <style>
 	.hero {
-		--ink: var(--color-on-genre-white);
-		--ink-soft: color-mix(in srgb, var(--color-on-genre-white) 86%, transparent);
-		--glass: color-mix(in srgb, var(--color-on-genre-white) 16%, transparent);
-		--base: color-mix(in srgb, var(--color-overlay) 94%, var(--g));
+		--ink: var(--color-text-primary);
+		--ink-soft: var(--color-text-secondary);
+		--glass: var(--color-surface);
+		--base: var(--color-surface-elevated);
 		position: relative;
 		isolation: isolate;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
 		box-sizing: border-box;
-		padding: 18px;
+		padding: 20px;
 		overflow: hidden;
+		border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
 		border-radius: var(--radius-xl);
-		background:
-			radial-gradient(
-				ellipse 55% 80% at 100% 0%,
-				color-mix(in srgb, var(--g) 28%, transparent),
-				transparent 70%
-			),
-			var(--base);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--g) 8%, var(--base)),
+			var(--base) 52%
+		);
 		box-shadow:
-			0 24px 48px -18px color-mix(in srgb, var(--color-overlay) 70%, transparent),
-			0 2px 6px color-mix(in srgb, var(--color-overlay) 30%, transparent);
+			0 22px 44px -22px color-mix(in srgb, var(--color-shadow) 42%, transparent),
+			0 3px 10px color-mix(in srgb, var(--color-shadow) 8%, transparent);
 		color: var(--ink);
-		text-shadow: 0 1px 2px color-mix(in srgb, var(--color-overlay) 60%, transparent);
 	}
 
 	/* La copertina fa da illustrazione solo sul bordo destro: scurita e sfumata, non disturba il testo. */
@@ -259,10 +275,10 @@
 		inset: 0 0 0 55%;
 		background-position: center 30%;
 		background-size: cover;
-		filter: blur(6px) brightness(0.55) saturate(1.1);
-		opacity: 0.45;
-		-webkit-mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 80%);
-		mask-image: linear-gradient(90deg, transparent, var(--color-overlay) 80%);
+		filter: blur(8px) saturate(0.8);
+		opacity: 0.1;
+		-webkit-mask-image: linear-gradient(90deg, transparent, var(--color-overlay));
+		mask-image: linear-gradient(90deg, transparent, var(--color-overlay));
 	}
 
 	.body {
@@ -275,7 +291,7 @@
 		flex: none;
 		align-self: flex-start;
 		border-radius: 3px 8px 8px 3px;
-		box-shadow: 0 10px 22px color-mix(in srgb, var(--color-overlay) 60%, transparent);
+		box-shadow: 0 10px 22px color-mix(in srgb, var(--color-shadow) 24%, transparent);
 	}
 
 	.info {
@@ -392,8 +408,8 @@
 		gap: 6px;
 		padding: 10px;
 		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--color-overlay) 55%, transparent);
-		text-shadow: none;
+		border: 1px solid color-mix(in srgb, var(--color-border) 25%, transparent);
+		background: var(--color-surface);
 	}
 
 	.move-label {
@@ -411,7 +427,7 @@
 		padding: 0 10px;
 		border: 0;
 		border-radius: var(--radius-pill);
-		background: var(--glass);
+		background: var(--color-surface-elevated);
 		color: var(--ink);
 		font-size: 12px;
 		font-weight: 600;
@@ -419,7 +435,7 @@
 	}
 
 	.move button:hover {
-		background: color-mix(in srgb, var(--color-on-genre-white) 26%, transparent);
+		background: var(--color-primary-tint);
 	}
 
 	.move .dot {
@@ -433,7 +449,9 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 10px;
+		gap: 8px;
+		padding-top: 14px;
+		border-top: 1px solid color-mix(in srgb, var(--color-border) 24%, transparent);
 	}
 
 	.primary,
@@ -466,14 +484,16 @@
 	.round {
 		width: 48px;
 		padding: 0;
-		border: 1px solid color-mix(in srgb, var(--color-on-genre-white) 22%, transparent);
-		background: var(--glass);
+		border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
+		background: var(--color-surface-elevated);
+		color: var(--color-text-primary);
 		cursor: pointer;
 	}
 
 	.round.on {
-		background: var(--color-on-genre-white);
-		color: var(--color-overlay);
+		border-color: transparent;
+		background: var(--color-primary-tint);
+		color: var(--color-primary);
 	}
 
 	/* Etichetta dell'icona: appare con hover o focus, sopra il pulsante */
@@ -484,8 +504,8 @@
 		left: 50%;
 		padding: 4px 9px;
 		border-radius: var(--radius-sm);
-		background: var(--color-on-genre-white);
-		color: var(--color-overlay);
+		background: var(--color-text-primary);
+		color: var(--color-surface-elevated);
 		font-size: 12px;
 		font-weight: 700;
 		white-space: nowrap;
@@ -509,11 +529,13 @@
 	}
 
 	.round:hover {
-		background: color-mix(in srgb, var(--color-on-genre-white) 26%, transparent);
+		border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
+		background: var(--color-primary-tint);
+		color: var(--color-primary);
 	}
 
 	.round.on:hover {
-		background: color-mix(in srgb, var(--color-on-genre-white) 85%, transparent);
+		background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface-elevated));
 	}
 
 	.primary:active,
@@ -523,8 +545,8 @@
 
 	.primary:focus-visible,
 	.round:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: 2px;
+		outline: 2px solid var(--color-primary);
+		outline-offset: 3px;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

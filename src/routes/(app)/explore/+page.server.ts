@@ -1,15 +1,29 @@
 import { requireRepository } from '$lib/server/repositories';
-import { parseYearParam } from '$lib/explore/calendar';
+import { ownedKey } from '$lib/catalog/discover';
+import type { GenreSlug } from '$lib/contracts/enums';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
-	const explore = requireRepository(locals.repos, 'explore');
-	const stats = requireRepository(locals.repos, 'stats');
+/** Scaffali caricati per intero: servono a riconoscere i libri già in libreria. */
+const SHELF_LIMIT = 100;
 
-	const currentYear = new Date().getFullYear();
-	const year = parseYearParam(url.searchParams.get('year'), currentYear);
+export const load: PageServerLoad = async ({ locals }) => {
+	const library = requireRepository(locals.repos, 'library');
+	const home = await library.getHome({ shelfLimit: SHELF_LIMIT });
 
-	const [pool, calendar] = await Promise.all([explore.getPool(), stats.getCalendar(year)]);
+	const owned: [string, string][] = [];
+	const books = [
+		...home.shelves.flatMap((shelf) => shelf.books),
+		...home.currentlyReading.map((item) => item.book),
+		...home.queue.map((item) => item.book)
+	];
+	for (const book of books) owned.push([ownedKey(book.title, book.author), book.id]);
 
-	return { pool, year, currentYear, days: calendar.days };
+	// I due generi più presenti in libreria guidano i consigli.
+	const topGenres: GenreSlug[] = home.shelves
+		.filter((shelf) => shelf.totalCount > 0)
+		.sort((a, b) => b.totalCount - a.totalCount)
+		.slice(0, 2)
+		.map((shelf) => shelf.genre.slug);
+
+	return { owned, topGenres, currentYear: new Date().getFullYear() };
 };

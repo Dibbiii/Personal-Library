@@ -17,14 +17,17 @@ export async function loadProfilePage(repos: Repositories | null, year: number) 
 	const extras = requireRepository(repos, 'statsExtras');
 	const bingo = requireRepository(repos, 'bingo');
 	const library = requireRepository(repos, 'library');
+	const explore = requireRepository(repos, 'explore');
 
-	const [dashboard, breakdown, boards, calendar, home, quotes] = await Promise.all([
+	const [dashboard, breakdown, boards, calendar, home, quotes, pool] = await Promise.all([
 		stats.getDashboard(year),
 		extras.getGenreBreakdown(year),
 		bingo.listBoards(),
 		stats.getCalendar(year),
 		library.getHome({ shelfLimit: SHELF_LIMIT }),
-		extras.listQuotes({ limit: 1 })
+		extras.listQuotes({ limit: 1 }),
+		// Libri non letti per la Ruota della fortuna.
+		explore.getPool()
 	]);
 
 	const thisYear = currentYear();
@@ -46,6 +49,7 @@ export async function loadProfilePage(repos: Repositories | null, year: number) 
 		quoteCount: quotes.total,
 		dnf: dashboard.dnf,
 		calendar: calendar.days,
-		home
+		home,
+		pool
 	};
 }

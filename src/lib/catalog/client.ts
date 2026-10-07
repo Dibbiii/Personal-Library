@@ -5,6 +5,7 @@
 import type { z } from 'zod';
 import type { DataErrorCode } from '$lib/data/errors';
 import { bookInfoResponseSchema, type BookInfo } from './book-info';
+import { discoverResponseSchema, type DiscoverRequest, type DiscoverResponse } from './discover';
 import {
 	addBookResponseSchema,
 	apiErrorSchema,
@@ -103,6 +104,20 @@ export async function fetchBookInfo(
 	if (params.language) query.set('language', params.language);
 	const response = await request(bookInfoResponseSchema, `/api/catalog/info?${query}`, { signal });
 	return response.info;
+}
+
+/** Libri da scoprire per Esplora: sezioni, ricerca e filtri. */
+export function discoverBooks(
+	query: DiscoverRequest,
+	signal?: AbortSignal
+): Promise<DiscoverResponse> {
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value === undefined || value === '' || value === null) continue;
+		if (typeof value === 'boolean') params.set(key, value ? '1' : '0');
+		else params.set(key, Array.isArray(value) ? value.join(',') : String(value));
+	}
+	return request(discoverResponseSchema, `/api/discover?${params}`, { signal });
 }
 
 export function addBookToLibrary(input: AddBookRequest): Promise<AddBookResponse> {

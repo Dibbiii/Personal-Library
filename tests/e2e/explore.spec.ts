@@ -65,8 +65,9 @@ test.describe('Ruota della Fortuna', () => {
 		expect(userId).not.toBe('');
 
 		// Nessun libro non letto: stato vuoto in italiano
-		await page.goto('/explore');
-		await expect(page.getByRole('heading', { name: 'Esplora', level: 1 })).toBeVisible();
+		// Ruota e calendario stanno nel Profilo (Esplora è la pagina di scoperta).
+		await page.goto('/profile?tab=wheel');
+		await expect(page.getByRole('heading', { name: 'Ruota della Fortuna' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Nessun libro da estrarre' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Gira la ruota' })).toHaveCount(0);
 
@@ -84,7 +85,7 @@ test.describe('Ruota della Fortuna', () => {
 		}
 
 		// Ruota con animazione: il puntatore cade sullo spicchio del libro estratto
-		await page.goto('/explore');
+		await page.goto('/profile?tab=wheel');
 		await page.waitForLoadState('networkidle');
 		const wheel = page.getByRole('img', { name: /Ruota della Fortuna con 5 libri da leggere/ });
 		await expect(wheel).toBeVisible();
@@ -150,7 +151,7 @@ test.describe('Ruota della Fortuna', () => {
 test.describe('Calendario annuale (utente demo, sola lettura)', () => {
 	test('giorni multi-genere, dettaglio, cambio anno', async ({ page }) => {
 		await login(page, 'demo@segnalibro.local', 'segnalibro-demo');
-		await page.goto('/explore');
+		await page.goto('/profile?tab=calendar');
 		await page.waitForLoadState('networkidle');
 
 		await expect(page.getByRole('heading', { name: 'Calendario 2026' })).toBeVisible();
@@ -185,14 +186,14 @@ test.describe('Calendario annuale (utente demo, sola lettura)', () => {
 		await expect(january.locator('.blank')).toHaveCount(3);
 
 		// Cambio anno: 2025 non ha letture
-		await page.getByRole('button', { name: /Cambia anno/ }).click();
+		await page.getByRole('button', { name: /Anno del calendario/ }).click();
 		await page.getByRole('radio', { name: '2025' }).click();
 		await expect(page.getByRole('heading', { name: 'Calendario 2025' })).toBeVisible();
 		await expect(page.getByText('Nessuna lettura registrata nel 2025.')).toBeVisible();
 		await expect(page.getByRole('button', { name: /gennaio:/ })).toHaveCount(0);
 
-		// Ricaricando con ?year la scelta resta
-		await page.goto('/explore?year=2025');
+		// Il Profilo di un anno passato apre il calendario di quell'anno
+		await page.goto('/profile/2025?tab=calendar');
 		await expect(page.getByRole('heading', { name: 'Calendario 2025' })).toBeVisible();
 	});
 

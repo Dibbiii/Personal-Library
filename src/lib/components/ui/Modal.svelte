@@ -22,6 +22,8 @@
 		role?: 'dialog' | 'alertdialog';
 		labelledby: string;
 		describedby?: string | undefined;
+		/** Pannello largo (dettagli di un libro) invece del dialogo compatto. */
+		wide?: boolean;
 		onclose: () => void;
 		children: Snippet;
 	}
@@ -32,6 +34,7 @@
 		role = 'dialog',
 		labelledby,
 		describedby,
+		wide = false,
 		onclose,
 		children
 	}: Props = $props();
@@ -55,7 +58,7 @@
 </script>
 
 {#if open}
-	<div class="layer {placement}" use:portal>
+	<div class="layer {placement}" class:wide use:portal>
 		<button
 			class="scrim"
 			type="button"
@@ -129,6 +132,15 @@
 		padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
 		border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
 		box-shadow: var(--shadow-sheet);
+	}
+
+	.wide.bottom .panel {
+		max-width: 720px;
+	}
+
+	.wide.center .panel {
+		max-width: 760px;
+		padding: 28px;
 	}
 
 	.center .panel {
