@@ -92,7 +92,12 @@ export class GoogleBooksProvider implements BookProvider {
 
 	constructor(private readonly options: GoogleBooksOptions = {}) {}
 
-	private get(query: string, maxResults: number, signal?: AbortSignal | undefined) {
+	private get(
+		query: string,
+		maxResults: number,
+		signal?: AbortSignal | undefined,
+		sort?: BookSearchRequest['sort']
+	) {
 		const params = new URLSearchParams({
 			q: query,
 			maxResults: String(maxResults),
@@ -100,6 +105,7 @@ export class GoogleBooksProvider implements BookProvider {
 			fields: FIELDS
 		});
 		if (this.options.apiKey) params.set('key', this.options.apiKey);
+		if (sort) params.set('orderBy', sort);
 		return fetchJson(`${BASE}?${params}`, {
 			fetch: this.options.fetch,
 			timeoutMs: this.options.timeoutMs,
@@ -116,7 +122,7 @@ export class GoogleBooksProvider implements BookProvider {
 		if (!title) return [];
 		const author = request.author ? clean(request.author) : '';
 		const query = author ? `intitle:"${title}" inauthor:"${author}"` : title;
-		return parseVolumes(await this.get(query, 10, options?.signal));
+		return parseVolumes(await this.get(query, 40, options?.signal, request.sort ?? 'relevance'));
 	}
 
 	async lookupIsbn(isbn13: string, options?: ProviderCallOptions): Promise<EditionCandidate[]> {

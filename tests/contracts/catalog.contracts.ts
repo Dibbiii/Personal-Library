@@ -101,6 +101,28 @@ import { adminSql, createTestUser, type TestUser } from '../helpers/users';
 		expect(e.editionId).not.toBe(d.editionId);
 	});
 
+	it('reuses SBN and Inventaire records without ISBN, enriches only missing fields', async () => {
+		const sbnId = `TST${digits().slice(0, 7)}`;
+		const invId = `inv:${randomUUID().replaceAll('-', '')}`;
+		const first = await upsertCatalogEdition(user.id, { title: `Contract ${tag} New sources`, authors: [`Contract ${tag} X`], sbnId, publisher: 'Original' });
+		const second = await upsertCatalogEdition(user.id, { title: 'irrelevant', sbnId, inventaireId: invId, publisher: 'Other', pageCount: 200 });
+		expect(second).toEqual({ ...first, created: false });
+		const third = await upsertCatalogEdition(user.id, { title: 'irrelevant', inventaireId: invId });
+		expect(third.editionId).toBe(first.editionId);
+		const [row] = await adminSql()`select sbn_id, inventaire_id, publisher, page_count from public.editions where id = ${first.editionId}::bigint`;
+		expect(row).toEqual({ sbn_id: sbnId, inventaire_id: invId, publisher: 'Original', page_count: 200 });
+	});
+
+	it('keeps different ISBN editions separate when a provider reuses an id', async () => {
+		const id = `gb-${tag}-conflict`;
+		const firstIsbn = isbn13(); const secondIsbn = isbn13();
+		const first = await upsertCatalogEdition(user.id, { title: `Contract ${tag} Provider conflict`, googleBooksId: id, isbn13: firstIsbn, publishedYear: 2000 });
+		const second = await upsertCatalogEdition(user.id, { title: `Contract ${tag} Provider conflict new`, googleBooksId: id, isbn13: secondIsbn, publishedYear: 2025 });
+		expect(second.created).toBe(true); expect(second.editionId).not.toBe(first.editionId);
+		const [row] = await adminSql()`select isbn_13, google_books_id, published_year from public.editions where id=${second.editionId}::bigint`;
+		expect(row).toEqual({ isbn_13: secondIsbn, google_books_id: null, published_year: 2025 });
+	});
+
 	it('is safe under concurrent imports of the same book', async () => {
 		const isbn = isbn13();
 		const results = await Promise.all(

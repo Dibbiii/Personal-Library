@@ -5,6 +5,7 @@
 	import { parseIsbn } from '$lib/catalog/isbn';
 	import { LANGUAGE_LABELS } from '$lib/catalog/language';
 	import type { BookDraft } from '$lib/catalog/draft';
+	import CoverAttachment from './CoverAttachment.svelte';
 
 	interface Props {
 		initial?: { title?: string; author?: string; isbn?: string };
@@ -19,6 +20,8 @@
 	let pages = $state('');
 	let isbn = $state(untrack(() => initial.isbn ?? ''));
 	let language = $state('it');
+	let coverFile = $state<File | null>(null);
+	let coverBusy = $state(false);
 	let errors = $state<{ title?: string; author?: string; pages?: string; isbn?: string }>({});
 
 	const languages = Object.entries(LANGUAGE_LABELS);
@@ -44,6 +47,7 @@
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
+		if (coverBusy) return;
 		if (!validate()) {
 			queueMicrotask(() =>
 				(document.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus()
@@ -61,7 +65,8 @@
 			coverUrl: null,
 			publisher: null,
 			publishedDate: null,
-			edition: null
+			edition: null,
+			coverFile
 		});
 	}
 </script>
@@ -115,7 +120,11 @@
 		autocomplete="off"
 		placeholder="978…"
 	/>
-	<Button type="submit" size="lg" fullWidth>Continua</Button>
+	<CoverAttachment
+		onchange={(file) => (coverFile = file)}
+		onbusychange={(busy) => (coverBusy = busy)}
+	/>
+	<Button type="submit" size="lg" fullWidth disabled={coverBusy}>Continua</Button>
 </form>
 
 <style>

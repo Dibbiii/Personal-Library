@@ -209,6 +209,14 @@ describe('fetchJson', () => {
 });
 
 describe('OpenLibraryProvider', () => {
+	it('non attribuisce l’ISBN richiesto a un’edizione che non lo dichiara', async () => {
+		const { fetch: fetchImpl } = router({
+			'search.json': () => json({ docs: [] }),
+			'/isbn/': () => json({ key: '/books/OL1M', title: 'Dune' })
+		});
+		const [item] = await new OpenLibraryProvider({ fetch: fetchImpl }).lookupIsbn('9780441013593');
+		expect(item?.isbn13).toBeNull();
+	});
 	it('lookup ISBN: fonde search (titolo/autori) ed edizione (pagine, editore, cover)', async () => {
 		const { fetch: fetchImpl } = router({
 			'search.json': () => json(OL_SEARCH_ISBN),
@@ -270,23 +278,37 @@ describe('OpenLibraryProvider', () => {
 		).rejects.toMatchObject({ code: 'NETWORK' });
 	});
 
-	it('ricerca con lingua: prima filtrata, poi senza filtro se i risultati sono pochi', async () => {
+	it('ricerca con lingua: usa la preferenza senza escludere altre lingue', async () => {
 		const { fetch: fetchImpl, calls } = router({ 'search.json': () => json(OL_SEARCH_DUNE) });
 		await new OpenLibraryProvider({ fetch: fetchImpl }).search({ title: 'dune', language: 'it' });
-		expect(calls).toHaveLength(2);
+		expect(calls).toHaveLength(1);
 		expect(new URL(calls[0] ?? '').searchParams.get('q')).toContain('publisher:(dune)');
-		expect(new URL(calls[0] ?? '').searchParams.get('q')).toContain('language:ita');
-		expect(new URL(calls[1] ?? '').searchParams.get('q')).not.toContain('language:');
+		expect(new URL(calls[0] ?? '').searchParams.get('q')).not.toContain('language:');
+		expect(new URL(calls[0] ?? '').searchParams.get('lang')).toBe('it');
+		expect(new URL(calls[0] ?? '').searchParams.get('limit')).toBe('40');
 	});
 });
 
 describe('GoogleBooksProvider', () => {
+	it('inoltra l’ordine alla fonte; il lookup ISBN non ordina per novità', async () => {
+		const { fetch: fetchImpl, calls } = router({ 'googleapis.com': () => json(GB_SEARCH_DUNE) });
+		const provider = new GoogleBooksProvider({ fetch: fetchImpl });
+		await provider.search({ title: 'Dune' });
+		await provider.search({ title: 'Dune', sort: 'newest' });
+		await provider.lookupIsbn('9788804678106');
+		expect(calls.map((url) => new URL(url).searchParams.get('orderBy'))).toEqual([
+			'relevance',
+			'newest',
+			null
+		]);
+	});
 	it('la chiave API resta nella richiesta server e non compare nei candidati', async () => {
 		const { fetch: fetchImpl, calls } = router({ 'googleapis.com': () => json(GB_SEARCH_DUNE) });
 		const provider = new GoogleBooksProvider({ fetch: fetchImpl, apiKey: 'SEGRETA' });
 		const candidates = await provider.search({ title: 'Dune', author: 'Herbert' });
 		expect(calls[0]).toContain('key=SEGRETA');
 		expect(new URL(calls[0] ?? '').searchParams.get('q')).toBe('intitle:"Dune" inauthor:"Herbert"');
+		expect(new URL(calls[0] ?? '').searchParams.get('maxResults')).toBe('40');
 		expect(JSON.stringify(candidates)).not.toContain('SEGRETA');
 
 		await provider.search({ title: 'Fanucci' });
@@ -332,7 +354,25 @@ describe('CatalogService', () => {
 	const ol = parseSearchResponse(OL_SEARCH_DUNE);
 	const gb = parseVolumes(GB_SEARCH_DUNE);
 
-	it('unisce i provider, ordina e taglia a 5', async () => {
+	it('cache distinta per ordine; ordine omesso equivale a relevance', async () => {
+		const provider = fakeProvider('open-library', { candidates: ol });
+		const service = new CatalogService({ providers: [provider] });
+		await service.search({ title: 'Dune' });
+		await service.search({ title: 'Dune', sort: 'relevance' });
+		expect(provider.searches).toBe(1);
+		await service.search({ title: 'Dune', sort: 'newest' });
+		await service.search({ title: 'Dune', sort: 'newest' });
+		expect(provider.searches).toBe(2);
+	});
+
+	it('newest esclude risultati estranei anche quando manca qualsiasi corrispondenza', async () => {
+		const service = new CatalogService({
+			providers: [fakeProvider('google-books', { candidates: gb })]
+		});
+		expect((await service.search({ title: 'zzzz', sort: 'newest' })).candidates).toEqual([]);
+	});
+
+	it('unisce e ordina i provider senza nascondere i risultati oltre il quinto', async () => {
 		const many = Array.from({ length: 8 }, (_, i) => ({
 			...(ol[0] as EditionCandidate),
 			editionTitle: `Dune ${i}`,
@@ -347,12 +387,32 @@ describe('CatalogService', () => {
 			]
 		});
 		const result = await service.search({ title: 'Dune' });
-		expect(result.candidates.length).toBeLessThanOrEqual(5);
+		expect(result.candidates.length).toBeGreaterThanOrEqual(many.length);
+		expect(result.candidates.some((candidate) => candidate.editionTitle === 'Dune 7')).toBe(true);
 		expect(result.degraded).toBe(false);
 		expect(result.providers).toEqual({ 'open-library': 'ok', 'google-books': 'ok' });
 		expect(result.candidates[0]?.confidence).toBeGreaterThanOrEqual(
 			result.candidates[1]?.confidence ?? 0
 		);
+	});
+
+	it('limita la ricerca testuale a 80 candidati e mantiene 5 alternative per ISBN', async () => {
+		const many = Array.from({ length: 90 }, (_, i) => ({
+			...(ol[0] as EditionCandidate),
+			editionTitle: `Dune ${i}`,
+			isbn13: null,
+			isbn10: null,
+			providerIds: {
+				openLibraryWorkId: 'OL1W',
+				openLibraryEditionId: `OL${i + 1}M`,
+				googleBooksId: null
+			}
+		}));
+		const service = new CatalogService({
+			providers: [fakeProvider('open-library', { candidates: many })]
+		});
+		expect((await service.search({ title: 'Dune' })).candidates).toHaveLength(80);
+		expect((await service.lookupIsbn('9780441013593')).candidates).toHaveLength(5);
 	});
 
 	it('un provider giù: risultati parziali e degraded', async () => {

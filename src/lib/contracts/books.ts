@@ -115,7 +115,17 @@ export const genreSectionSchema = z.object({
 export const providerIdsSchema = z.object({
 	openLibraryWorkId: z.string().nullable(),
 	openLibraryEditionId: z.string().nullable(),
-	googleBooksId: z.string().nullable()
+	googleBooksId: z.string().nullable(),
+	inventaireId: z
+		.string()
+		.regex(/^(inv:[a-f0-9]{32}|wd:Q[0-9]+)$/)
+		.nullable()
+		.optional(),
+	sbnId: z
+		.string()
+		.regex(/^[A-Z0-9]{10}$/)
+		.nullable()
+		.optional()
 });
 
 export const editionCandidateSchema = z.object({

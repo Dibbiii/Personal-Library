@@ -92,6 +92,8 @@ export class ServerCatalogRepository implements CatalogRepository {
 					openLibraryWorkId: ids.openLibraryWorkId,
 					openLibraryEditionId: ids.openLibraryEditionId,
 					googleBooksId: ids.googleBooksId,
+					inventaireId: ids.inventaireId ?? null,
+					sbnId: ids.sbnId ?? null,
 					isbn10: isbn?.isbn10 ?? null,
 					isbn13: isbn?.isbn13 ?? null,
 					language: input.language,

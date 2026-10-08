@@ -19,7 +19,8 @@
 		/** Preferenza di lingua per il ranking (non è un filtro). */
 		language?: string;
 		/** Link all'inserimento manuale con il titolo già scritto. */
-		manualHref?: (title: string) => string;
+		manualHref?: (title: string, isbn?: string) => string;
+		sbnEnabled?: boolean;
 	}
 
 	let {
@@ -27,16 +28,20 @@
 		selectedKey = null,
 		initialQuery = '',
 		language = 'it',
-		manualHref = (title) =>
-			title ? `/add/manual?${new URLSearchParams({ title })}` : '/add/manual'
+		sbnEnabled = false,
+		manualHref = (title, isbn) =>
+			`/add/manual?${new URLSearchParams({ ...(title ? { title } : {}), ...(isbn ? { isbn } : {}) })}`
 	}: Props = $props();
 
 	const DEBOUNCE_MS = 400;
 	const MIN_LENGTH = 2;
+	const RESULTS_PER_PAGE = 10;
 	const PROVIDERS = [
 		{ value: 'all', label: 'Tutte le fonti' },
 		{ value: 'open-library', label: 'Open Library' },
-		{ value: 'google-books', label: 'Google Books' }
+		{ value: 'google-books', label: 'Google Books' },
+		{ value: 'inventaire', label: 'Inventaire' },
+		{ value: 'sbn', label: 'SBN' }
 	] as const;
 
 	let query = $state(untrack(() => initialQuery));
@@ -45,15 +50,23 @@
 	let degraded = $state(false);
 	let lastQuery = $state('');
 	let lastWasIsbn = $state(false);
+	let isbnExact = $state(false);
+	let possibleMatches = $state(false);
 	let errorMessage = $state('');
 	let pendingKey = $state<string | null>(null);
 	let languageFilter = $state<string>('all');
 	let providerFilter = $state<(typeof PROVIDERS)[number]['value']>('all');
+	let visibleCount = $state(RESULTS_PER_PAGE);
+	let author = $state('');
+	let selectedCatalog = $state<'primary' | 'sbn'>('primary');
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let controller: AbortController | undefined;
+	let activeSearchKey: string | null = null;
+	let completedSearchKey: string | null = null;
 
 	const trimmed = $derived(query.trim());
+	const queryIsbn = $derived(parseIsbn(trimmed));
 	const tooShort = $derived(trimmed.length > 0 && trimmed.length < MIN_LENGTH);
 
 	/** Una chip per lingua, solo se i risultati ne hanno più d'una. */
@@ -73,44 +86,89 @@
 		)
 	);
 
+	const shown = $derived(visible.slice(0, visibleCount));
+
+	function filterLanguage(value: string) {
+		languageFilter = value;
+		visibleCount = RESULTS_PER_PAGE;
+	}
+
+	function searchKey(text: string, isbn: ReturnType<typeof parseIsbn>) {
+		return isbn
+			? JSON.stringify(['isbn', isbn.isbn13])
+			: JSON.stringify(['search', text.trim(), author.trim(), language, selectedCatalog]);
+	}
+
+	function canReuseSearch(key: string) {
+		return (
+			(status === 'done' && completedSearchKey === key) ||
+			(status === 'loading' && activeSearchKey === key && !controller?.signal.aborted)
+		);
+	}
+
 	async function run(text: string) {
+		const isbn = text === trimmed ? queryIsbn : parseIsbn(text);
+		const key = searchKey(text, isbn);
+		if (canReuseSearch(key)) return;
 		controller?.abort();
 		controller = new AbortController();
 		const { signal } = controller;
+		activeSearchKey = key;
 		status = 'loading';
 		errorMessage = '';
 
 		try {
-			const isbn = parseIsbn(text);
 			const response = isbn
 				? await lookupIsbn(isbn.isbn13, signal)
-				: await searchBooks({ title: text, language }, signal);
+				: await searchBooks(
+						{
+							title: text,
+							language,
+							sort: 'newest',
+							source: selectedCatalog,
+							...(author.trim() ? { author: author.trim() } : {})
+						},
+						signal
+					);
 			if (signal.aborted) return;
 			candidates = response.candidates;
 			degraded = response.degraded;
 			lastQuery = text;
 			lastWasIsbn = Boolean(isbn);
+			isbnExact = 'exactMatch' in response && response.exactMatch === true;
+			possibleMatches = response.possibleMatches === true;
 			languageFilter = 'all';
+			visibleCount = RESULTS_PER_PAGE;
+			completedSearchKey = key;
 			status = 'done';
 		} catch (error) {
+			if (signal.aborted) return;
 			if (error instanceof DOMException && error.name === 'AbortError') return;
 			errorMessage =
 				error instanceof CatalogClientError
 					? error.message
 					: 'Non riesco a cercare in questo momento. Riprova.';
 			candidates = [];
+			completedSearchKey = null;
 			status = 'error';
+		} finally {
+			if (controller?.signal === signal) activeSearchKey = null;
 		}
 	}
 
 	function schedule() {
+		selectedCatalog = 'primary';
 		clearTimeout(timer);
+		if (trimmed.length >= MIN_LENGTH && canReuseSearch(searchKey(trimmed, queryIsbn))) return;
+		controller?.abort();
 		if (trimmed.length < MIN_LENGTH) {
-			controller?.abort();
 			status = 'idle';
 			candidates = [];
+			completedSearchKey = null;
 			return;
 		}
+		status = 'loading';
+		errorMessage = '';
 		timer = setTimeout(() => run(trimmed), DEBOUNCE_MS);
 	}
 
@@ -124,10 +182,22 @@
 		query = '';
 		schedule();
 	}
+	function manualLink(text: string) {
+		const isbn = text.trim() === trimmed ? queryIsbn : parseIsbn(text);
+		return isbn ? manualHref('', isbn.isbn13) : manualHref(text);
+	}
+
+	function searchCatalog(source: 'primary' | 'sbn') {
+		clearTimeout(timer);
+		selectedCatalog = source;
+		providerFilter = 'all';
+		if (trimmed.length >= MIN_LENGTH && !queryIsbn) run(trimmed);
+	}
 
 	// Ricerca iniziale (es. /add/search?q=...)
 	$effect(() => {
-		if (initialQuery.trim().length >= MIN_LENGTH) run(initialQuery.trim());
+		const text = initialQuery.trim();
+		if (text.length >= MIN_LENGTH) untrack(() => run(text));
 	});
 
 	onDestroy(() => {
@@ -149,7 +219,7 @@
 		try {
 			const found = await lookupIsbn(parseIsbn(isbn)?.isbn13 ?? isbn);
 			const same = found.candidates.find(
-				(other) => other.isbn13 === candidate.isbn13 || other.isbn10 === candidate.isbn10
+				(other) => parseIsbn(other.isbn13 ?? other.isbn10 ?? '')?.isbn13 === parseIsbn(isbn)?.isbn13
 			);
 			onselect(same ? mergeCandidates(candidate, same) : candidate, source);
 		} catch {
@@ -174,8 +244,13 @@
 			spellcheck="false"
 			enterkeyhint="search"
 			placeholder="Titolo, autore, editore o ISBN"
-			bind:value={query}
-			oninput={schedule}
+			bind:value={
+				() => query,
+				(value) => {
+					query = value;
+					schedule();
+				}
+			}
 			aria-describedby="book-search-hint"
 		/>
 		{#if query}
@@ -190,6 +265,48 @@
 			: 'Cerco per titolo, autore o editore su Open Library e Google Books.'}
 	</p>
 
+	{#if !queryIsbn}
+		<details class="advanced">
+			<summary>
+				<span>Specifica l’autore</span>
+				<span class="advanced-chevron" aria-hidden="true">
+					<Icon name="chevron-down" size={16} strokeWidth={2} />
+				</span>
+			</summary>
+			<label class="author-field">
+				<span>Autore <span class="optional">facoltativo</span></span>
+				<input
+					type="text"
+					name="author"
+					autocomplete="off"
+					bind:value={
+						() => author,
+						(value) => {
+							author = value;
+							schedule();
+						}
+					}
+					maxlength="120"
+					placeholder="Nome dell’autore"
+				/>
+			</label>
+		</details>
+	{/if}
+	{#if sbnEnabled && !queryIsbn && trimmed.length >= MIN_LENGTH}
+		<Button
+			variant="secondary"
+			disabled={status === 'loading'}
+			onclick={() => searchCatalog(selectedCatalog === 'sbn' ? 'primary' : 'sbn')}
+		>
+			{selectedCatalog === 'sbn'
+				? 'Torna alla ricerca generale'
+				: 'Cerca nel catalogo italiano SBN'}
+		</Button>
+		{#if selectedCatalog === 'sbn'}<p class="hint">
+				Risultati dal catalogo delle biblioteche italiane SBN (fino a 10 schede).
+			</p>{/if}
+	{/if}
+
 	{#if status === 'done' && candidates.length > 0}
 		<div class="filters">
 			<div class="chips" role="group" aria-label="Filtra per lingua">
@@ -197,21 +314,21 @@
 					type="button"
 					class="chip"
 					aria-pressed={languageFilter === 'all'}
-					onclick={() => (languageFilter = 'all')}>Tutti</button
+					onclick={() => filterLanguage('all')}>Tutti</button
 				>
 				{#each languages as item (item.code)}
 					<button
 						type="button"
 						class="chip"
 						aria-pressed={languageFilter === item.code}
-						onclick={() => (languageFilter = item.code)}>{item.label}</button
+						onclick={() => filterLanguage(item.code)}>{item.label}</button
 					>
 				{/each}
 			</div>
 			<label class="source">
 				<span>Risultati da</span>
 				<span class="select">
-					<select bind:value={providerFilter}>
+					<select bind:value={providerFilter} onchange={() => (visibleCount = RESULTS_PER_PAGE)}>
 						{#each PROVIDERS as item (item.value)}
 							<option value={item.value}>{item.label}</option>
 						{/each}
@@ -237,7 +354,7 @@
 				<p>{errorMessage}</p>
 				<div class="notice-actions">
 					<Button size="sm" variant="secondary" onclick={() => run(trimmed)}>Riprova</Button>
-					<Button size="sm" variant="ghost" href={manualHref('')}>Inserisci a mano</Button>
+					<Button size="sm" variant="ghost" href={manualLink(trimmed)}>Inserisci a mano</Button>
 				</div>
 			</div>
 		{:else if status === 'done' && candidates.length === 0}
@@ -253,12 +370,24 @@
 					</p>
 				{/if}
 				<div class="notice-actions">
-					<Button size="sm" href={manualHref(lastQuery)}>Inserisci a mano</Button>
+					<Button size="sm" href={manualLink(lastQuery)}>Inserisci a mano</Button>
 				</div>
 			</div>
 		{:else if status === 'done'}
+			{#if !lastWasIsbn && possibleMatches}<p class="notice-inline" role="status">
+					Non ho trovato una corrispondenza forte. Questi risultati sono possibili alternative da
+					verificare.
+				</p>{/if}
+			{#if lastWasIsbn && !isbnExact}<p class="notice-inline" role="status">
+					L’ISBN cercato non è confermato. Queste sono possibili alternative: controlla l’edizione
+					prima di aggiungerla.
+				</p>{/if}
 			<p class="count">
-				{candidates.length === 1 ? '1 risultato' : `${candidates.length} migliori risultati`}
+				{visible.length > shown.length
+					? `Mostrati ${shown.length} di ${visible.length} risultati`
+					: visible.length === 1
+						? '1 risultato'
+						: `${visible.length} risultati`}
 			</p>
 			{#if degraded}
 				<p class="notice-inline" role="status">
@@ -268,8 +397,8 @@
 			{#if visible.length === 0}
 				<p class="empty-filter">Nessun risultato con questi filtri.</p>
 			{/if}
-			<ul class="list">
-				{#each visible as candidate, index (candidateKey(candidate) + index)}
+			<ul class="list" aria-label="Risultati della ricerca">
+				{#each shown as candidate, index (candidateKey(candidate) + index)}
 					<li>
 						<BookSearchResult
 							{candidate}
@@ -281,8 +410,15 @@
 					</li>
 				{/each}
 			</ul>
+			{#if visible.length > shown.length}
+				<div class="more-results">
+					<Button variant="secondary" onclick={() => (visibleCount += RESULTS_PER_PAGE)}>
+						Mostra altri risultati
+					</Button>
+				</div>
+			{/if}
 			<p class="footnote">
-				Non è quello che cerchi? <a href={manualHref(lastQuery)}>Inserisci il libro a mano</a>.
+				Non è quello che cerchi? <a href={manualLink(lastQuery)}>Inserisci il libro a mano</a>.
 			</p>
 		{:else}
 			<div class="idle">
@@ -294,6 +430,67 @@
 </section>
 
 <style>
+	.advanced {
+		margin: 10px 4px 12px;
+		font-size: 0.9rem;
+	}
+	.advanced summary {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 44px;
+		padding: 0 12px;
+		border-radius: var(--radius-pill);
+		color: var(--color-text-secondary);
+		font-weight: 600;
+		list-style: none;
+		cursor: pointer;
+	}
+	.advanced summary::-webkit-details-marker {
+		display: none;
+	}
+	.advanced summary:hover,
+	.advanced[open] summary {
+		background: var(--color-surface);
+		color: var(--color-primary);
+	}
+	.advanced summary:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 2px;
+	}
+	.advanced-chevron {
+		display: inline-flex;
+	}
+	.advanced[open] .advanced-chevron {
+		transform: rotate(180deg);
+	}
+	.author-field {
+		display: grid;
+		gap: 10px;
+		margin-top: 8px;
+		padding: 16px;
+		border: 1px solid color-mix(in srgb, var(--color-border) 45%, transparent);
+		border-radius: var(--radius-md);
+		background: var(--color-card);
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+	.optional {
+		margin-left: 6px;
+		font-weight: 400;
+		color: var(--color-text-muted);
+	}
+	.advanced input {
+		min-height: 48px;
+		padding: 12px 14px;
+		font-size: 16px;
+		font-weight: 400;
+		color: var(--color-text-primary);
+		background: var(--color-background);
+		border: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+		border-radius: var(--radius-md);
+	}
 	.search {
 		display: flex;
 		flex-direction: column;
@@ -465,6 +662,10 @@
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--color-nav-inactive);
+	}
+
+	.more-results {
+		margin-top: 12px;
 	}
 
 	.idle {

@@ -7,7 +7,8 @@ import type { CoverRef } from '$lib/contracts/books';
 export const COVER_HOSTS: readonly string[] = [
 	'covers.openlibrary.org',
 	'books.google.com',
-	'books.googleusercontent.com'
+	'books.googleusercontent.com',
+	'inventaire.io'
 ];
 
 export const MAX_COVER_URL_LENGTH = 600;

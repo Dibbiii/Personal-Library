@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import { fetchEditions } from '$lib/catalog/client';
 	import CoverImage from './CoverImage.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import RatingStars from '$lib/components/ui/RatingStars.svelte';
+	import CoverAttachment from './CoverAttachment.svelte';
 	import type { BookInfo } from '$lib/catalog/book-info';
 	import { draftWithEdition, type BookDraft } from '$lib/catalog/draft';
+	import { parsePublishedDate } from '$lib/catalog/published-date';
 	import { LANGUAGE_LABELS, languageLabel } from '$lib/catalog/language';
 
 	interface Props {
@@ -32,11 +35,58 @@
 
 	let descriptionOpen = $state(false);
 	let allEditions = $state(false);
+	let loadedEditions = $state<BookInfo['editions']>([]);
+	let nextOffset = $state<number | null>(0);
+	let editionsLoading = $state(false);
+	let editionsError = $state('');
+	let editionLanguage = $state('all');
+	let editionOrder = $state('newest');
+	let editionController: AbortController | undefined;
+	const workId = $derived(
+		draft.edition?.providerIds.openLibraryWorkId ??
+			info?.workUrl.match(/\/(OL[0-9]+W)$/)?.[1] ??
+			null
+	);
+	$effect(() => {
+		void workId;
+		untrack(() => {
+			editionController?.abort();
+			loadedEditions = [];
+			nextOffset = 0;
+			editionsError = '';
+			editionsLoading = false;
+			allEditions = false;
+			editionLanguage = 'all';
+		});
+	});
+	onDestroy(() => editionController?.abort());
+	async function loadMoreEditions() {
+		if (!workId || nextOffset === null || editionsLoading) return;
+		editionController = new AbortController();
+		const { signal } = editionController;
+		editionsLoading = true;
+		editionsError = '';
+		try {
+			const result = await fetchEditions(workId, nextOffset, signal);
+			if (signal.aborted) return;
+			loadedEditions = [
+				...new Map([...loadedEditions, ...result.editions].map((e) => [e.url, e])).values()
+			];
+			nextOffset = result.nextOffset;
+			allEditions = true;
+		} catch {
+			if (!signal.aborted) editionsError = 'Non riesco a caricare altre edizioni. Riprova.';
+		} finally {
+			if (!signal.aborted) editionsLoading = false;
+		}
+	}
 	let customizing = $state(false);
 	let title = $state('');
 	let author = $state('');
 	let pages = $state('');
 	let language = $state('');
+	let coverFile = $state<File | null>(null);
+	let coverBusy = $state(false);
 	let errors = $state<{ title?: string; author?: string; pages?: string }>({});
 
 	// Ogni bozza nuova (altro libro o altra edizione) riparte dai suoi dati.
@@ -47,16 +97,35 @@
 			author = next.author;
 			pages = next.pageCount ? String(next.pageCount) : '';
 			language = next.language ?? '';
+			coverFile = next.coverFile ?? null;
+			coverBusy = false;
 			errors = {};
 		});
 	});
 
-	const year = $derived(
-		info?.firstPublishYear ?? /\d{4}/.exec(draft.publishedDate ?? '')?.[0] ?? null
-	);
-	const pageCount = $derived(draft.pageCount ?? info?.pagesMedian ?? null);
+	const editionYear = $derived(parsePublishedDate(draft.publishedDate).year);
+	const firstPublishYear = $derived(info?.firstPublishYear ?? null);
+	const pageCount = $derived(draft.pageCount);
 	const subjects = $derived(info?.subjects.slice(0, 3) ?? []);
-	const editions = $derived(info?.editions ?? []);
+	const editions = $derived.by(() => {
+		const infoMatchesWork = !workId || info?.workUrl.endsWith(`/works/${workId}`);
+		const entries = [
+			...new Map(
+				[...(infoMatchesWork ? (info?.editions ?? []) : []), ...loadedEditions].map((e) => [
+					e.url,
+					e
+				])
+			).values()
+		];
+		return entries
+			.filter((e) => editionLanguage === 'all' || e.language === editionLanguage)
+			.sort(
+				(a, b) =>
+					(editionOrder === 'newest'
+						? (b.year ?? 0) - (a.year ?? 0)
+						: (a.year ?? 9999) - (b.year ?? 9999)) || a.url.localeCompare(b.url)
+			);
+	});
 	const shownEditions = $derived(allEditions ? editions : editions.slice(0, EDITIONS_PREVIEW));
 	const languages = $derived.by(() => {
 		const entries = Object.entries(LANGUAGE_LABELS);
@@ -80,8 +149,8 @@
 	}
 
 	function pickEdition(edition: BookInfo['editions'][number]) {
-		if (!info || isCurrent(edition)) return;
-		onchange(draftWithEdition(draft, edition, info.workUrl));
+		if (!workId || isCurrent(edition)) return;
+		onchange(draftWithEdition(draft, edition, `https://openlibrary.org/works/${workId}`));
 	}
 
 	function validate(): boolean {
@@ -100,13 +169,15 @@
 	}
 
 	function add() {
+		if (coverBusy) return;
 		if (!customizing) {
-			onadd(draft);
+			onadd({ ...draft, coverFile });
 			return;
 		}
 		if (!validate()) return;
 		onadd({
 			...draft,
+			coverFile,
 			title: title.trim(),
 			author: author.trim(),
 			pageCount: pages.trim() ? Number(pages.trim()) : null,
@@ -150,11 +221,18 @@
 						<dd>{pageCount}</dd>
 					</div>
 				{/if}
-				{#if year}
+				{#if editionYear}
 					<div>
 						<Icon name="calendar" size={20} />
-						<dt>Anno di pubblicazione</dt>
-						<dd>{year}</dd>
+						<dt>Anno dell’edizione</dt>
+						<dd>{editionYear}</dd>
+					</div>
+				{/if}
+				{#if firstPublishYear}
+					<div>
+						<Icon name="calendar" size={20} />
+						<dt>Prima pubblicazione dell’opera</dt>
+						<dd>{firstPublishYear}</dd>
 					</div>
 				{/if}
 				{#if languageLabel(draft.language)}
@@ -200,16 +278,32 @@
 		{/if}
 	</section>
 
-	{#if editions.length > 0 || infoLoading}
+	{#if editions.length > 0 || infoLoading || workId}
 		<section class="block" aria-labelledby="{uid}-editions">
 			<div class="block-head">
 				<h3 id="{uid}-editions">Edizioni disponibili</h3>
 				{#if editions.length > EDITIONS_PREVIEW}
 					<button type="button" class="see-all" onclick={() => (allEditions = !allEditions)}>
-						{allEditions ? 'Mostra meno' : `Vedi tutte (${editions.length})`}
+						{allEditions ? 'Mostra meno' : `Mostra le ${editions.length} edizioni caricate`}
 						<Icon name={allEditions ? 'chevron-up' : 'arrow-right'} size={16} strokeWidth={2.2} />
 					</button>
 				{/if}
+			</div>
+			<div class="edition-controls">
+				<label
+					>Lingua delle edizioni <select bind:value={editionLanguage}
+						><option value="all">Tutte le lingue</option
+						>{#each Object.entries(LANGUAGE_LABELS) as [code, label] (code)}<option value={code}
+								>{label}</option
+							>{/each}</select
+					></label
+				>
+				<label
+					>Ordine delle edizioni <select bind:value={editionOrder}
+						><option value="newest">Più recenti</option><option value="oldest">Meno recenti</option
+						></select
+					></label
+				>
 			</div>
 			{#if editions.length > 0}
 				<ul class="editions">
@@ -233,15 +327,27 @@
 						</li>
 					{/each}
 				</ul>
-			{:else}
+			{:else if infoLoading}
 				<div class="editions" aria-hidden="true">
 					{#each [0, 1, 2, 3] as n (n)}<span class="edition-skeleton"></span>{/each}
 				</div>
+			{:else}<p class="muted">Nessuna edizione caricata per questa lingua.</p>
 			{/if}
+			{#if workId && nextOffset !== null}<Button
+					variant="secondary"
+					disabled={editionsLoading}
+					onclick={loadMoreEditions}
+					>{editionsLoading ? 'Carico le edizioni…' : 'Carica altre edizioni'}</Button
+				>{/if}
+			{#if editionsError}<p role="alert">{editionsError}</p>{/if}
 		</section>
 	{/if}
 
 	<div class="actions">
+		{#key draft.edition?.providerIds.openLibraryEditionId ?? draft.isbn ?? draft.title}<CoverAttachment
+				onchange={(file) => (coverFile = file)}
+				onbusychange={(busy) => (coverBusy = busy)}
+			/>{/key}
 		{#if ownedHref}
 			<p class="owned">
 				<Icon name="check" size={18} strokeWidth={2.4} />
@@ -249,7 +355,13 @@
 				<a href={ownedHref}>Apri il libro</a>
 			</p>
 		{/if}
-		<Button size="lg" fullWidth variant={ownedHref ? 'secondary' : 'primary'} onclick={add}>
+		<Button
+			size="lg"
+			fullWidth
+			disabled={coverBusy}
+			variant={ownedHref ? 'secondary' : 'primary'}
+			onclick={add}
+		>
 			{#snippet icon()}<Icon name="plus" size={20} strokeWidth={2.2} />{/snippet}
 			{ownedHref ? 'Aggiungi un’altra copia' : 'Aggiungi alla mia libreria'}
 		</Button>
@@ -319,6 +431,24 @@
 </article>
 
 <style>
+	.edition-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-bottom: 12px;
+	}
+	.edition-controls label {
+		display: grid;
+		gap: 6px;
+		font-size: 0.85rem;
+	}
+	.edition-controls select {
+		padding: 8px;
+		color: var(--color-text-primary);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
 	.detail {
 		display: flex;
 		flex-direction: column;

@@ -1,7 +1,9 @@
 import type { LayoutServerLoad } from './$types';
+import { serverEnv } from '$lib/server/db/env';
 
 export const load: LayoutServerLoad = ({ locals }) => ({
 	themeKey: locals.themeKey,
+	catalogSbnEnabled: Boolean(serverEnv('SBN_BRIDGE_URL')),
 	user: locals.user
 		? {
 				id: locals.user.id,

@@ -16,6 +16,8 @@ export interface BookDraft {
 	publisher: string | null;
 	publishedDate: string | null;
 	edition: AddBookRequest['edition'];
+	/** Browser-only file; uploaded after the book has an id. Never part of JSON. */
+	coverFile?: File | null;
 }
 
 export interface DraftChoices {
@@ -100,6 +102,8 @@ export function candidateKey(candidate: EditionCandidate): string {
 		candidate.isbn13 ??
 		ids.googleBooksId ??
 		ids.openLibraryEditionId ??
+		ids.inventaireId ??
+		ids.sbnId ??
 		ids.openLibraryWorkId ??
 		candidate.editionTitle
 	);
@@ -123,12 +127,13 @@ export function draftWithEdition(
 	const publishedDate = edition.year ? String(edition.year) : null;
 	return {
 		...draft,
+		coverFile: null,
 		title: edition.title === 'Senza titolo' ? draft.title : edition.title,
-		pageCount: edition.pages ?? draft.pageCount,
-		language: edition.language ?? draft.language,
+		pageCount: edition.pages,
+		language: edition.language,
 		isbn: edition.isbn13,
 		// Le miniature delle edizioni sono medie: per la libreria si usa la grande.
-		coverUrl: edition.coverUrl?.replace(/-M\.jpg$/, '-L.jpg') ?? draft.coverUrl,
+		coverUrl: edition.coverUrl?.replace(/-M\.jpg$/, '-L.jpg') ?? null,
 		publisher: edition.publisher,
 		publishedDate,
 		edition: {

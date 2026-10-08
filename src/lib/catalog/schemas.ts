@@ -26,12 +26,15 @@ export const providerStatusSchema = z.enum(['ok', 'error', 'rate_limited']);
 
 const providerStatusMapSchema = z.object({
 	'open-library': providerStatusSchema.optional(),
-	'google-books': providerStatusSchema.optional()
+	'google-books': providerStatusSchema.optional(),
+	inventaire: providerStatusSchema.optional(),
+	sbn: providerStatusSchema.optional()
 });
 
 export const catalogSearchResponseSchema = bookSearchResponseSchema.extend({
 	/** true se un provider non ha risposto: i risultati possono essere incompleti */
 	degraded: z.boolean(),
+	possibleMatches: z.boolean().optional(),
 	providers: providerStatusMapSchema
 });
 

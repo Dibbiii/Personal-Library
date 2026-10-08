@@ -3,7 +3,7 @@ import type { EditionCandidate } from '$lib/contracts/books';
 import type { BookSearchRequest } from '$lib/contracts/rpc';
 import { normalizeCoverUrl, openLibraryCoverById } from '$lib/catalog/covers';
 import { firstValidIsbn, parseIsbn } from '$lib/catalog/isbn';
-import { toIso2, toIso3 } from '$lib/catalog/language';
+import { toIso2 } from '$lib/catalog/language';
 import type { BookProvider, ProviderCallOptions } from '$lib/catalog/types';
 import { fetchJson, type FetchLike } from './http';
 
@@ -95,7 +95,7 @@ const UNKNOWN_AUTHOR = 'Autore sconosciuto';
 function buildCandidate(doc: z.infer<typeof searchDocSchema>): EditionCandidate | null {
 	const edition = doc.editions?.docs?.[0];
 	const isbn = firstValidIsbn(edition?.isbn);
-	const coverId = edition?.cover_i ?? doc.cover_i;
+	const coverId = edition ? edition.cover_i : doc.cover_i;
 	const languages = edition?.language ?? (doc.language?.length === 1 ? doc.language : undefined);
 	const authors = (doc.author_name ?? []).map((name) => name.trim()).filter(Boolean);
 	const title = doc.title.trim();
@@ -146,7 +146,9 @@ export function applyEditionJson(
 	const parsed = editionJsonSchema.safeParse(payload);
 	if (!parsed.success) return candidate;
 	const edition = parsed.data;
-	const isbn = parseIsbn(isbn13);
+	const identifiers = [...(edition.isbn_13 ?? []), ...(edition.isbn_10 ?? [])];
+	const exact = identifiers.find((value) => parseIsbn(value)?.isbn13 === isbn13);
+	const isbn = firstValidIsbn(exact ? [exact] : identifiers);
 	const coverId = edition.covers?.find((id) => id > 0);
 
 	return {
@@ -193,8 +195,12 @@ export class OpenLibraryProvider implements BookProvider {
 		});
 	}
 
-	private searchPath(query: string, limit: number): string {
+	private searchPath(query: string, limit: number, language?: string): string {
 		const params = new URLSearchParams({ q: query, limit: String(limit), fields: SEARCH_FIELDS });
+		const preferredLanguage = toIso2(language);
+		if (preferredLanguage && /^[a-z]{2}$/.test(preferredLanguage)) {
+			params.set('lang', preferredLanguage);
+		}
 		return `/search.json?${params}`;
 	}
 
@@ -209,16 +215,9 @@ export class OpenLibraryProvider implements BookProvider {
 		const author = request.author ? sanitizeQuery(request.author) : '';
 		const terms = author ? `title:(${text}) author:(${author})` : buildTextSearchQuery(text);
 
-		const iso3 = toIso3(request.language);
-		const queries = iso3 ? [`${terms} language:${iso3}`, terms] : [terms];
-
-		const results: EditionCandidate[] = [];
-		for (const query of queries) {
-			const payload = await this.get(this.searchPath(query, 10), options?.signal);
-			results.push(...parseSearchResponse(payload));
-			if (results.length >= 5) break;
-		}
-		return results;
+		// `lang` favorisce l'edizione nella lingua preferita senza escludere le altre.
+		const payload = await this.get(this.searchPath(terms, 40, request.language), options?.signal);
+		return parseSearchResponse(payload);
 	}
 
 	async lookupIsbn(isbn13: string, options?: ProviderCallOptions): Promise<EditionCandidate[]> {
@@ -236,7 +235,13 @@ export class OpenLibraryProvider implements BookProvider {
 			searchResult.status === 'fulfilled' ? parseSearchResponse(searchResult.value)[0] : undefined;
 		const editionPayload = editionResult.status === 'fulfilled' ? editionResult.value : null;
 
-		if (fromSearch) {
+		if (
+			fromSearch &&
+			(!editionPayload ||
+				editionJsonSchema
+					.safeParse(editionPayload)
+					.data?.key?.endsWith(`/${fromSearch.providerIds.openLibraryEditionId}`))
+		) {
 			return [editionPayload ? applyEditionJson(fromSearch, editionPayload, isbn13) : fromSearch];
 		}
 
@@ -259,6 +264,8 @@ export class OpenLibraryProvider implements BookProvider {
 			})
 		);
 		const workKey = edition.data.works?.[0]?.key;
+		const sameWork =
+			workKey && fromSearch?.providerIds.openLibraryWorkId === lastKeySegment(workKey);
 		let workTitle = title;
 		if (workKey) {
 			try {
@@ -280,7 +287,9 @@ export class OpenLibraryProvider implements BookProvider {
 			editionTitle: title,
 			authors: names.filter((name): name is string => Boolean(name)).length
 				? names.filter((name): name is string => Boolean(name))
-				: [UNKNOWN_AUTHOR],
+				: sameWork
+					? fromSearch.authors
+					: [UNKNOWN_AUTHOR],
 			isbn10: null,
 			isbn13: null,
 			language: null,

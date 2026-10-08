@@ -7,7 +7,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CoverImage from './CoverImage.svelte';
 	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
-	import { addBookToLibrary, CatalogClientError } from '$lib/catalog/client';
+	import { addBookToLibrary, CatalogClientError, uploadCover } from '$lib/catalog/client';
 	import { buildAddRequest, candidateMeta, seriesLabel, type BookDraft } from '$lib/catalog/draft';
 	import { GENRE_LABELS, GENRE_ORDER, isGenreSlug } from '$lib/genres';
 	import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
@@ -33,6 +33,7 @@
 	let seriesTotal = $state('');
 	let busy = $state(false);
 	let error = $state('');
+	let addedBookId = $state<string | null>(null);
 	let fieldError = $state<{ genre?: string; series?: string }>({});
 	let duplicate = $state<{ id: string; title: string; author: string; exact: boolean } | null>(
 		null
@@ -51,6 +52,7 @@
 		error = '';
 		fieldError = {};
 		duplicate = null;
+		addedBookId = null;
 	});
 
 	const numberValue = $derived(parseNumber(seriesNumber));
@@ -104,18 +106,21 @@
 						total: totalValue ?? null
 					}
 				: null;
-			const result = await addBookToLibrary(
-				buildAddRequest(draft, { genre, format, series }, force)
-			);
+			const result = addedBookId
+				? { status: 'added' as const, bookId: addedBookId }
+				: await addBookToLibrary(buildAddRequest(draft, { genre, format, series }, force));
 			if (result.status === 'duplicate') {
 				duplicate = { ...result.existing, exact: result.exact };
 				return;
 			}
+			addedBookId = result.bookId;
+			if (draft.coverFile) await uploadCover(result.bookId, draft.coverFile);
 			if (onadded) onadded(result.bookId);
 			else await goto(`/book/${result.bookId}`);
 		} catch (caught) {
-			error =
-				caught instanceof CatalogClientError
+			error = addedBookId
+				? 'Il libro è stato aggiunto, ma la copertina non è stata caricata. Puoi riprovare oppure aprire il libro.'
+				: caught instanceof CatalogClientError
 					? caught.message
 					: 'Non sono riuscito ad aggiungere il libro. Riprova.';
 		} finally {
@@ -251,7 +256,12 @@
 
 				<div class="actions row">
 					<Button variant="secondary" fullWidth onclick={onclose}>Annulla</Button>
-					<Button type="submit" fullWidth loading={busy}>Aggiungi</Button>
+					<Button type="submit" fullWidth loading={busy}
+						>{addedBookId ? 'Riprova il caricamento' : 'Aggiungi'}</Button
+					>
+					{#if addedBookId}<Button variant="ghost" href={`/book/${addedBookId}`}
+							>Apri il libro</Button
+						>{/if}
 				</div>
 			</form>
 		{/if}
