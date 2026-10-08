@@ -29,4 +29,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["node", "build"]
+CMD ["sh", "-c", "node scripts/db-migrate.mjs && exec node build"]

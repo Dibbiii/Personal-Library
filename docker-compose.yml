@@ -6,9 +6,14 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://segnalibro_app:${SEGNALIBRO_APP_PASSWORD:-segnalibro_app}@db:5432/segnalibro
-      SESSION_COOKIE_NAME: sb-session
+      DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/segnalibro
+      SESSION_COOKIE_NAME: [REDACTED]
       STORAGE_DIR: /app/storage
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
+    command: ['sh', '-c', 'node scripts/db-migrate.mjs && exec node build']
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - segnalibro_storage:/app/storage
     networks:
