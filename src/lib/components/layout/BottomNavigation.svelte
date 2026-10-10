@@ -9,7 +9,14 @@
 </script>
 
 <nav class="bottom-nav" aria-label="Navigazione principale">
-	{#each NAV_ITEMS as item (item.href)}
+	{#each NAV_ITEMS as item, index (item.href)}
+		{#if index === 2}
+			<!-- Mantiene l'azione centrale fra le due coppie di destinazioni. -->
+			<a class="add-book" href="/add" aria-label="Aggiungi libro">
+				<Icon name="plus" size={28} strokeWidth={2.2} />
+			</a>
+		{/if}
+
 		{@const active = isNavActive(item, page.url.pathname)}
 		<a class="item" class:active href={item.href} aria-current={active ? 'page' : undefined}>
 			<span class="pill"><Icon name={item.icon} size={22} /></span>
@@ -26,10 +33,6 @@
 		<span class="pill"><Icon name="users" size={22} /></span>
 		<span class="label">Amici</span>
 	</a>
-
-	<a class="add-book" href="/add" aria-label="Aggiungi libro">
-		<Icon name="plus" size={28} strokeWidth={2.2} />
-	</a>
 </nav>
 
 <style>
@@ -37,7 +40,9 @@
 		position: fixed;
 		inset: auto 0 0 0;
 		z-index: var(--z-nav);
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 4px;
 		box-sizing: border-box;
 		height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
 		padding: 8px 12px calc(14px + env(safe-area-inset-bottom, 0px));
@@ -46,13 +51,12 @@
 	}
 
 	.item {
-		flex: 0 0 20%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 4px;
-		min-width: 0;
+		min-inline-size: 0;
 		color: var(--nav-ink, var(--color-nav-inactive));
 		text-decoration: none;
 		border-radius: var(--radius-md);
@@ -90,24 +94,19 @@
 		color: var(--nav-active-fg, var(--color-on-primary));
 	}
 
-	.item:nth-of-type(3) {
-		margin-left: auto;
-	}
-
 	.item.active .label {
 		font-weight: 700;
 	}
 
 	.add-book {
-		position: absolute;
-		left: 50%;
-		top: 8px;
 		display: flex;
+		grid-column: 3;
+		grid-row: 1;
+		place-self: start center;
 		align-items: center;
 		justify-content: center;
 		width: 48px;
 		height: 48px;
-		translate: -50% 0;
 		border-radius: 50%;
 		background: var(--nav-active-bg, var(--color-primary));
 		color: var(--nav-active-fg, var(--color-on-primary));
