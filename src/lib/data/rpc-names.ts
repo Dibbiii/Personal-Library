@@ -47,6 +47,7 @@ export const RPC = {
 
 	changeBookGenre: 'change_book_genre',
 	changeBookFormat: 'change_book_format',
+	changeBookSeries: 'change_book_series',
 	saveReview: 'save_review',
 	reviewReference: 'get_review_reference',
 	addQuote: 'add_quote',

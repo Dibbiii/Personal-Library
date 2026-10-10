@@ -245,32 +245,36 @@ export class ServerCatalogRepository implements CatalogRepository {
 					reviewScoresReset = change?.review_scores_reset ?? false;
 				}
 
-				const hasNewEdition = editionChange !== null;
-				const rows = await tx<{ id: string }[]>`
-					update public.user_books ub
-					set format = ${input.format}::text,
-						edition_id = case when ${hasNewEdition} then ${editionChange?.editionId ?? null}::bigint else ub.edition_id end,
-						title = case when ${hasNewEdition} then ${editionChange?.title ?? null}::text else ub.title end,
-						author_display = case when ${hasNewEdition} then ${editionChange?.author ?? null}::text else ub.author_display end,
-						page_count = case when ${hasNewEdition} then ${editionChange?.pageCount ?? null}::integer else ub.page_count end,
-						language = case when ${hasNewEdition} then ${editionChange?.language ?? null}::text else ub.language end,
-						isbn_10 = case when ${hasNewEdition} then ${editionChange?.isbn10 ?? null}::text else ub.isbn_10 end,
-						isbn_13 = case when ${hasNewEdition} then ${editionChange?.isbn13 ?? null}::text else ub.isbn_13 end,
-						cover_url = case when ${hasNewEdition} then ${editionChange?.coverUrl ?? null}::text else ub.cover_url end
-					where ub.id = ${bookId}::uuid
-					returning ub.id::text
+				await tx`
+					select public.change_book_format(
+						${bookId}::uuid,
+						${input.format}::text
+					)
 				`;
-				const row = rows[0];
-				if (!row) throw new DataAccessError('NOT_FOUND', 'Libro non trovato');
+				if (editionChange) {
+					await tx`
+						select public.update_book_edition(
+							${bookId}::uuid,
+							${editionChange.editionId}::bigint,
+							${editionChange.title}::text,
+							${editionChange.author}::text,
+							${editionChange.pageCount}::integer,
+							${editionChange.language}::text,
+							${editionChange.isbn10}::text,
+							${editionChange.isbn13}::text,
+							${editionChange.coverUrl}::text
+						)
+					`;
+				}
 				await tx`
 					select public.change_book_series(
-						${row.id}::uuid,
+						${bookId}::uuid,
 						${input.series?.name ?? null}::text,
 						${input.series?.number ?? null}::numeric,
 						${input.series?.total ?? null}::smallint
 					)
 				`;
-				return { status: 'updated', bookId: row.id, reviewScoresReset };
+				return { status: 'updated', bookId, reviewScoresReset };
 			});
 		} catch (error) {
 			throw normalizeError(error);

@@ -25,7 +25,6 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import IconButton from '$lib/components/ui/IconButton.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
 	import { describeBookRemovalError, removeBook } from '$lib/client/library';
 	import { withBookRemovalGuard } from '$lib/offline/book-removal';
 	import { clearLocalDraft } from '$lib/review/local-draft';
