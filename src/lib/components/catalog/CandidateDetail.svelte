@@ -10,6 +10,7 @@
 	import { draftWithEdition, type BookDraft } from '$lib/catalog/draft';
 	import { parsePublishedDate } from '$lib/catalog/published-date';
 	import { LANGUAGE_LABELS, languageLabel } from '$lib/catalog/language';
+	import type { IconName } from '$lib/components/ui/icons';
 
 	interface Props {
 		draft: BookDraft;
@@ -18,15 +19,31 @@
 		infoLoading: boolean;
 		/** Cambio di edizione: il chiamante sostituisce la bozza. */
 		onchange: (draft: BookDraft) => void;
-		/** Bozza definitiva (con le eventuali modifiche): il chiamante apre la conferma. */
-		onadd: (draft: BookDraft) => void;
+		/** Bozza definitiva: il chiamante apre il passo successivo. */
+		oncontinue: (draft: BookDraft) => void;
 		/** Id del titolo, se un dialogo lo usa come etichetta. */
 		headingId?: string;
 		/** Scheda del libro se è già in libreria. */
 		ownedHref?: string | null;
+		actionLabel?: string;
+		actionIcon?: IconName;
+		allowMetadataCustomization?: boolean;
+		allowCoverAttachment?: boolean;
 	}
 
-	let { draft, info, infoLoading, onchange, onadd, headingId, ownedHref = null }: Props = $props();
+	let {
+		draft,
+		info,
+		infoLoading,
+		onchange,
+		oncontinue,
+		headingId,
+		ownedHref = null,
+		actionLabel,
+		actionIcon = 'plus',
+		allowMetadataCustomization = true,
+		allowCoverAttachment = true
+	}: Props = $props();
 
 	const uid = $props.id();
 	const titleId = $derived(headingId ?? `${uid}-title`);
@@ -153,7 +170,9 @@
 
 	function pickEdition(edition: BookInfo['editions'][number]) {
 		if (!workId || isCurrent(edition)) return;
-		onchange(draftWithEdition(draft, edition, `https://openlibrary.org/works/${workId}`));
+		onchange(
+			draftWithEdition(draft, edition, `https://openlibrary.org/works/${workId}`, info?.workTitle)
+		);
 	}
 
 	function validate(): boolean {
@@ -171,18 +190,18 @@
 		return Object.keys(next).length === 0;
 	}
 
-	function add() {
+	function continueWithDraft() {
 		if (coverBusy) return;
 		const coverUrl =
 			recoveredCover?.isbn === draft.isbn && recoveredCover?.primary === draft.coverUrl
 				? recoveredCover.url
 				: draft.coverUrl;
 		if (!customizing) {
-			onadd({ ...draft, coverUrl, coverFile });
+			oncontinue({ ...draft, coverUrl, coverFile });
 			return;
 		}
 		if (!validate()) return;
-		onadd({
+		oncontinue({
 			...draft,
 			coverUrl,
 			coverFile,
@@ -362,10 +381,14 @@
 	{/if}
 
 	<div class="actions">
-		{#key draft.edition?.providerIds.openLibraryEditionId ?? draft.isbn ?? draft.title}<CoverAttachment
-				onchange={(file) => (coverFile = file)}
-				onbusychange={(busy) => (coverBusy = busy)}
-			/>{/key}
+		{#if allowCoverAttachment}
+			{#key draft.edition?.providerIds.openLibraryEditionId ?? draft.isbn ?? draft.title}
+				<CoverAttachment
+					onchange={(file) => (coverFile = file)}
+					onbusychange={(busy) => (coverBusy = busy)}
+				/>
+			{/key}
+		{/if}
 		{#if ownedHref}
 			<p class="owned">
 				<Icon name="check" size={18} strokeWidth={2.4} />
@@ -378,72 +401,74 @@
 			fullWidth
 			disabled={coverBusy}
 			variant={ownedHref ? 'secondary' : 'primary'}
-			onclick={add}
+			onclick={continueWithDraft}
 		>
-			{#snippet icon()}<Icon name="plus" size={20} strokeWidth={2.2} />{/snippet}
-			{ownedHref ? 'Aggiungi un’altra copia' : 'Aggiungi alla mia libreria'}
+			{#snippet icon()}<Icon name={actionIcon} size={20} strokeWidth={2.2} />{/snippet}
+			{actionLabel ?? (ownedHref ? 'Aggiungi un’altra copia' : 'Aggiungi alla mia libreria')}
 		</Button>
 
-		<button
-			type="button"
-			class="customize"
-			aria-expanded={customizing}
-			aria-controls="{uid}-custom"
-			onclick={() => (customizing = !customizing)}
-		>
-			<Icon name="pencil" size={20} />
-			<span>Personalizza prima di aggiungere</span>
-			<Icon name={customizing ? 'chevron-up' : 'chevron-down'} size={18} />
-		</button>
+		{#if allowMetadataCustomization}
+			<button
+				type="button"
+				class="customize"
+				aria-expanded={customizing}
+				aria-controls="{uid}-custom"
+				onclick={() => (customizing = !customizing)}
+			>
+				<Icon name="pencil" size={20} />
+				<span>Personalizza prima di aggiungere</span>
+				<Icon name={customizing ? 'chevron-up' : 'chevron-down'} size={18} />
+			</button>
 
-		{#if customizing}
-			<div class="custom" id="{uid}-custom">
-				<label class="field">
-					<span>Titolo</span>
-					<input
-						type="text"
-						bind:value={title}
-						maxlength="300"
-						aria-invalid={errors.title ? 'true' : undefined}
-					/>
-					{#if errors.title}<em role="alert">{errors.title}</em>{/if}
-				</label>
-				<label class="field">
-					<span>Autore</span>
-					<input
-						type="text"
-						bind:value={author}
-						maxlength="300"
-						aria-invalid={errors.author ? 'true' : undefined}
-					/>
-					{#if errors.author}<em role="alert">{errors.author}</em>{/if}
-				</label>
-				<div class="pair">
+			{#if customizing}
+				<div class="custom" id="{uid}-custom">
 					<label class="field">
-						<span>Pagine</span>
+						<span>Titolo</span>
 						<input
 							type="text"
-							inputmode="numeric"
-							bind:value={pages}
-							aria-invalid={errors.pages ? 'true' : undefined}
+							bind:value={title}
+							maxlength="300"
+							aria-invalid={errors.title ? 'true' : undefined}
 						/>
+						{#if errors.title}<em role="alert">{errors.title}</em>{/if}
 					</label>
 					<label class="field">
-						<span>Lingua</span>
-						<select bind:value={language}>
-							<option value="">Non indicata</option>
-							{#each languages as [code, label] (code)}
-								<option value={code}>{label}</option>
-							{/each}
-						</select>
+						<span>Autore</span>
+						<input
+							type="text"
+							bind:value={author}
+							maxlength="300"
+							aria-invalid={errors.author ? 'true' : undefined}
+						/>
+						{#if errors.author}<em role="alert">{errors.author}</em>{/if}
 					</label>
+					<div class="pair">
+						<label class="field">
+							<span>Pagine</span>
+							<input
+								type="text"
+								inputmode="numeric"
+								bind:value={pages}
+								aria-invalid={errors.pages ? 'true' : undefined}
+							/>
+						</label>
+						<label class="field">
+							<span>Lingua</span>
+							<select bind:value={language}>
+								<option value="">Non indicata</option>
+								{#each languages as [code, label] (code)}
+									<option value={code}>{label}</option>
+								{/each}
+							</select>
+						</label>
+					</div>
+					{#if errors.pages}<em class="pair-error" role="alert">{errors.pages}</em>{/if}
+					<p class="custom-note">
+						Genere, formato e serie li scegli al passo successivo; la copertina puoi cambiarla dalla
+						scheda del libro.
+					</p>
 				</div>
-				{#if errors.pages}<em class="pair-error" role="alert">{errors.pages}</em>{/if}
-				<p class="custom-note">
-					Genere, formato e serie li scegli al passo successivo; la copertina puoi cambiarla dalla
-					scheda del libro.
-				</p>
-			</div>
+			{/if}
 		{/if}
 	</div>
 </article>

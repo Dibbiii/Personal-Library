@@ -9,7 +9,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { IconName } from '$lib/components/ui/icons';
-	import AddBookConfirmSheet from './AddBookConfirmSheet.svelte';
+	import BookCustomizationSheet from './BookCustomizationSheet.svelte';
 	import BookSearch from './BookSearch.svelte';
 	import BookSearchResult from './BookSearchResult.svelte';
 	import CandidateDetail from './CandidateDetail.svelte';
@@ -284,7 +284,7 @@
 						{info}
 						{infoLoading}
 						onchange={(next) => (draft = next)}
-						onadd={openConfirm}
+						oncontinue={openConfirm}
 					/>
 				{:else}
 					<div class="placeholder">
@@ -304,7 +304,7 @@
 	</div>
 </div>
 
-<AddBookConfirmSheet
+<BookCustomizationSheet
 	open={sheetOpen}
 	draft={sheetDraft}
 	initialGenre={context.genre}

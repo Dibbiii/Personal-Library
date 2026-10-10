@@ -15,11 +15,14 @@ import {
 	coverAlternativesResponseSchema,
 	coverChangedResponseSchema,
 	isbnLookupResponseSchema,
+	updateBookResponseSchema,
 	type AddBookRequest,
 	type AddBookResponse,
 	type CatalogSearchResponse,
 	type CoverSelectRequest,
-	type IsbnLookupResponse
+	type IsbnLookupResponse,
+	type UpdateBookRequest,
+	type UpdateBookResponse
 } from './schemas';
 
 export class CatalogClientError extends Error {
@@ -135,6 +138,17 @@ export function discoverBooks(
 export function addBookToLibrary(input: AddBookRequest): Promise<AddBookResponse> {
 	return request(addBookResponseSchema, '/api/library/add', {
 		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(input)
+	});
+}
+
+export function updateBookInLibrary(
+	bookId: string,
+	input: UpdateBookRequest
+): Promise<UpdateBookResponse> {
+	return request(updateBookResponseSchema, `/api/books/${encodeURIComponent(bookId)}`, {
+		method: 'PATCH',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(input)
 	});

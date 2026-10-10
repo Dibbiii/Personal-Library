@@ -117,6 +117,58 @@ export const addBookRequestSchema = z
 		}
 	});
 
+export const updateBookRequestSchema = z
+	.object({
+		genre: genreSlugSchema,
+		format: bookFormatSchema,
+		series: seriesInputSchema.nullable(),
+		/** Presente solo quando l'utente sceglie una nuova edizione. */
+		edition: editionInputSchema.optional(),
+		title: text(LIMITS.title).optional(),
+		author: text(LIMITS.author).optional(),
+		pageCount: z.number().int().positive().max(20000).nullable().optional(),
+		language: z.string().trim().min(2).max(16).nullable().optional(),
+		isbn: z.string().trim().max(24).nullable().optional(),
+		coverUrl: z
+			.string()
+			.max(600)
+			.refine((value) => isAllowedCoverUrl(value), 'Host della cover non consentito')
+			.nullable()
+			.optional()
+	})
+	.strict()
+	.superRefine((value, ctx) => {
+		const metadata = ['title', 'author', 'pageCount', 'language', 'isbn', 'coverUrl'] as const;
+		const hasMetadata = metadata.some((field) => value[field] !== undefined);
+
+		if (value.edition === undefined && hasMetadata) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['edition'],
+				message: 'I dati dell’edizione richiedono una nuova edizione'
+			});
+		}
+		if (value.edition !== undefined) {
+			for (const field of metadata) {
+				if (value[field] === undefined) {
+					ctx.addIssue({
+						code: 'custom',
+						path: [field],
+						message: 'Dato richiesto per la nuova edizione'
+					});
+				}
+			}
+		}
+		if (
+			value.isbn !== null &&
+			value.isbn !== undefined &&
+			value.isbn !== '' &&
+			parseIsbn(value.isbn) === null
+		) {
+			ctx.addIssue({ code: 'custom', path: ['isbn'], message: 'ISBN non valido' });
+		}
+	});
+
 export const existingBookSchema = z.object({
 	id: z.string().uuid(),
 	title: z.string(),
@@ -129,6 +181,19 @@ export const addBookResponseSchema = z.discriminatedUnion('status', [
 		status: z.literal('duplicate'),
 		/** true = stesso ISBN/edizione (non si può forzare); false = stesso titolo e autore */
 		exact: z.boolean(),
+		existing: existingBookSchema
+	})
+]);
+
+export const updateBookResponseSchema = z.discriminatedUnion('status', [
+	z.object({
+		status: z.literal('updated'),
+		bookId: z.string().uuid(),
+		reviewScoresReset: z.boolean()
+	}),
+	z.object({
+		status: z.literal('duplicate'),
+		exact: z.literal(true),
 		existing: existingBookSchema
 	})
 ]);
@@ -183,6 +248,9 @@ export type IsbnLookupResponse = z.infer<typeof isbnLookupResponseSchema>;
 export type AddBookRequest = z.input<typeof addBookRequestSchema>;
 export type AddBookInput = z.output<typeof addBookRequestSchema>;
 export type AddBookResponse = z.infer<typeof addBookResponseSchema>;
+export type UpdateBookRequest = z.input<typeof updateBookRequestSchema>;
+export type UpdateBookInput = z.output<typeof updateBookRequestSchema>;
+export type UpdateBookResponse = z.infer<typeof updateBookResponseSchema>;
 export type CoverAlternative = z.infer<typeof coverAlternativeSchema>;
 export type CoverSelectRequest = z.infer<typeof coverSelectRequestSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;

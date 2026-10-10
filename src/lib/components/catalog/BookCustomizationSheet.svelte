@@ -7,22 +7,50 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CoverImage from './CoverImage.svelte';
 	import { FORMAT_ICONS, FORMAT_LABELS } from '$lib/book/format';
-	import { addBookToLibrary, CatalogClientError, uploadCover } from '$lib/catalog/client';
-	import { buildAddRequest, candidateMeta, seriesLabel, type BookDraft } from '$lib/catalog/draft';
+	import {
+		addBookToLibrary,
+		CatalogClientError,
+		updateBookInLibrary,
+		uploadCover
+	} from '$lib/catalog/client';
+	import {
+		buildAddRequest,
+		buildUpdateBookRequest,
+		candidateMeta,
+		seriesLabel,
+		type BookDraft
+	} from '$lib/catalog/draft';
 	import { GENRE_LABELS, GENRE_ORDER, isGenreSlug } from '$lib/genres';
 	import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 
 	interface Props {
+		mode?: 'add' | 'edit';
 		open: boolean;
 		draft: BookDraft | null;
 		/** Genere di partenza, sempre modificabile prima della conferma. */
 		initialGenre?: string | null;
+		initialFormat?: BookFormat;
+		initialSeries?: { name: string; number: number | null; total: number | null } | null;
+		bookId?: string;
 		onclose: () => void;
 		/** Dopo l'inserimento. Senza handler si apre la scheda del libro. */
 		onadded?: (bookId: string) => void;
+		/** Dopo un aggiornamento, torna alla scheda aggiornata. */
+		onsaved?: (reviewScoresReset: boolean) => void;
 	}
 
-	let { open, draft, initialGenre = null, onclose, onadded }: Props = $props();
+	let {
+		mode = 'add',
+		open,
+		draft,
+		initialGenre = null,
+		initialFormat = 'physical',
+		initialSeries = null,
+		bookId,
+		onclose,
+		onadded,
+		onsaved
+	}: Props = $props();
 
 	const uid = $props.id();
 
@@ -44,10 +72,16 @@
 		if (!open) return;
 		void draft;
 		genre = untrack(() => parseAddGenre(initialGenre));
-		format = 'physical';
-		seriesName = '';
-		seriesNumber = '';
-		seriesTotal = '';
+		format = mode === 'edit' ? initialFormat : 'physical';
+		seriesName = mode === 'edit' ? (initialSeries?.name ?? '') : '';
+		seriesNumber =
+			mode === 'edit' && initialSeries?.number !== null && initialSeries?.number !== undefined
+				? String(initialSeries.number)
+				: '';
+		seriesTotal =
+			mode === 'edit' && initialSeries?.total !== null && initialSeries?.total !== undefined
+				? String(initialSeries.total)
+				: '';
 		busy = false;
 		error = '';
 		fieldError = {};
@@ -96,6 +130,10 @@
 			);
 			return;
 		}
+		if (mode === 'edit' && !bookId) {
+			error = 'Non riesco a trovare il libro da aggiornare.';
+			return;
+		}
 
 		busy = true;
 		try {
@@ -106,6 +144,20 @@
 						total: totalValue ?? null
 					}
 				: null;
+			if (mode === 'edit' && bookId) {
+				const result = await updateBookInLibrary(
+					bookId,
+					buildUpdateBookRequest(draft, { genre, format, series })
+				);
+				if (result.status === 'duplicate') {
+					duplicate = { ...result.existing, exact: true };
+					return;
+				}
+				onclose();
+				onsaved?.(result.reviewScoresReset);
+				return;
+			}
+
 			const result = addedBookId
 				? { status: 'added' as const, bookId: addedBookId }
 				: await addBookToLibrary(buildAddRequest(draft, { genre, format, series }, force));
@@ -118,11 +170,14 @@
 			if (onadded) onadded(result.bookId);
 			else await goto(`/book/${result.bookId}`);
 		} catch (caught) {
-			error = addedBookId
-				? 'Il libro è stato aggiunto, ma la copertina non è stata caricata. Puoi riprovare oppure aprire il libro.'
-				: caught instanceof CatalogClientError
-					? caught.message
-					: 'Non sono riuscito ad aggiungere il libro. Riprova.';
+			error =
+				mode === 'add' && addedBookId
+					? 'Il libro è stato aggiunto, ma la copertina non è stata caricata. Puoi riprovare oppure aprire il libro.'
+					: caught instanceof CatalogClientError
+						? caught.message
+						: mode === 'edit'
+							? 'Non sono riuscito a salvare le modifiche. Riprova.'
+							: 'Non sono riuscito ad aggiungere il libro. Riprova.';
 		} finally {
 			busy = false;
 		}
@@ -131,7 +186,12 @@
 	const meta = $derived(draft ? candidateMeta(draft) : '');
 </script>
 
-<BottomSheet {open} title="Aggiungi alla libreria" subtitle="Conferma come vuoi averlo" {onclose}>
+<BottomSheet
+	{open}
+	title={mode === 'edit' ? 'Modifica libro' : 'Aggiungi alla libreria'}
+	subtitle={mode === 'edit' ? 'Conferma le modifiche' : 'Conferma come vuoi averlo'}
+	{onclose}
+>
 	{#if draft}
 		<div class="preview">
 			<CoverImage src={draft.coverUrl} width={64} height={96} />
@@ -257,7 +317,11 @@
 				<div class="actions row">
 					<Button variant="secondary" fullWidth onclick={onclose}>Annulla</Button>
 					<Button type="submit" fullWidth loading={busy}
-						>{addedBookId ? 'Riprova il caricamento' : 'Aggiungi'}</Button
+						>{mode === 'edit'
+							? 'Salva modifiche'
+							: addedBookId
+								? 'Riprova il caricamento'
+								: 'Aggiungi'}</Button
 					>
 					{#if addedBookId}<Button variant="ghost" href={`/book/${addedBookId}`}
 							>Apri il libro</Button

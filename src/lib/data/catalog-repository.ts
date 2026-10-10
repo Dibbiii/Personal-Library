@@ -16,7 +16,9 @@ import type {
 	AddBookResponse,
 	CoverAlternative,
 	IsbnLookupResponse,
-	CatalogSearchResponse
+	CatalogSearchResponse,
+	UpdateBookInput,
+	UpdateBookResponse
 } from '../catalog/schemas';
 import { getCatalogService, type CatalogService } from '../server/catalog';
 import { mapPgError, upsertCatalogEdition, withUser, type Tx } from '../server/db';
@@ -84,27 +86,12 @@ export class ServerCatalogRepository implements CatalogRepository {
 
 			let editionId: string | null = null;
 			if (input.edition) {
-				const published = parsePublishedDate(input.edition.publishedDate);
-				const ids = input.edition.providerIds;
-				const result = await upsertCatalogEdition(userId, {
-					title: input.edition.workTitle,
-					authors: input.edition.authors,
-					openLibraryWorkId: ids.openLibraryWorkId,
-					openLibraryEditionId: ids.openLibraryEditionId,
-					googleBooksId: ids.googleBooksId,
-					inventaireId: ids.inventaireId ?? null,
-					sbnId: ids.sbnId ?? null,
-					isbn10: isbn?.isbn10 ?? null,
-					isbn13: isbn?.isbn13 ?? null,
+				editionId = await upsertBookEdition(userId, input.edition, {
+					isbn,
 					language: input.language,
-					publisher: input.edition.publisher,
-					publishedDate: published.date,
-					publishedYear: published.year,
 					pageCount: input.pageCount,
-					coverProvider: input.coverUrl ? input.edition.provider : null,
 					coverUrl: input.coverUrl
 				});
-				editionId = result.editionId;
 
 				// La stessa edizione può essere già in libreria senza ISBN (id del provider).
 				const again = await withUser(userId, (tx) =>
@@ -140,6 +127,124 @@ export class ServerCatalogRepository implements CatalogRepository {
 				const row = rows[0];
 				if (!row) throw new DataAccessError('VALIDATION', 'Genere non valido');
 				return { status: 'added' as const, bookId: row.id };
+			});
+		} catch (error) {
+			throw normalizeError(error);
+		}
+	}
+
+	async updateBook(
+		userId: string,
+		bookId: string,
+		input: UpdateBookInput
+	): Promise<UpdateBookResponse> {
+		try {
+			if (input.edition) await this.loadBook(userId, bookId);
+
+			let reviewScoresReset = false;
+			let editionChange: {
+				editionId: string;
+				title: string;
+				author: string;
+				pageCount: number | null;
+				language: string | null;
+				isbn10: string | null;
+				isbn13: string | null;
+				coverUrl: string | null;
+			} | null = null;
+
+			if (input.edition) {
+				if (
+					input.title === undefined ||
+					input.author === undefined ||
+					input.pageCount === undefined ||
+					input.language === undefined ||
+					input.isbn === undefined ||
+					input.coverUrl === undefined
+				) {
+					throw new DataAccessError('VALIDATION', 'Dati incompleti per la nuova edizione');
+				}
+				const isbn = input.isbn ? parseIsbn(input.isbn) : null;
+				if (input.isbn && !isbn) throw new DataAccessError('VALIDATION', 'ISBN non valido');
+				const editionId = await upsertBookEdition(userId, input.edition, {
+					isbn,
+					language: input.language,
+					pageCount: input.pageCount,
+					coverUrl: input.coverUrl
+				});
+				editionChange = {
+					editionId,
+					title: input.title,
+					author: input.author,
+					pageCount: input.pageCount,
+					language: input.language,
+					isbn10: isbn?.isbn10 ?? null,
+					isbn13: isbn?.isbn13 ?? null,
+					coverUrl: input.coverUrl
+				};
+			}
+
+			return await withUser(userId, async (tx) => {
+				const genres = await tx<{ id: number }[]>`
+					select id
+					from public.genres
+					where slug = ${input.genre} and is_active
+				`;
+				const genre = genres[0];
+				if (!genre) throw new DataAccessError('VALIDATION', 'Genere non valido');
+				const books = await tx<{ genre_id: number }[]>`
+					select genre_id
+					from public.user_books
+					where id = ${bookId}::uuid
+					for update
+				`;
+				const current = books[0];
+				if (!current) throw new DataAccessError('NOT_FOUND', 'Libro non trovato');
+
+				if (editionChange) {
+					const duplicate = await findDuplicate(tx, {
+						isbn10: editionChange.isbn10,
+						isbn13: editionChange.isbn13,
+						editionId: editionChange.editionId,
+						title: editionChange.title,
+						author: editionChange.author,
+						includeTitleMatch: false,
+						excludeBookId: bookId
+					});
+					if (duplicate?.status === 'duplicate') {
+						return { status: 'duplicate', exact: true, existing: duplicate.existing };
+					}
+				}
+
+				if (current.genre_id !== genre.id) {
+					const [change] = await tx<{ review_scores_reset: boolean | null }[]>`
+						select (public.change_book_genre(${bookId}::uuid, ${input.genre})->>'reviewScoresReset')::boolean
+							as review_scores_reset
+					`;
+					reviewScoresReset = change?.review_scores_reset ?? false;
+				}
+
+				const hasNewEdition = editionChange !== null;
+				const rows = await tx<{ id: string }[]>`
+					update public.user_books ub
+					set format = ${input.format}::text,
+						series_name = ${input.series?.name ?? null}::text,
+						series_number = ${input.series?.number ?? null}::numeric,
+						series_total = ${input.series?.total ?? null}::smallint,
+						edition_id = case when ${hasNewEdition} then ${editionChange?.editionId ?? null}::bigint else ub.edition_id end,
+						title = case when ${hasNewEdition} then ${editionChange?.title ?? null}::text else ub.title end,
+						author_display = case when ${hasNewEdition} then ${editionChange?.author ?? null}::text else ub.author_display end,
+						page_count = case when ${hasNewEdition} then ${editionChange?.pageCount ?? null}::integer else ub.page_count end,
+						language = case when ${hasNewEdition} then ${editionChange?.language ?? null}::text else ub.language end,
+						isbn_10 = case when ${hasNewEdition} then ${editionChange?.isbn10 ?? null}::text else ub.isbn_10 end,
+						isbn_13 = case when ${hasNewEdition} then ${editionChange?.isbn13 ?? null}::text else ub.isbn_13 end,
+						cover_url = case when ${hasNewEdition} then ${editionChange?.coverUrl ?? null}::text else ub.cover_url end
+					where ub.id = ${bookId}::uuid
+					returning ub.id::text
+				`;
+				const row = rows[0];
+				if (!row) throw new DataAccessError('NOT_FOUND', 'Libro non trovato');
+				return { status: 'updated', bookId: row.id, reviewScoresReset };
 			});
 		} catch (error) {
 			throw normalizeError(error);
@@ -340,16 +445,21 @@ interface DuplicateQuery {
 	title: string;
 	author: string;
 	includeTitleMatch: boolean;
+	excludeBookId?: string;
 }
 
 async function findDuplicate(tx: Tx, query: DuplicateQuery): Promise<AddBookResponse | null> {
+	const excludeBookId = query.excludeBookId ?? null;
 	if (query.isbn10 || query.isbn13 || query.editionId) {
 		const rows = await tx<{ id: string; title: string; author_display: string }[]>`
 			select id::text, title, author_display
 			from public.user_books
-			where (${query.editionId}::bigint is not null and edition_id = ${query.editionId}::bigint)
+			where (
+				(${query.editionId}::bigint is not null and edition_id = ${query.editionId}::bigint)
 				or (${query.isbn13}::text is not null and isbn_13 = ${query.isbn13}::text)
 				or (${query.isbn10}::text is not null and isbn_10 = ${query.isbn10}::text)
+			)
+				and (${excludeBookId}::uuid is null or id <> ${excludeBookId}::uuid)
 			order by created_at
 			limit 1
 		`;
@@ -369,6 +479,7 @@ async function findDuplicate(tx: Tx, query: DuplicateQuery): Promise<AddBookResp
 			from public.user_books
 			where lower(btrim(title)) = lower(btrim(${query.title}::text))
 				and lower(btrim(author_display)) = lower(btrim(${query.author}::text))
+				and (${excludeBookId}::uuid is null or id <> ${excludeBookId}::uuid)
 			order by created_at
 			limit 1
 		`;
@@ -382,4 +493,37 @@ async function findDuplicate(tx: Tx, query: DuplicateQuery): Promise<AddBookResp
 		}
 	}
 	return null;
+}
+
+async function upsertBookEdition(
+	userId: string,
+	edition: NonNullable<AddBookInput['edition']>,
+	metadata: {
+		isbn: ReturnType<typeof parseIsbn>;
+		language: string | null;
+		pageCount: number | null;
+		coverUrl: string | null;
+	}
+): Promise<string> {
+	const published = parsePublishedDate(edition.publishedDate);
+	const ids = edition.providerIds;
+	const result = await upsertCatalogEdition(userId, {
+		title: edition.workTitle,
+		authors: edition.authors,
+		openLibraryWorkId: ids.openLibraryWorkId,
+		openLibraryEditionId: ids.openLibraryEditionId,
+		googleBooksId: ids.googleBooksId,
+		inventaireId: ids.inventaireId ?? null,
+		sbnId: ids.sbnId ?? null,
+		isbn10: metadata.isbn?.isbn10 ?? null,
+		isbn13: metadata.isbn?.isbn13 ?? null,
+		language: metadata.language,
+		publisher: edition.publisher,
+		publishedDate: published.date,
+		publishedYear: published.year,
+		pageCount: metadata.pageCount,
+		coverProvider: metadata.coverUrl ? edition.provider : null,
+		coverUrl: metadata.coverUrl
+	});
+	return result.editionId;
 }
