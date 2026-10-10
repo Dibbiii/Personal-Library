@@ -80,6 +80,16 @@ test.describe('Home Libreria', () => {
 		try {
 			await page.goto('/library');
 			await expect(page.getByRole('heading', { name: 'Libreria', level: 1 })).toBeVisible();
+			const primaryNavigation = page.getByRole('navigation', { name: 'Navigazione principale' });
+			await expect(
+				primaryNavigation.getByRole('link', { name: 'Libreria', exact: true })
+			).toBeVisible();
+			const desktopSidebar = page.locator('aside.sidebar');
+			if (await desktopSidebar.isVisible()) {
+				await expect(
+					desktopSidebar.getByRole('link', { name: 'Libreria', exact: true })
+				).toBeVisible();
+			}
 			await expect(page.getByText('Ciao Lettrice Test, cosa leggi oggi?')).toBeVisible();
 			// scansione ISBN solo su mobile, "Aggiungi libro" sempre
 			await expect(page.locator('a[href="/add/scan"]')).toHaveCount(1);
