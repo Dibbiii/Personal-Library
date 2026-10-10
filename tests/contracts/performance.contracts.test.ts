@@ -32,7 +32,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 	});
 	it('counts all 5000 books but sends only five favorites and four activities', async () => {
 		const result = await repo.getProfileSummary(true, 4);
-		expect(result.counts).toMatchObject({ total: 5000, read: 2500, unread: 2500, physical: 5000 });
+		expect(result.counts).toMatchObject({
+			total: 5000,
+			read: 2500,
+			unread: 2500,
+			physical: 5000,
+			physicalUnread: 2500
+		});
 		expect(result.favorites).toHaveLength(5);
 		expect(result.quoteCount).toBe(601);
 		expect(result.activity.length).toBeLessThanOrEqual(4);

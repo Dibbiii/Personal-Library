@@ -7,13 +7,14 @@
 		icon: IconName;
 		label: string;
 		class?: string;
+		testId?: string;
 		children: Snippet;
 	}
 
-	let { icon, label, class: className, children }: Props = $props();
+	let { icon, label, class: className, testId, children }: Props = $props();
 </script>
 
-<section class="stat-card {className ?? ''}">
+<section class="stat-card {className ?? ''}" data-testid={testId}>
 	<header>
 		<span class="tile"><Icon name={icon} size={18} strokeWidth={2} /></span>
 		<h2>{label}</h2>
