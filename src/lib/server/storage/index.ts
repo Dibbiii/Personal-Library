@@ -14,6 +14,15 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { serverEnv } from '../db/env';
+import {
+	deleteVariants,
+	prepareVariants,
+	readVariant,
+	settleVariantsUnder,
+	VariantImageError,
+	type CoverWidth
+} from './variants';
+export { COVER_WIDTHS, type CoverWidth } from './variants';
 
 export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 
@@ -31,11 +40,7 @@ const CONTENT_TYPES: Record<string, CoverContentType> = {
 };
 
 export type StorageErrorReason =
-	| 'empty'
-	| 'too_large'
-	| 'unsupported_type'
-	| 'invalid_path'
-	| 'forbidden';
+	'empty' | 'too_large' | 'unsupported_type' | 'invalid_path' | 'forbidden';
 
 export class StorageError extends Error {
 	constructor(
@@ -151,8 +156,15 @@ export async function saveCover(userId: string, file: CoverInput): Promise<Saved
 
 	// A declared MIME type, when present, must agree with the real content.
 	const declared = file instanceof Uint8Array ? '' : file.type;
-	if (declared && declared !== contentType && !(declared === 'image/jpg' && contentType === 'image/jpeg')) {
-		throw new StorageError('unsupported_type', `declared ${declared} but content is ${contentType}`);
+	if (
+		declared &&
+		declared !== contentType &&
+		!(declared === 'image/jpg' && contentType === 'image/jpeg')
+	) {
+		throw new StorageError(
+			'unsupported_type',
+			`declared ${declared} but content is ${contentType}`
+		);
 	}
 
 	const relative = `covers/${userId}/${randomUUID()}.${EXTENSIONS[contentType]}`;
@@ -162,6 +174,15 @@ export async function saveCover(userId: string, file: CoverInput): Promise<Saved
 	await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
 	await writeFile(temp, bytes, { mode: 0o600, flag: 'wx' });
 	await rename(temp, target); // atomic: readers never see a half-written file
+	try {
+		await prepareVariants(target);
+	} catch (error) {
+		await unlink(target);
+		await deleteVariants(target);
+		if (error instanceof VariantImageError)
+			throw new StorageError('unsupported_type', error.message);
+		throw error;
+	}
 
 	return { path: relative, contentType, size: bytes.length };
 }
@@ -172,10 +193,24 @@ export async function saveCover(userId: string, file: CoverInput): Promise<Saved
  */
 export async function readCover(
 	coverPath: string,
-	userId?: string
+	userId?: string,
+	width?: CoverWidth
 ): Promise<{ data: Buffer; contentType: CoverContentType } | null> {
 	const parsed = parseCoverPath(coverPath);
 	if (userId !== undefined) assertCoverOwnership(userId, coverPath);
+	if (width !== undefined) {
+		if (![128, 320, 768].includes(width)) throw new StorageError('invalid_path');
+		try {
+			const data = await readVariant(resolveInsideRoot(parsed.relative), width);
+			return data ? { data, contentType: 'image/webp' } : null;
+		} catch (error) {
+			// Existing corrupt covers retain the original endpoint; no derivative is cached.
+			if (error instanceof VariantImageError) {
+				throw new StorageError('unsupported_type');
+			}
+			throw error;
+		}
+	}
 
 	try {
 		return {
@@ -195,9 +230,13 @@ export async function deleteCover(coverPath: string, userId?: string): Promise<b
 
 	try {
 		await unlink(resolveInsideRoot(parsed.relative));
+		await deleteVariants(resolveInsideRoot(parsed.relative));
 		return true;
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			await deleteVariants(resolveInsideRoot(parsed.relative));
+			return false;
+		}
 		throw error;
 	}
 }
@@ -205,5 +244,8 @@ export async function deleteCover(coverPath: string, userId?: string): Promise<b
 /** Removes every cover of a user (account deletion). */
 export async function deleteUserCovers(userId: string): Promise<void> {
 	if (!USER_ID_RE.test(userId)) return;
-	await rm(resolveInsideRoot(`covers/${userId}`), { recursive: true, force: true });
+	const directory = resolveInsideRoot(`covers/${userId}`);
+	await rm(directory, { recursive: true, force: true });
+	await settleVariantsUnder(directory);
+	await rm(directory, { recursive: true, force: true });
 }

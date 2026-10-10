@@ -63,11 +63,14 @@ Hook di test: sotto automazione (`navigator.webdriver`) `window.__segnalibroTest
 
 ## PWA
 
-Config in `vite.config.ts` (generateSW di A1, modifiche additive): `additionalManifestEntries: /offline`,
+Config in `vite.config.ts` (generateSW di A1, modifiche additive): precache generato dagli asset e dalle pagine prerenderizzate,
 `importScripts: ['/sw-outbox.js']`, `precacheFallback: { fallbackURL: '/offline' }` sulle navigazioni NetworkFirst.
 
 - `/offline` (`src/routes/offline`, pubblica in `hooks.server.ts`, `csr = false`): pagina di cortesia in italiano,
   precaricata dal service worker; è quella che si vede offline su una pagina mai visitata.
+- Il prerender genera soltanto `/offline`, senza seguire i collegamenti alle pagine private.
+  Il plugin calcola le revisioni dal contenuto; non aggiungere manualmente URL già incluse nel manifest,
+  perché revisioni diverse della stessa URL bloccano l'installazione del precache.
 - Pagine già visitate: cache `sb-pages` (NetworkFirst, 4 s). Al logout `AppRuntime` cancella `sb-pages`, la coda
   dell'utente corrente resta nel DB locale ma non viene più inviata (`meta.userId` rimosso).
 - Il service worker non esiste in `npm run dev`: i test PWA girano solo su build (`sw.js` presente), altrimenti `skip`.

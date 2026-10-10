@@ -49,11 +49,10 @@
 {/snippet}
 
 {#if loading && !info}
-	<div class="grid" aria-busy="true" aria-label="Carico le informazioni sul libro">
-		<div class="card skeleton tall"></div>
-		<div class="card skeleton"></div>
-		<div class="card skeleton"></div>
-	</div>
+	<p class="empty" aria-busy="true" aria-label="Carico le informazioni sul libro">
+		<Icon name="search" size={18} />
+		Carico le informazioni pubbliche sul libro…
+	</p>
 {:else if !info}
 	<p class="empty">
 		<Icon name="search" size={18} />
@@ -640,6 +639,8 @@
 	}
 
 	.empty {
+		box-sizing: border-box;
+		min-height: 88px;
 		display: flex;
 		align-items: center;
 		gap: 10px;
@@ -651,34 +652,7 @@
 		font-size: 14px;
 	}
 
-	.skeleton {
-		min-height: 140px;
-		background: linear-gradient(
-			90deg,
-			var(--color-surface-elevated),
-			var(--color-surface),
-			var(--color-surface-elevated)
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.4s ease-in-out infinite;
-	}
-
-	.skeleton.tall {
-		min-height: 260px;
-		grid-row: span 2;
-	}
-
-	@keyframes shimmer {
-		to {
-			background-position: -200% 0;
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		.skeleton {
-			animation: none;
-		}
-
 		.cover-box {
 			transition: none;
 		}

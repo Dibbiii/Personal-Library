@@ -331,7 +331,7 @@ test('cambio genere di un libro recensito avvisa del reset dei voti specifici', 
 		'valutazioni specifiche sono state azzerate'
 	);
 	const [book] = await sql<{ genre_id: number; rating: number }[]>`
-		select genre_id, review_rating as rating from public.user_books where id = ${ids.epsilon}::uuid`;
+		select genre_id, review_rating::double precision as rating from public.user_books where id = ${ids.epsilon}::uuid`;
 	expect(book?.genre_id).toBe(2);
 	expect(book?.rating).toBe(4);
 });

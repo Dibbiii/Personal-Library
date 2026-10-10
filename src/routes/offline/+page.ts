@@ -3,3 +3,4 @@
 // di quella pagina e fallirebbe di nuovo offline.
 export const csr = false;
 export const ssr = true;
+export const prerender = true;

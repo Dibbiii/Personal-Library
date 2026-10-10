@@ -3,7 +3,8 @@ import { DataAccessError } from '$lib/data';
 import { requireRepository } from '$lib/server/repositories';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, depends }) => {
+	depends('app:settings');
 	const user = locals.user;
 	if (!user) error(401, 'Sessione non valida');
 
@@ -18,7 +19,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 			settings.getGenreShelves()
 		]);
 
-		return { settings: current, builtins, custom, genreShelves: genreShelves.genres, email: user.email };
+		return {
+			settings: current,
+			builtins,
+			custom,
+			genreShelves: genreShelves.genres,
+			email: user.email
+		};
 	} catch (cause) {
 		if (cause instanceof DataAccessError) error(503, 'Impostazioni non disponibili al momento.');
 		throw cause;

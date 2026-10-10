@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		// Le pagine dell'app richiedono una sessione; genera soltanto il fallback pubblico.
+		prerender: {
+			crawl: false,
+			entries: ['/offline']
+		}
 	}
 };
 

@@ -1,14 +1,24 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { SORT_FIELDS, nextSortQuery, type GenreSort } from './sort';
 
 	interface Props {
 		sort: GenreSort;
 		/** Percorso della pagina (i link cambiano solo la query string). */
 		path: string;
+		search?: string;
 	}
 
-	let { sort, path }: Props = $props();
+	let { sort, path, search = '' }: Props = $props();
+	function sortHref(field: (typeof SORT_FIELDS)[number]['field']) {
+		const params = new SvelteURLSearchParams(search);
+		const next = new URLSearchParams(nextSortQuery(sort, field));
+		params.set('sort', next.get('sort')!);
+		params.set('dir', next.get('dir')!);
+		params.delete('readPage');
+		return `${path}?${params}`;
+	}
 </script>
 
 <section class="sort" aria-labelledby="sort-label">
@@ -23,7 +33,7 @@
 			<a
 				class="segment"
 				class:active
-				href="{path}{nextSortQuery(sort, field)}"
+				href={sortHref(field)}
 				aria-current={active ? 'true' : undefined}
 				data-sveltekit-replacestate
 				data-sveltekit-noscroll
@@ -41,9 +51,7 @@
 			</a>
 		{/each}
 	</nav>
-	<p class="note">
-			Vale per i libri letti. I libri da leggere hanno i loro filtri, senza voto.
-		</p>
+	<p class="note">Vale per i libri letti. I libri da leggere hanno i loro filtri, senza voto.</p>
 </section>
 
 <style>

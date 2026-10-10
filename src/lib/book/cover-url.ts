@@ -15,3 +15,10 @@ export function resolveCoverUrl(cover: CoverRef): string | null {
 	}
 	return cover.coverUrl;
 }
+
+/** Responsive derivatives are available only for locally stored, private covers. */
+export function coverSrcset(cover: CoverRef): string | undefined {
+	if (!cover.coverStoragePath) return undefined;
+	const url = resolveCoverUrl(cover);
+	return [128, 320, 768].map((width) => `${url}?w=${width} ${width}w`).join(', ');
+}

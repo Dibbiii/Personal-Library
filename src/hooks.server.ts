@@ -42,6 +42,10 @@ const theme: Handle = async ({ event, resolve }) => {
 	event.locals.themeKey = resolved.id;
 
 	return resolve(event, {
+		preload: ({ type, path }) =>
+			type !== 'font' ||
+			(path.includes('figtree-latin-wght-normal') && path.endsWith('.woff2')) ||
+			(path.includes('young-serif-latin-400-normal') && path.endsWith('.woff2')),
 		transformPageChunk: ({ html }) =>
 			html
 				.replace('%sb.theme%', () => resolved.id)

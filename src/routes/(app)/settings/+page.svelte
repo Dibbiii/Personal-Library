@@ -187,11 +187,14 @@
 		{ value: 'reduce', label: 'Ridotto', description: 'Niente animazioni non essenziali' },
 		{ value: 'full', label: 'Pieno', description: 'Animazioni sempre attive' }
 	] as const;
+	let preferencesBusy = $state(false);
 
 	async function patchSettings(
 		patch: { shelfMode: ShelfMode } | { motionPreference: MotionPreference },
 		confirmation: string
 	) {
+		if (preferencesBusy) return;
+		preferencesBusy = true;
 		const previous = settings;
 		settings = { ...settings, ...patch };
 		if ('motionPreference' in patch) applyMotionPreference(patch.motionPreference);
@@ -205,6 +208,8 @@
 			applyMotionPreference(previous.motionPreference);
 			setCookie(SHELF_COOKIE, previous.shelfMode);
 			say('error', cause instanceof Error ? cause.message : 'Non sono riuscito a salvare.');
+		} finally {
+			preferencesBusy = false;
 		}
 	}
 
@@ -219,7 +224,10 @@
 			genreShelves = result.genres;
 			say('ok', 'Scaffali aggiornati.');
 		} catch (cause) {
-			say('error', cause instanceof Error ? cause.message : 'Non sono riuscito a salvare gli scaffali.');
+			say(
+				'error',
+				cause instanceof Error ? cause.message : 'Non sono riuscito a salvare gli scaffali.'
+			);
 		} finally {
 			genreShelvesBusy = false;
 		}
@@ -298,6 +306,7 @@
 				name="shelf-mode"
 				options={SHELF_OPTIONS}
 				value={settings.shelfMode}
+				disabled={preferencesBusy}
 				onchange={(value) => patchSettings({ shelfMode: value }, 'Scaffali aggiornati.')}
 			/>
 		</SettingsCard>
@@ -308,6 +317,7 @@
 				name="motion"
 				options={MOTION_OPTIONS}
 				value={settings.motionPreference}
+				disabled={preferencesBusy}
 				onchange={(value) => patchSettings({ motionPreference: value }, 'Movimento aggiornato.')}
 			/>
 		</SettingsCard>

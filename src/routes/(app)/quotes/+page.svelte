@@ -4,23 +4,22 @@
 	import QuoteListItem from '$lib/components/stats/QuoteListItem.svelte';
 	import { countLabel } from '$lib/components/stats/format';
 	import type { PageData } from './$types';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import PageNavigation from '$lib/components/pagination/PageNavigation.svelte';
 
 	let { data }: { data: PageData } = $props();
 
-	let bookFilter = $state('');
-
-	// Libri che hanno almeno una citazione, in ordine alfabetico, per il filtro.
-	const books = $derived.by(() => {
-		const byId: Record<string, string> = {};
-		for (const quote of data.quotes) byId[quote.userBookId] = quote.bookTitle;
-		return Object.entries(byId)
-			.map(([id, title]) => ({ id, title }))
-			.sort((a, b) => a.title.localeCompare(b.title, 'it'));
-	});
-
-	const visible = $derived(
-		bookFilter ? data.quotes.filter((quote) => quote.userBookId === bookFilter) : data.quotes
-	);
+	const books = $derived(data.books);
+	const visible = $derived(data.quotes);
+	function changeBook(event: Event) {
+		const id = (event.currentTarget as HTMLSelectElement).value;
+		const url = new URL(page.url);
+		if (id) url.searchParams.set('book', id);
+		else url.searchParams.delete('book');
+		url.searchParams.delete('page');
+		void goto(`${url.pathname}${url.search}`, { keepFocus: true });
+	}
 
 	// Quote Card: il codice Canvas entra nel bundle solo al primo uso (import dinamico).
 	type CreatorComponent = typeof import('$lib/components/quotes/QuoteCardCreator.svelte').default;
@@ -55,7 +54,7 @@
 />
 
 <div class="page" data-testid="quotes-page">
-	{#if data.quotes.length === 0}
+	{#if books.length === 0}
 		<div class="empty" data-testid="quotes-empty">
 			<Icon name="quote" size={28} strokeWidth={1.8} />
 			<p>
@@ -68,7 +67,7 @@
 		{#if books.length > 1}
 			<label class="filter">
 				<span>Libro</span>
-				<select bind:value={bookFilter} data-testid="quotes-filter">
+				<select value={data.bookId ?? ''} onchange={changeBook} data-testid="quotes-filter">
 					<option value="">Tutti i libri ({books.length})</option>
 					{#each books as book (book.id)}
 						<option value={book.id}>{book.title}</option>
@@ -96,6 +95,13 @@
 				</li>
 			{/each}
 		</ul>
+		{#if visible.length === 0}<p>Nessuna citazione per questo libro.</p>{/if}
+		<PageNavigation
+			current={data.page}
+			total={data.total}
+			pageSize={data.pageSize}
+			label="Pagine delle citazioni"
+		/>
 	{/if}
 </div>
 

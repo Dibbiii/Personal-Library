@@ -47,6 +47,12 @@
 		padding: 0;
 		border: 0;
 	}
+	fieldset:disabled {
+		opacity: 0.6;
+	}
+	fieldset:disabled .choice {
+		cursor: wait;
+	}
 
 	.sr-only {
 		position: absolute;

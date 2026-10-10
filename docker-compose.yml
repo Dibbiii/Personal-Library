@@ -24,6 +24,10 @@ services:
       - traefik.http.routers.personal-library.entrypoints=websecure
       - traefik.http.routers.personal-library.tls=true
       - traefik.http.routers.personal-library.tls.certresolver=le
+      - traefik.http.routers.personal-library.middlewares=personal-library-compress
+      - traefik.http.middlewares.personal-library-compress.compress=true
+      - traefik.http.middlewares.personal-library-compress.compress.minresponsebodybytes=1024
+      - traefik.http.middlewares.personal-library-compress.compress.excludedcontenttypes=text/event-stream,image/png,image/jpeg,image/webp,image/avif,font/woff,font/woff2
       - traefik.http.services.personal-library.loadbalancer.server.port=3000
 
   sbn:

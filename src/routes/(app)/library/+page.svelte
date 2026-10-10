@@ -151,7 +151,15 @@
 	{#if !collection}
 		<div class="shelves">
 			{#each sections as section (section.shelf.genre.slug)}
-				<GenreShelf shelf={section.shelf} books={section.books} {view} {home} {dnd} {preview} />
+				<GenreShelf
+					shelf={section.shelf}
+					books={section.books}
+					filterKey={JSON.stringify([needle, sort])}
+					{view}
+					{home}
+					{dnd}
+					{preview}
+				/>
 			{/each}
 		</div>
 

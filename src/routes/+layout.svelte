@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '@fontsource-variable/figtree/wght.css';
-	import '@fontsource/young-serif/latin-400.css';
-	import '@fontsource/young-serif/latin-ext-400.css';
+	import '@fontsource/young-serif/400.css';
 	import '../app.css';
 	import { onMount, type Snippet } from 'svelte';
 	import { pwaInfo } from 'virtual:pwa-info';

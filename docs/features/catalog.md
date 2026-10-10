@@ -66,11 +66,32 @@ RATE_LIMITED 429, NETWORK/CONTRACT 502, SERVER 500.
 Interfaccia `BookProvider { id; search(); lookupIsbn() }`. Implementazioni reali: `OpenLibraryProvider`
 (`search.json` con `editions.*`, `/isbn/<isbn>.json`, cover `covers.openlibrary.org`) e
 `GoogleBooksProvider` (`volumes?q=isbn:` / `intitle+inauthor`, chiave opzionale
-`GOOGLE_BOOKS_API_KEY`, solo server). Nessun accesso ai provider dal browser; `fetchJson` accetta
+`GOOGLE_BOOKS_API_KEY`, solo server). Le richieste bibliografiche passano dal server; le immagini sono caricate dal browser dagli host consentiti. `fetchJson` accetta
 solo HTTPS verso host in allow-list, con timeout 7 s (`AbortSignal`), errori mappati in
 `DataAccessError` (`NETWORK`, `RATE_LIMITED`, ...). Se un provider è giù l'altro continua
 (`degraded: true`); se sono tutti giù la richiesta fallisce con `NETWORK`/`RATE_LIMITED`.
 Google Books senza chiave ha una quota anonima condivisa molto bassa: va spesso in 429, che è gestito.
+
+### Recupero delle copertine mancanti per ISBN
+
+`CoverImage` accetta un ISBN opzionale. Nei risultati della ricerca e nelle edizioni del dettaglio, se manca l'URL o l'immagine remota fallisce, tenta una sola alternativa Open Library basata sull'ISBN-13 validato della stessa edizione, con `default=false`. Le copertine personalizzate mantengono la precedenza e non vengono sostituite. La ricerca non aspetta questa immagine; nei risultati il caricamento resta lazy. Una cover recuperata nel dettaglio viene inserita nella bozza di conferma e salvata, senza sostituire titolo/autore o perdere personalizzazioni in corso.
+
+`src/lib/catalog/cover-fallback.ts` conserva fino a 250 URL nella sessione browser, con cache positiva di 12 ore, negativa di un minuto e prenotazione degli URL in corso per 30 secondi. Le immagini usano il normale caricamento e la cache HTTP del browser: il modulo condivide URL e budget, non promette una singola richiesta di rete fra tutti i componenti. Il budget ammette fino a 80 nuovi URL per cinque minuti nella sessione. Non è un limite globale per IP: più schede o dispositivi possono ancora raggiungere il limite del fornitore. Non viene richiesto l'intero catalogo per ogni risultato e non vengono cercate copertine di altri ISBN.
+
+Il messaggio di ricerca parziale nomina ora i fornitori con stato `error` o `rate_limited`, distinguendo indisponibilità e limite di richieste. Nell'ambiente locale verificato l'8 ottobre 2026 manca `GOOGLE_BOOKS_API_KEY`; una chiamata anonima di prova ha restituito 429. La configurazione del sito pubblico non è stata verificata né modificata. Configurare una chiave del proprio progetto Google sul server resta necessario per usare una quota identificata; non garantisce copertine presenti o quota illimitata.
+
+La verifica diretta di due ISBN delle schermate, `9781962251488` e `9798742920014`, ha restituito 404 dalla Covers API con `default=false`: per quelle edizioni il fallback mantiene correttamente il segnaposto. Il comportamento è verificato anche quando la copertina esiste con risposte simulate e salvataggio effettivo nel database di un account di prova.
+
+Fonti: [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers), che documenta URL per ISBN, risposta 404 con `default=false` e limite per IP, e [Google Books: utilizzo dell'API](https://developers.google.com/books/docs/v1/using), per configurazione e identificazione delle richieste. I test browser simulano immagini presenti e mancanti, senza chiamare i cataloghi reali.
+
+Verifica finale della correzione, 8 ottobre 2026:
+
+- `npx vitest run tests/unit/cover-fallback.test.ts tests/unit/catalog-providers.test.ts tests/unit/catalog-cache.test.ts`: 39 test superati, inclusi validazione ISBN, cache negativa e budget.
+- `npx playwright test tests/e2e/add-book.spec.ts --workers=2 --retries=0` sulla build di produzione: 48 superati in 3,3 minuti; 2 esclusi perché il bridge SBN non è configurato. I sei nuovi casi mobile/desktop verificano URL assente, URL guasto, salvataggio con ISBN e metadati corretti, avviso della quota e mancata ripetizione immediata di una cover assente.
+- `npm run check`: 0 errori e 0 warning. Build, ESLint dei file modificati, controllo colori e formattazione superati.
+- La prima verifica ampia in sviluppo è stata interrotta dopo un conflitto di titoli nelle nuove fixture e un errore nell'anteprima dell'upload manuale. Le fixture ora hanno titoli univoci; l'errore dell'anteprima non si è riprodotto nella suite finale di produzione. Non è stata modificata la logica dell'upload per nascondere quel risultato. I log sono in `.tempo/performance/cover-fallback-*.log` e sono ignorati dal versionamento.
+
+La revisione finale controlla che il recupero non sostituisca copertine personali o metadati, che i percorsi delle varianti restino invariati e che l'URL recuperato sia salvato solo dopo il caricamento riuscito. Non sono state aggiunte dipendenze, migration o nuove API. Il sito pubblico non è stato aggiornato da questo intervento.
 
 Ranking (`ranking.ts`): ISBN esatto (precedenza assoluta) > titolo > autore > lingua (preferenza, mai
 filtro) > cover > pagine/editore/data. **Titolo + autore non bastano a fondere due edizioni**:

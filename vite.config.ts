@@ -17,12 +17,8 @@ export default defineConfig({
 			workbox: {
 				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
 				navigateFallback: null,
-				// Pagina di cortesia offline (src/routes/offline) e Background Sync della outbox (static/sw-outbox.js)
-				additionalManifestEntries: [
-					{ url: '/offline', revision: String(Date.now()) },
-					{ url: '/textures/wood-grain.svg', revision: '2' },
-					{ url: '/textures/wood-front.svg', revision: '1' }
-				],
+				// Il plugin include /offline prerenderizzata e gli asset con revisioni dal contenuto.
+				// Non aggiungere le stesse URL manualmente: revisioni diverse bloccano il precache.
 				importScripts: ['/sw-outbox.js'],
 				runtimeCaching: [
 					{

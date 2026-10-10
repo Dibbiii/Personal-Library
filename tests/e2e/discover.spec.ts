@@ -1,8 +1,30 @@
-import { expect, test, type Page } from '@playwright/test';
+import '../helpers/env';
+import { expect, test as base, type Page } from '@playwright/test';
+import { closeDb } from '../../src/lib/server/db';
+import { createTestUser, closeAdminSql } from '../helpers/users';
+
+const test = base.extend<{ accountReady: void }>({
+	accountReady: [
+		async ({ page }, use) => {
+			const account = await createTestUser('discover-e2e');
+			try {
+				await login(page, account.email, account.password);
+				await use();
+			} finally {
+				await account.cleanup();
+			}
+		},
+		{ auto: true }
+	]
+});
+test.afterAll(async () => {
+	await closeAdminSql();
+	await closeDb();
+});
 
 /**
  * Esplora (scoperta libri). Open Library non si raggiunge mai: `/api/discover` e
- * `/api/catalog/info` sono simulati. Utente demo, sola lettura (la conferma si annulla).
+ * `/api/catalog/info` sono simulati. Account temporaneo eliminato a fine prova.
  */
 
 const book = (workId: string, title: string, overrides: Record<string, unknown> = {}) => ({
@@ -19,11 +41,11 @@ const book = (workId: string, title: string, overrides: Record<string, unknown> 
 	...overrides
 });
 
-async function login(page: Page) {
+async function login(page: Page, email: string, password: string) {
 	await page.goto('/auth/login');
 	await page.waitForLoadState('networkidle');
-	await page.fill('input[name=email]', 'demo@segnalibro.local');
-	await page.fill('input[name=password]', 'segnalibro-demo');
+	await page.fill('input[name=email]', email);
+	await page.fill('input[name=password]', password);
 	await page.getByRole('button', { name: /accedi/i }).click();
 	await page.waitForURL('**/library');
 }
@@ -45,7 +67,6 @@ test('Esplora: sezioni, ricerca con filtri e aggiunta dal dettaglio', async ({ p
 	});
 	await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
 
-	await login(page);
 	await page.goto('/explore');
 	await expect(page.getByRole('heading', { name: 'Scopri il tuo prossimo libro' })).toBeVisible();
 
@@ -63,7 +84,7 @@ test('Esplora: sezioni, ricerca con filtri e aggiunta dal dettaglio', async ({ p
 	expect(requests.some((params) => params.get('section') === 'recommended')).toBe(true);
 
 	// Ricerca dal banner, poi un filtro: la griglia dei risultati usa entrambi
-	await page.getByRole('searchbox', { name: 'Cerca libri, autori, generi' }).fill('drago');
+	await page.getByRole('searchbox', { name: 'Cerca per titolo, autore o editore' }).fill('drago');
 	await page.keyboard.press('Enter');
 	await expect(page.getByRole('heading', { name: 'Risultati per “drago”' })).toBeVisible();
 	// Su mobile i filtri stanno dietro al pulsante "Filtri"

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import sharp from 'sharp';
 import {
 	MAX_COVER_BYTES,
 	StorageError,
@@ -16,11 +17,15 @@ import {
 	sniffImageType
 } from '../../src/lib/server/storage';
 
-const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
-const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
-const WEBP = Uint8Array.from([...Buffer.from('RIFF'), 4, 0, 0, 0, ...Buffer.from('WEBPVP8 ')]);
+const image = () =>
+	sharp({ create: { width: 640, height: 960, channels: 3, background: { r: 80, g: 60, b: 40 } } });
+const PNG = new Uint8Array(await image().png().toBuffer());
+const JPEG = new Uint8Array(await image().jpeg().toBuffer());
+const WEBP = new Uint8Array(await image().webp().toBuffer());
 const GIF = Uint8Array.from(Buffer.from('GIF89a\x01\x00\x01\x00'));
-const SVG = Uint8Array.from(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'));
+const SVG = Uint8Array.from(
+	Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
+);
 
 const reason = (promise: Promise<unknown>) =>
 	promise.then(
@@ -61,7 +66,7 @@ describe('cover storage', () => {
 
 			const file = path.join(root, saved.path);
 			expect(existsSync(file)).toBe(true);
-			expect(statSync(file).mode & 0o077).toBe(0); // private to the server user
+			if (process.platform !== 'win32') expect(statSync(file).mode & 0o077).toBe(0); // POSIX permissions; Windows uses ACLs.
 
 			const read = await readCover(saved.path, alice);
 			expect(read?.contentType).toBe(type);
@@ -76,14 +81,49 @@ describe('cover storage', () => {
 		const untyped = await saveCover(alice, new File([JPEG], 'cover.bin'));
 		expect(untyped.contentType).toBe('image/jpeg');
 
-		expect(await reason(saveCover(alice, new File([PNG], 'cover.jpg', { type: 'image/jpeg' })))).toBe('unsupported_type');
+		expect(
+			await reason(saveCover(alice, new File([PNG], 'cover.jpg', { type: 'image/jpeg' })))
+		).toBe('unsupported_type');
+	});
+
+	it('serves bounded WebP variants without upscaling and retains the original', async () => {
+		const saved = await saveCover(alice, PNG);
+		for (const width of [128, 320, 768] as const) {
+			const variant = await readCover(saved.path, alice, width);
+			expect(variant?.contentType).toBe('image/webp');
+			const metadata = await sharp(variant!.data).metadata();
+			expect(metadata.width).toBe(Math.min(width, 640));
+			expect(metadata.height).toBe(Math.min(width, 640) * 1.5);
+		}
+		expect((await readCover(saved.path, alice))?.data).toEqual(Buffer.from(PNG));
+		await expect(readCover(saved.path, bob, 128)).rejects.toMatchObject({ reason: 'forbidden' });
+		await deleteCover(saved.path, alice);
+		expect(existsSync(path.join(root, `${saved.path}.variants`))).toBe(false);
+	});
+
+	it('generates a legacy variant once for concurrent reads', async () => {
+		const saved = await saveCover(alice, JPEG);
+		await rm(path.join(root, `${saved.path}.variants`), { recursive: true });
+		const variants = await Promise.all(
+			Array.from({ length: 8 }, () => readCover(saved.path, alice, 320))
+		);
+		for (const variant of variants) expect(variant?.data).toEqual(variants[0]?.data);
+		expect(await readdir(path.join(root, `${saved.path}.variants`))).toEqual(['320.webp']);
+	});
+
+	it('rejects corrupt pixels even when the image signature is valid', async () => {
+		expect(await reason(saveCover(alice, PNG.subarray(0, 12)))).toBe('unsupported_type');
 	});
 
 	it('rejects non-images by content, whatever the client claims', async () => {
 		expect(await reason(saveCover(alice, GIF))).toBe('unsupported_type');
 		expect(await reason(saveCover(alice, SVG))).toBe('unsupported_type');
-		expect(await reason(saveCover(alice, new File([SVG], 'x.png', { type: 'image/png' })))).toBe('unsupported_type');
-		expect(await reason(saveCover(alice, new File(['<html>'], 'x.png', { type: 'image/png' })))).toBe('unsupported_type');
+		expect(await reason(saveCover(alice, new File([SVG], 'x.png', { type: 'image/png' })))).toBe(
+			'unsupported_type'
+		);
+		expect(
+			await reason(saveCover(alice, new File(['<html>'], 'x.png', { type: 'image/png' })))
+		).toBe('unsupported_type');
 		expect(await reason(saveCover(alice, new Uint8Array()))).toBe('empty');
 		expect(sniffImageType(Uint8Array.from([0xff, 0xd8]))).toBeNull();
 	});
@@ -96,7 +136,9 @@ describe('cover storage', () => {
 		const over = new Uint8Array(MAX_COVER_BYTES + 1);
 		over.set(PNG);
 		expect(await reason(saveCover(alice, over))).toBe('too_large');
-		expect(await reason(saveCover(alice, new Blob([over], { type: 'image/png' })))).toBe('too_large');
+		expect(await reason(saveCover(alice, new Blob([over], { type: 'image/png' })))).toBe(
+			'too_large'
+		);
 	});
 
 	it('refuses to save for something that is not a user id (no traversal through userId)', async () => {
@@ -138,7 +180,9 @@ describe('cover storage', () => {
 		for (const p of malicious) {
 			expect(() => parseCoverPath(p), JSON.stringify(p)).toThrow(StorageError);
 			expect(await reason(readCover(p)), `read ${JSON.stringify(p)}`).toBe('invalid_path');
-			expect(await reason(readCover(p, alice)), `read as alice ${JSON.stringify(p)}`).toBe('invalid_path');
+			expect(await reason(readCover(p, alice)), `read as alice ${JSON.stringify(p)}`).toBe(
+				'invalid_path'
+			);
 			expect(await reason(deleteCover(p)), `delete ${JSON.stringify(p)}`).toBe('invalid_path');
 		}
 		// a non-string (corrupted DB value) is rejected too
@@ -146,7 +190,7 @@ describe('cover storage', () => {
 		expect(() => parseCoverPath(null as unknown as string)).toThrow(StorageError);
 	});
 
-	it("a path is only readable, deletable or assignable by its owner", async () => {
+	it('a path is only readable, deletable or assignable by its owner', async () => {
 		const mine = await saveCover(alice, PNG);
 		expect(() => assertCoverOwnership(alice, mine.path)).not.toThrow();
 		expect(() => assertCoverOwnership(bob, mine.path)).toThrow(StorageError);

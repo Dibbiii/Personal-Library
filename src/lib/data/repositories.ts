@@ -147,11 +147,7 @@ export interface BingoRepository {
 	listBoards(): Promise<BingoBoardListResponse>;
 	/** Crea la card dell'anno con le 16 sfide di default (CONFLICT se esiste già). */
 	createBoard(year: number): Promise<BingoBoard>;
-	updateBoard(input: {
-		year: number;
-		title: string;
-		challenges: string[];
-	}): Promise<BingoBoard>;
+	updateBoard(input: { year: number; title: string; challenges: string[] }): Promise<BingoBoard>;
 	deleteBoard(year: number): Promise<void>;
 }
 
@@ -197,13 +193,16 @@ export interface FriendshipsRepository {
 	createInvite(): Promise<CreateFriendInviteResponse>;
 	redeemInvite(input: RedeemFriendInviteInput): Promise<RedeemFriendInviteResponse>;
 	remove(input: DeleteFriendshipInput): Promise<void>;
-	setLibraryVisibility(input: SetFriendLibraryVisibilityInput): Promise<FriendLibraryVisibilityResponse>;
+	setLibraryVisibility(
+		input: SetFriendLibraryVisibilityInput
+	): Promise<FriendLibraryVisibilityResponse>;
 	getPrivacy(): Promise<FriendPrivacy>;
 	setVisibility(input: Partial<Omit<FriendPrivacy, 'contractVersion'>>): Promise<FriendPrivacy>;
 	getProfile(friendId: string): Promise<FriendProfile>;
 }
 
 export interface SegnalibroRepositories {
+	performance: import('./performance-repository').RpcPerformanceRepository;
 	settings: SettingsRepository;
 	friendships: FriendshipsRepository;
 	library: LibraryRepository;

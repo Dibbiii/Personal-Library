@@ -42,6 +42,14 @@ Path fissi, da importare negli altri moduli: `$lib/components/book/BookCover.sve
 - Test: unit Vitest per la logica pura; un test Playwright e2e (`tests/e2e/<feature>.spec.ts`) per il flusso principale, con utente di prova. Verifica **visivamente** contro i mockup con screenshot a 390px e confrontali con `docs/mockup/screens/` (a 390px il render HTML è il riferimento).
 - Italiano per tutta la UI. Titoli di libri/autori non si traducono.
 
+## Efficienza della PWA e verifica delle modifiche
+
+- **La PWA deve essere molto veloce**: quando progetti nuove funzionalità o modifiche, considera sempre l'impatto su caricamento, reattività, rendering, bundle, richieste di rete, accesso ai dati, cache e memoria. Scegli soluzioni semplici ed efficienti, coerenti con l'architettura esistente.
+- Quando serve verificare correttezza, best practice o compatibilità con le versioni delle tecnologie utilizzate, consulta la **documentazione ufficiale tramite Context7**, se disponibile; altrimenti usa gli altri strumenti di consultazione disponibili. Confronta le versioni del progetto con le ultime versioni stabili delle tecnologie utilizzate e valuta la pertinenza delle indicazioni: non proporre aggiornamenti automatici o migrazioni senza una necessità concreta.
+- Dopo le modifiche applicative, **analizza il lavoro sia lato codice sia lato browser**, usando i tool e plugin disponibili e rispettando le regole sulle risorse condivise. Valuta qualità, compatibilità e aggiornamento delle tecnologie, efficienza e ottimizzazione del codice, rispetto delle best practice e uso appropriato dei design pattern.
+- Verifica anche le **prestazioni dei flussi interessati**, con misure e strumenti adeguati alla modifica: caricamento e Core Web Vitals, tempi di interazione, rendering, rete e memoria quando pertinenti. Riporta le evidenze raccolte e gli eventuali limiti delle verifiche; non dichiarare controlli o risultati che non hai eseguito.
+- **Dopo l'analisi del tuo lavoro, segnala solo problemi o bug reali, sostenuti da evidenze**. Non è necessario trovare errori se non ce ne sono. Evita overengineering, astrazioni speculative, design pattern applicati per principio e ottimizzazioni prive di un beneficio concreto; proporziona verifiche e interventi all'impatto della modifica. Per modifiche alla sola documentazione, verifica il testo senza richiedere test applicativi o analisi del browser non pertinenti.
+
 ## Report finale
 
 Conciso: cosa funziona, file principali, API esposte ad altri moduli (firme), deviazioni/estensioni rispetto ai mockup, test eseguiti (comando + esito), problemi aperti, richieste di dipendenze.

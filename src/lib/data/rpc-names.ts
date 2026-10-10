@@ -3,6 +3,12 @@
  * I componenti non devono conoscere questi nomi.
  */
 export const RPC = {
+	profileSummary: 'get_profile_summary',
+	profileDnf: 'get_profile_dnf',
+	queueSummary: 'get_queue_summary',
+	discoveryContext: 'get_discovery_context',
+	quotesPage: 'get_quotes_page',
+	genrePages: 'get_genre_pages',
 	libraryHome: 'get_library_home',
 	shelfPage: 'get_shelf_page',
 	genreView: 'get_genre_view',

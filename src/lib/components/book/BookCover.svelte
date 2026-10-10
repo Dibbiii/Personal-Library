@@ -20,7 +20,7 @@
 <script lang="ts">
 	import type { BookSummary } from '$lib/contracts';
 	import { getThemeController } from '$lib/themes/controller.svelte';
-	import { resolveCoverUrl } from '$lib/book/cover-url';
+	import { coverSrcset, resolveCoverUrl } from '$lib/book/cover-url';
 	import { spineSpecFor } from '$lib/book/palette';
 	import type { BookStatusBadge } from '$lib/book/spine';
 	import FormatIcon from './FormatIcon.svelte';
@@ -59,9 +59,11 @@
 	const src = $derived(noImage ? null : resolveCoverUrl(book.cover));
 
 	let failed = $state(false);
+	let useOriginal = $state(false);
 	$effect(() => {
 		void src;
 		failed = false;
+		useOriginal = false;
 	});
 
 	const showImage = $derived(src !== null && !failed);
@@ -86,6 +88,8 @@
 	{#if showImage}
 		<img
 			{src}
+			srcset={useOriginal ? undefined : coverSrcset(book.cover)}
+			sizes={dims ? `${dims[0]}px` : '(min-width: 1024px) 160px, (min-width: 720px) 20vw, 30vw'}
 			alt=""
 			width={dims ? dims[0] : 106}
 			height={dims ? dims[1] : 156}
@@ -93,7 +97,10 @@
 			fetchpriority={priority ? 'high' : 'auto'}
 			decoding="async"
 			draggable="false"
-			onerror={() => (failed = true)}
+			onerror={() => {
+				if (book.cover.coverStoragePath && !useOriginal) useOriginal = true;
+				else failed = true;
+			}}
 		/>
 	{:else}
 		<span class="line t1"></span>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshData } from '$lib/client/refresh-data';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -85,7 +85,7 @@
 		message = text;
 		onchanged?.();
 		try {
-			await invalidateAll();
+			await refreshData([`app:book:${bookId}`, 'app:library', 'app:profile']);
 		} catch {
 			// la pagina si aggiorna alla prossima navigazione
 		}

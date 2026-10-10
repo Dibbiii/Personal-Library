@@ -87,6 +87,9 @@
 	let language = $state('');
 	let coverFile = $state<File | null>(null);
 	let coverBusy = $state(false);
+	let recoveredCover = $state<{ isbn: string | null; primary: string | null; url: string } | null>(
+		null
+	);
 	let errors = $state<{ title?: string; author?: string; pages?: string }>({});
 
 	// Ogni bozza nuova (altro libro o altra edizione) riparte dai suoi dati.
@@ -170,13 +173,18 @@
 
 	function add() {
 		if (coverBusy) return;
+		const coverUrl =
+			recoveredCover?.isbn === draft.isbn && recoveredCover?.primary === draft.coverUrl
+				? recoveredCover.url
+				: draft.coverUrl;
 		if (!customizing) {
-			onadd({ ...draft, coverFile });
+			onadd({ ...draft, coverUrl, coverFile });
 			return;
 		}
 		if (!validate()) return;
 		onadd({
 			...draft,
+			coverUrl,
 			coverFile,
 			title: title.trim(),
 			author: author.trim(),
@@ -188,7 +196,17 @@
 
 <article class="detail" aria-labelledby={titleId}>
 	<header class="head">
-		<CoverImage src={draft.coverUrl} width={156} height={234} alt="" eager />
+		<CoverImage
+			src={draft.coverUrl}
+			isbn={draft.isbn}
+			width={156}
+			height={234}
+			alt=""
+			eager
+			onresolved={(url) => {
+				recoveredCover = { isbn: draft.isbn, primary: draft.coverUrl, url };
+			}}
+		/>
 		<div class="head-text">
 			<h2 id={titleId}>{draft.title}</h2>
 			<p class="author">{draft.author}</p>
@@ -318,7 +336,7 @@
 									: ''}{edition.year ? `, ${edition.year}` : ''}"
 								onclick={() => pickEdition(edition)}
 							>
-								<CoverImage src={edition.coverUrl} width={88} height={124} />
+								<CoverImage src={edition.coverUrl} isbn={edition.isbn13} width={88} height={124} />
 								<span class="edition-label">{editionLabel(edition)}</span>
 								<span class="edition-meta">
 									{[edition.publisher, edition.year].filter(Boolean).join(', ')}

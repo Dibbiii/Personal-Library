@@ -3,7 +3,8 @@ import { DataAccessError } from '$lib/data';
 import { requireRepository } from '$lib/server/repositories';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, depends }) => {
+	depends('app:reading', 'app:library', 'app:profile');
 	const year = Number(params.year);
 	if (!Number.isInteger(year) || year < 1900 || year > 2200) error(404, 'Anno non valido');
 

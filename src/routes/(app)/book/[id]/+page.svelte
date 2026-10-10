@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { refreshData, READING_DEPENDENCIES } from '$lib/client/refresh-data';
 	import AddReadingSheet, {
 		type AddReadingChoice
 	} from '$lib/components/detail/AddReadingSheet.svelte';
@@ -115,7 +116,7 @@
 			const { message, refresh } =
 				typeof result === 'object' ? result : { message: result, refresh: true };
 			// Con eventi solo in coda (offline) il server non ha nulla di nuovo: ricaricare fallirebbe.
-			if (refresh) await invalidateAll();
+			if (refresh) await refreshData(READING_DEPENDENCIES);
 			sheet = null;
 			if (message) say(message);
 			return true;
@@ -160,7 +161,7 @@
 				removalCompleted = true;
 				clearLocalDraft(bookId);
 			}
-			await goto(destination, { invalidateAll: true, replaceState: true });
+			await goto(destination, { invalidate: [...READING_DEPENDENCIES], replaceState: true });
 			removalOpen = false;
 		} catch (error) {
 			removalError = removalCompleted
@@ -533,7 +534,7 @@
 				aria-labelledby={tab === 'review' ? 'tab-review' : undefined}
 			>
 				<h2 class="review-title">La mia recensione</h2>
-				<ReviewPanel {detail} {scoresReset} onsaved={() => void invalidateAll()}>
+				<ReviewPanel {detail} {scoresReset} onsaved={() => void refreshData(READING_DEPENDENCIES)}>
 					{#snippet lockedFooter()}
 						<button
 							class="move"

@@ -13,3 +13,4 @@ docs/mockup
 static/icons
 test-results
 playwright-report
+.tempo

@@ -12,6 +12,7 @@ import { RpcThemeRepository } from '$lib/data/theme-repository';
 import { RpcSettingsRepository } from '$lib/data/settings-repository';
 import { RpcFriendshipsRepository } from '$lib/data/friendships-repository';
 import { ServerCatalogRepository } from '$lib/data/catalog-repository';
+import { RpcPerformanceRepository } from '$lib/data/performance-repository';
 
 /**
  * Repository disponibili oggi. Le feature aggiungono qui la propria implementazione
@@ -23,6 +24,7 @@ export type Repositories = Pick<SegnalibroRepositories, 'library'> &
 /** `rpc` è il client Postgres dell'utente (createPgRpcClient in src/lib/server/db). */
 export function createRepositories(rpc: RpcTransport): Repositories {
 	return {
+		performance: new RpcPerformanceRepository(rpc),
 		// RpcLibraryRepository copre letture della libreria, cambio genere e rimozione dei libri.
 		library: new RpcLibraryRepository(rpc),
 		queue: new RpcQueueRepository(rpc),

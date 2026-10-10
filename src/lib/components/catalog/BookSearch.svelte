@@ -48,6 +48,9 @@
 	let status = $state<'idle' | 'loading' | 'done' | 'error'>('idle');
 	let candidates = $state<EditionCandidate[]>([]);
 	let degraded = $state(false);
+	let serviceWarning = $state(
+		'Uno dei servizi non ha risposto: i risultati potrebbero essere incompleti.'
+	);
 	let lastQuery = $state('');
 	let lastWasIsbn = $state(false);
 	let isbnExact = $state(false);
@@ -133,6 +136,15 @@
 			if (signal.aborted) return;
 			candidates = response.candidates;
 			degraded = response.degraded;
+			const failures = Object.entries(response.providers)
+				.filter(([, status]) => status === 'error' || status === 'rate_limited')
+				.map(([id, status]) => {
+					const name = PROVIDERS.find((provider) => provider.value === id)?.label ?? id;
+					return `${name}: ${status === 'rate_limited' ? 'limite di richieste raggiunto' : 'servizio non disponibile'}.`;
+				});
+			serviceWarning = failures.length
+				? `${failures.join(' ')} I risultati potrebbero essere incompleti.`
+				: 'Uno dei servizi non ha risposto: i risultati potrebbero essere incompleti.';
 			lastQuery = text;
 			lastWasIsbn = Boolean(isbn);
 			isbnExact = 'exactMatch' in response && response.exactMatch === true;
@@ -366,7 +378,7 @@
 				</p>
 				{#if degraded}
 					<p class="warn-text">
-						Alcuni servizi non hanno risposto, potrebbero esserci altri risultati.
+						{serviceWarning}
 					</p>
 				{/if}
 				<div class="notice-actions">
@@ -391,7 +403,7 @@
 			</p>
 			{#if degraded}
 				<p class="notice-inline" role="status">
-					Uno dei servizi non ha risposto: i risultati potrebbero essere incompleti.
+					{serviceWarning}
 				</p>
 			{/if}
 			{#if visible.length === 0}

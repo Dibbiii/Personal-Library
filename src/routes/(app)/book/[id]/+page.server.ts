@@ -7,7 +7,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, depends }) => {
 	// Stesso nome di QUEUE_DEPENDENCY ($lib/client/queue.svelte): le modifiche alla coda ricaricano il dettaglio.
-	depends('app:queue');
+	depends('app:queue', 'app:reading', 'app:library', `app:book:${params.id}`);
 
 	const id = uuidSchema.safeParse(params.id);
 	if (!id.success) error(404, 'Libro non trovato');
@@ -15,10 +15,9 @@ export const load: PageServerLoad = async ({ params, locals, depends }) => {
 	const library = requireRepository(locals.repos, 'library');
 
 	try {
-		const [detail, home] = await Promise.all([
+		const [detail, queue] = await Promise.all([
 			library.getBookDetail(id.data),
-			// Serve solo la lunghezza della coda ("N su 3"): basta uno scaffale per libro.
-			library.getHome({ shelfLimit: 1 })
+			requireRepository(locals.repos, 'performance').getQueueSummary()
 		]);
 		// Dati pubblici (Open Library): non bloccano la pagina, arrivano in streaming.
 		const info = getBookInfoService()
@@ -28,7 +27,7 @@ export const load: PageServerLoad = async ({ params, locals, depends }) => {
 				language: detail.book.language
 			})
 			.catch(() => null);
-		return { detail, queueCount: home.queue.length, info };
+		return { detail, queueCount: queue.ids.length, info };
 	} catch (cause) {
 		if (cause instanceof DataAccessError && cause.code === 'NOT_FOUND') {
 			error(404, 'Libro non trovato');

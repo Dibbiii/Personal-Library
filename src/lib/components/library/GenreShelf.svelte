@@ -23,14 +23,31 @@
 		dnd: HomeDnd;
 		/** Libri da mostrare (filtrati/ordinati); di default quelli dello scaffale, con paginazione. */
 		books?: BookSummary[] | undefined;
+		/** Changes only with the active filter/order, not as more data arrives. */
+		filterKey?: string;
 		view?: LibraryView;
 		preview: HoverPreview;
 	}
 
-	let { shelf, home, dnd, books, view = 'grid', preview }: Props = $props();
+	let { shelf, home, dnd, books, filterKey = '', view = 'grid', preview }: Props = $props();
 
-	const shown = $derived(books ?? shelf.books);
-	const paginate = $derived(books === undefined && view === 'grid');
+	const PAGE_SIZE = 24;
+	let visibleLimit = $state(PAGE_SIZE);
+	const available = $derived(books ?? shelf.books);
+	const shown = $derived(available.slice(0, visibleLimit));
+	const paginate = $derived(
+		available.length > visibleLimit || (books === undefined && shelf.hasMore)
+	);
+	$effect(() => {
+		void filterKey;
+		void view;
+		visibleLimit = PAGE_SIZE;
+	});
+
+	async function showMore() {
+		if (visibleLimit >= available.length && books === undefined) await home.loadMore(slug);
+		visibleLimit = Math.min(visibleLimit + PAGE_SIZE, available.length);
+	}
 	const count = $derived(books ? books.length : shelf.totalCount);
 	const pill = $derived(`${count} ${count === 1 ? 'libro' : 'libri'}`);
 
@@ -63,11 +80,13 @@
 
 	// Paginazione keyset: quando la coda dello scaffale entra in vista, carica altri libri.
 	$effect(() => {
-		void shelf.books.length;
-		if (!paginate || !scroller || !sentinel || !shelf.hasMore || shelf.failed) return;
+		void available.length;
+		void visibleLimit;
+		if (view !== 'grid' || !paginate || !scroller || !sentinel || shelf.loading || shelf.failed)
+			return;
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (entries.some((entry) => entry.isIntersecting)) void home.loadMore(slug);
+				if (entries.some((entry) => entry.isIntersecting)) void showMore();
 			},
 			{ root: scroller, rootMargin: '0px 320px 0px 320px' }
 		);
@@ -182,12 +201,18 @@
 		<div class="niche end"><Decoration kind={ends[1]} /></div>
 	{/if}
 
-	{#if paginate && shelf.hasMore}
-		<div class="sentinel" bind:this={sentinel}>
+	{#if paginate}
+		<div class="sentinel" class:list-more={view === 'list'} bind:this={sentinel}>
 			{#if shelf.failed}
-				<button type="button" onclick={() => home.loadMore(slug)}>Riprova</button>
-			{:else if shelf.loading}
+				<button type="button" onclick={showMore}>Riprova</button>
+			{:else if shelf.loading && visibleLimit >= available.length}
 				<span class="loading" role="status" aria-label="Carico altri libri"></span>
+			{:else}
+				<button
+					type="button"
+					onclick={showMore}
+					aria-label="Mostra altri libri: {GENRE_LABELS[slug]}">Mostra altri</button
+				>
 			{/if}
 		</div>
 	{/if}
@@ -438,12 +463,19 @@
 	}
 
 	.sentinel button {
+		min-height: var(--tap-size);
+		min-width: var(--tap-size);
 		padding: 6px 10px;
 		border: 0;
 		border-radius: 999px;
 		background: var(--color-surface);
 		font-size: 12px;
 		font-weight: 700;
+	}
+
+	.sentinel.list-more {
+		width: auto;
+		margin-top: 12px;
 	}
 
 	.loading {

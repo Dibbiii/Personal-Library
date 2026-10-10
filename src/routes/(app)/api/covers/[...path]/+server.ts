@@ -1,18 +1,23 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { readCover, StorageError } from '$lib/server/storage';
+import { z } from 'zod';
+const widthSchema = z.enum(['128', '320', '768']).transform((value) => Number(value) as 128 | 320 | 768);
 
 /**
  * GET /api/covers/covers/<userId>/<uuid>.<png|jpg|webp> -> cover caricata dall'utente.
  * `readCover` accetta solo path nel formato generato da `saveCover` e verifica l'appartenenza
  * all'utente di sessione: path di altri utenti o malformati rispondono 404 (nessuna distinzione).
  */
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, locals, url }) => {
 	const notFound = () =>
 		new Response('Not found', { status: 404, headers: { 'cache-control': 'no-store' } });
 	if (!locals.user) return new Response('Unauthorized', { status: 401 });
 
 	try {
-		const cover = await readCover(params.path ?? '', locals.user.id);
+		const value = url.searchParams.get('w');
+		const width = value === null ? undefined : widthSchema.safeParse(value);
+		if (width && !width.success) return notFound();
+		const cover = await readCover(params.path ?? '', locals.user.id, width?.success ? width.data : undefined);
 		if (!cover) return notFound();
 		return new Response(new Uint8Array(cover.data), {
 			headers: {

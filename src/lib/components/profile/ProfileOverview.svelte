@@ -8,19 +8,14 @@
 	import type {
 		BingoBoardListItem,
 		BookSummary,
-		DnfBook,
-		LibraryHomeResponse,
 		QuotePreview,
 		ReadingCalendarDay,
 		YearStats
 	} from '$lib/contracts';
 	import {
-		favoriteBooks,
-		libraryBooks,
 		pagesByMonth,
 		percentOf,
 		readingDaysByMonth,
-		recentActivity,
 		weekdayMonthMatrix,
 		type LibraryCounts
 	} from '$lib/profile/overview';
@@ -29,6 +24,7 @@
 	import ProfileCard from './ProfileCard.svelte';
 	import ReadingHeatmap from './ReadingHeatmap.svelte';
 	import ShareBars from './ShareBars.svelte';
+	import type { ProfileSummary } from '$lib/contracts/performance';
 
 	interface Props {
 		year: number;
@@ -36,33 +32,19 @@
 		stats: YearStats;
 		bingo: BingoBoardListItem | null;
 		calendar: ReadingCalendarDay[];
-		home: LibraryHomeResponse;
+		summary: ProfileSummary;
 		counts: LibraryCounts;
-		dnf: DnfBook[];
 		quotes: QuotePreview[];
-		quoteCount: number;
 		/** Indirizzo di una scheda del profilo (mantiene l'anno). */
 		tabHref: (tab: string) => string;
 	}
 
-	let {
-		year,
-		isCurrentYear,
-		stats,
-		bingo,
-		calendar,
-		home,
-		counts,
-		dnf,
-		quotes,
-		quoteCount,
-		tabHref
-	}: Props = $props();
+	let { year, stats, bingo, calendar, summary, counts, quotes, tabHref }: Props = $props();
 
 	const RING = 2 * Math.PI * 52;
 	const completed = $derived(bingo?.completedCount ?? 0);
-	const favorites = $derived(favoriteBooks(libraryBooks(home)));
-	const activity = $derived(recentActivity(home, dnf, 4));
+	const favorites = $derived(summary.favorites);
+	const activity = $derived(summary.activity);
 
 	const formatTotal = $derived(counts.physical + counts.digital + counts.both);
 	const formats = $derived(
@@ -89,23 +71,23 @@
 		{
 			key: 'queue',
 			label: 'In coda',
-			sub: countLabel(home.queue.length, 'libro', 'libri'),
+			sub: countLabel(summary.queueCount, 'libro', 'libri'),
 			href: '/library',
 			icon: 'bookmark',
-			books: home.queue.slice(0, 3).map((entry) => entry.book)
+			books: summary.queue
 		},
 		{
 			key: 'reading',
 			label: 'In lettura',
-			sub: countLabel(home.currentlyReading.length, 'libro', 'libri'),
+			sub: countLabel(counts.reading, 'libro', 'libri'),
 			href: '/library',
 			icon: 'book-open',
-			books: home.currentlyReading.slice(0, 3).map((entry) => entry.book)
+			books: summary.reading
 		},
 		{
 			key: 'quotes',
 			label: 'Citazioni',
-			sub: countLabel(quoteCount, 'citazione', 'citazioni'),
+			sub: countLabel(summary.quoteCount, 'citazione', 'citazioni'),
 			href: '/quotes',
 			icon: 'quote',
 			books: []
@@ -113,10 +95,10 @@
 		{
 			key: 'dnf',
 			label: 'Abbandonati',
-			sub: countLabel(dnf.length, 'libro', 'libri'),
+			sub: countLabel(summary.dnfCount, 'libro', 'libri'),
 			href: tabHref('dnf'),
 			icon: 'flower',
-			books: dnf.slice(0, 3).map((entry) => entry.book)
+			books: summary.dnf.map((entry) => entry.book)
 		}
 	]);
 </script>
@@ -155,8 +137,10 @@
 	</ProfileCard>
 
 	<ProfileCard icon="flower" title="Libri non finiti" class="c-dnf">
-		<p class="hero-num">{formatNumber(dnf.length)}</p>
-		<p class="sub">{countLabel(dnf.length, 'libro abbandonato', 'libri abbandonati')} nel {year}</p>
+		<p class="hero-num">{formatNumber(summary.dnfCount)}</p>
+		<p class="sub">
+			{countLabel(summary.dnfCount, 'libro abbandonato', 'libri abbandonati')} nel {year}
+		</p>
 		<a class="ghost-link" href={tabHref('dnf')}>Apri il cimitero DNF</a>
 	</ProfileCard>
 
@@ -447,7 +431,6 @@
 		background: var(--color-surface);
 	}
 
-
 	/* ---- Preferiti ---------------------------------------------------- */
 	/* Su telefono scorre in orizzontale, da tablet in su riempie la riga. */
 	.favorites {
@@ -619,5 +602,4 @@
 		background: var(--color-primary-tint);
 		color: var(--color-primary);
 	}
-
 </style>

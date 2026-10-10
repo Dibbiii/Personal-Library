@@ -1,4 +1,4 @@
-import { invalidateAll } from '$app/navigation';
+import { refreshData, READING_DEPENDENCIES } from '$lib/client/refresh-data';
 import { page } from '$app/state';
 import { InProcessLock, OutboxEngine, WebLocksLock } from './core';
 import { deleteMeta, IdbOutboxStorage, setMeta } from './idb-storage';
@@ -145,7 +145,7 @@ async function afterFlush(result: FlushResult, source: SyncedEventDetail['source
 		window.dispatchEvent(new CustomEvent<SyncedEventDetail>(SYNCED_EVENT, { detail }));
 		// I dati della pagina corrente sono invecchiati: il database resta la source of truth.
 		// Con submit il chiamante aggiorna la propria UI con la risposta del server.
-		if (source !== 'submit') await invalidateAll();
+		if (source !== 'submit') await refreshData(READING_DEPENDENCIES);
 	}
 }
 
@@ -294,10 +294,12 @@ export function startOutbox(userId: string): () => void {
 		}
 		const away = hiddenAt === null ? 0 : Date.now() - hiddenAt;
 		hiddenAt = null;
-		void refreshOutboxStatus();
-		void syncOutbox('foreground');
+		if (isOffline()) void refreshOutboxStatus();
+		else void syncOutbox('foreground');
 		// Spec §42: al ritorno in foreground i dati rilevanti si rinfrescano (senza realtime).
-		if (away >= FOREGROUND_REFRESH_AFTER_MS && !isOffline()) void invalidateAll();
+		if (away >= FOREGROUND_REFRESH_AFTER_MS && !isOffline()) {
+			void refreshData([...READING_DEPENDENCIES, 'app:user', 'app:settings', 'app:friends']);
+		}
 	};
 
 	const onMessage = (event: MessageEvent) => {
@@ -324,7 +326,7 @@ export function startOutbox(userId: string): () => void {
 					source: 'service-worker'
 				};
 				window.dispatchEvent(new CustomEvent<SyncedEventDetail>(SYNCED_EVENT, { detail }));
-				void invalidateAll();
+				void refreshData(READING_DEPENDENCIES);
 			}
 		};
 	}

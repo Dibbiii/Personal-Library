@@ -8,6 +8,7 @@ import {
 	type TestInfo
 } from '@playwright/test';
 import postgres from 'postgres';
+import { builtinThemes } from '../../src/lib/themes/registry';
 
 const ADMIN_URL =
 	process.env.DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5433/segnalibro';
@@ -227,7 +228,9 @@ test.describe('Impostazioni: tema e preferenze', () => {
 		await page.getByRole('button', { name: /Elimina Notte di prova/ }).click();
 		await page.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
 		await expect(page.locator('html')).toHaveAttribute('data-theme', 'segnalibro');
-		await expect(page.locator('[data-theme-option]')).toHaveCount(2); // restano solo i due built-in
+		await expect(page.locator('[data-theme-option]')).toHaveCount(
+			Object.keys(builtinThemes).length
+		);
 		const [left] = await sql<{ n: number }[]>`
 			select count(*)::int as n from public.custom_themes where user_id = ${userId}::uuid`;
 		expect(left?.n).toBe(0);
@@ -257,6 +260,39 @@ test.describe('Impostazioni: tema e preferenze', () => {
 		await page.getByLabel('Segui il dispositivo').check();
 		await page.getByLabel('Misto').check();
 		await expect(page.locator('html')).not.toHaveAttribute('data-motion', /.+/);
+		await expect(page.getByText('Scaffali aggiornati.', { exact: true })).toBeVisible();
+	});
+
+	test('due preferenze consecutive restano entrambe salvate anche con una risposta lenta', async () => {
+		await page.goto('/settings');
+		await page.waitForLoadState('networkidle');
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await page.route('**/api/settings', async (route) => {
+			if (route.request().method() === 'PATCH') await gate;
+			await route.continue();
+		});
+		try {
+			await page.getByLabel('Ridotto').check();
+			await expect(page.getByLabel('Solo dorsi')).toBeDisabled();
+			release();
+			await page.getByLabel('Solo dorsi').check();
+			await expect
+				.poll(async () => {
+					const [row] = await sql<{ shelf_mode: string; motion_preference: string }[]>`
+					select shelf_mode,motion_preference from public.user_preferences where user_id=${userId}::uuid`;
+					return `${row?.shelf_mode}/${row?.motion_preference}`;
+				})
+				.toBe('spines/reduce');
+			await page.reload();
+			await expect(page.getByLabel('Ridotto')).toBeChecked();
+			await expect(page.getByLabel('Solo dorsi')).toBeChecked();
+		} finally {
+			release();
+			await page.unroute('**/api/settings');
+		}
 	});
 
 	test('il nome visualizzato si modifica e resta dopo il ricaricamento', async () => {
@@ -502,6 +538,17 @@ test.describe('PWA', () => {
 		const context = await browser.newContext(contextOptions(testInfo));
 		const page = await context.newPage();
 		const email = `b7-pwa-${randomUUID().slice(0, 8)}@test.local`;
+		const workerErrors: string[] = [];
+		const cdp = await context.newCDPSession(page);
+		cdp.on('ServiceWorker.workerErrorReported', ({ errorMessage }) => {
+			workerErrors.push(errorMessage.errorMessage);
+		});
+		await cdp.send('ServiceWorker.enable');
+		context.on('serviceworker', (worker) => {
+			worker.on('console', (message) => {
+				if (message.type() === 'error') workerErrors.push(message.text());
+			});
+		});
 		try {
 			await register(page, email, 'Prova PWA');
 
@@ -525,9 +572,18 @@ test.describe('PWA', () => {
 			});
 			expect(cacheKeys.some((url) => url.includes('/offline'))).toBe(true);
 			expect(cacheKeys.some((url) => /\.(woff2|js|css)/.test(url))).toBe(true);
+			for (const texture of ['wood-grain.svg', 'wood-front.svg']) {
+				expect(
+					cacheKeys.filter((url) => new URL(url).pathname === `/textures/${texture}`)
+				).toHaveLength(1);
+			}
+			expect(workerErrors).toEqual([]);
+			// La sessione diagnostica non deve interferire con l'emulazione offline di Playwright.
+			await cdp.detach();
 
 			// Offline: la pagina già visitata si ricarica con l'app shell
 			await context.setOffline(true);
+			expect(await page.evaluate(() => navigator.onLine)).toBe(false);
 			await page.reload();
 			await expect(page.locator('#main')).toBeVisible(); // app shell dal service worker
 			await expect(page.getByText('Offline', { exact: true })).toBeVisible();

@@ -147,7 +147,16 @@ export function createPgRpcClient(userId: string | null): RpcClient {
 				values.push(value);
 			}
 
-			const callArgs = names.map((name, index) => `${name} => $${index + 1}`).join(', ');
+			const callArgs = names
+				.map((name, index) => {
+					// Postgres.js serializes inferred timestamptz via Date, losing microseconds.
+					// A keyset cursor must retain the exact database value, including tied timestamps.
+					const cast = functionName === RPC.shelfPage && name === 'p_cursor_created_at'
+						? '::text::timestamptz'
+						: '';
+					return `${name} => $${index + 1}${cast}`;
+				})
+				.join(', ');
 			const query = `select public.${functionName}(${callArgs}) as result`;
 
 			try {

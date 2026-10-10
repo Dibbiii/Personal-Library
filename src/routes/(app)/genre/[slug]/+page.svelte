@@ -11,12 +11,13 @@
 	import {
 		TBR_SORT_FIELDS,
 		captionFor,
-		sortTbr,
 		type TbrSortField,
 		type TbrView
 	} from '$lib/components/genre/tbr';
 	import { GENRE_DECOR } from '$lib/components/genre/decor';
 	import type { PageData } from './$types';
+	import { goto } from '$app/navigation';
+	import PageNavigation from '$lib/components/pagination/PageNavigation.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -28,9 +29,15 @@
 	const empty = $derived(data.view.counts.total === 0);
 
 	// "Da leggere": ordine e vista indipendenti dai letti, e mai per voto (non c'è ancora).
-	let tbrSort = $state<TbrSortField>('title');
+	const tbrSort = $derived(data.view.unreadSort);
 	let tbrView = $state<TbrView>('grid');
-	const unreadBooks = $derived(sortTbr(unreadSection.books, tbrSort));
+	const unreadBooks = $derived(unreadSection.books);
+	function changeUnreadSort(field: TbrSortField) {
+		const url = new URL(page.url);
+		url.searchParams.set('unreadSort', field);
+		url.searchParams.delete('unreadPage');
+		void goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+	}
 </script>
 
 <svelte:head><title>{data.view.genre.name} · Segnalibro</title></svelte:head>
@@ -53,7 +60,9 @@
 				<Button href={buildAddHref('/add', slug)}>Aggiungi un libro</Button>
 			</section>
 		{:else}
-			<div class="toolbar"><SortBar {sort} path={page.url.pathname} /></div>
+			<div class="toolbar">
+				<SortBar {sort} path={page.url.pathname} search={page.url.search} />
+			</div>
 
 			<ShelfGrid
 				title="Letti"
@@ -64,6 +73,13 @@
 				priorityCount={3}
 				emptyText="Nessun libro letto in questo genere, per ora."
 				decor={unreadSection.count === 0 ? GENRE_DECOR[slug].slice(1) : []}
+			/>
+			<PageNavigation
+				current={data.view.pages.read}
+				total={readSection.count}
+				pageSize={40}
+				parameter="readPage"
+				label="Pagine dei libri letti"
 			/>
 			<ShelfGrid
 				title="Da leggere"
@@ -84,7 +100,7 @@
 								type="button"
 								class="chip"
 								aria-pressed={tbrSort === field}
-								onclick={() => (tbrSort = field)}>{label}</button
+								onclick={() => changeUnreadSort(field)}>{label}</button
 							>
 						{/each}
 					</div>
@@ -104,6 +120,13 @@
 					</div>
 				{/snippet}
 			</ShelfGrid>
+			<PageNavigation
+				current={data.view.pages.unread}
+				total={unreadSection.count}
+				pageSize={40}
+				parameter="unreadPage"
+				label="Pagine dei libri da leggere"
+			/>
 		{/if}
 	</div>
 {/if}

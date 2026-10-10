@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { isbnCoverFallback } from '$lib/catalog/cover-fallback';
 	import Icon from '$lib/components/ui/Icon.svelte';
 
 	interface Props {
@@ -11,33 +13,67 @@
 		eager?: boolean;
 		/** Avvisa quando l'immagine remota non si carica (il chiamante può scartarla). */
 		onfail?: () => void;
+		/** Only the ISBN of this exact edition; custom covers never use the fallback. */
+		isbn?: string | null;
+		onresolved?: (url: string) => void;
 	}
 
-	let { src, width, height, alt = '', eager = false, onfail }: Props = $props();
+	let { src, width, height, alt = '', eager = false, onfail, isbn, onresolved }: Props = $props();
 
 	let failed = $state(false);
+	let useOriginal = $state(false);
+	let fallbackSrc = $state<string | null>(null);
 	$effect(() => {
 		// nuovo src: riprova
 		void src;
+		void isbn;
 		failed = false;
+		useOriginal = false;
+		fallbackSrc = src ? null : untrack(() => isbnCoverFallback.acquire(isbn));
 	});
 
-	const showImage = $derived(src !== null && !failed);
+	const imageSrc = $derived(fallbackSrc ?? src);
+	const showImage = $derived(imageSrc !== null && !failed);
+	const srcset = $derived(
+		!useOriginal && src?.startsWith('/api/covers/covers/')
+			? [128, 320, 768].map((size) => `${src}?w=${size} ${size}w`).join(', ')
+			: undefined
+	);
 </script>
 
 <span class="cover" style:width="{width}px" style:height="{height}px">
 	{#if showImage}
 		<img
-			{src}
+			src={imageSrc}
+			{srcset}
+			sizes="{width}px"
 			{alt}
 			{width}
 			{height}
 			loading={eager ? 'eager' : 'lazy'}
 			decoding="async"
 			referrerpolicy="no-referrer"
-			onerror={() => {
-				failed = true;
-				onfail?.();
+			onload={(event) => {
+				if (fallbackSrc && event.currentTarget.getAttribute('src') === fallbackSrc) {
+					isbnCoverFallback.settle(fallbackSrc, true);
+					onresolved?.(fallbackSrc);
+				}
+			}}
+			onerror={(event) => {
+				if (event.currentTarget.getAttribute('src') !== imageSrc) return;
+				if (srcset) useOriginal = true;
+				else {
+					if (!fallbackSrc && !src?.startsWith('/api/covers/')) {
+						const fallback = isbnCoverFallback.acquire(isbn);
+						if (fallback && fallback !== src) {
+							fallbackSrc = fallback;
+							return;
+						}
+					}
+					if (fallbackSrc) isbnCoverFallback.settle(fallbackSrc, false);
+					failed = true;
+					onfail?.();
+				}
 			}}
 		/>
 	{:else}

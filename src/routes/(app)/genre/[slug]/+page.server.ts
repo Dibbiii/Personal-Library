@@ -1,34 +1,42 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { DataAccessError } from '$lib/data';
 import { requireRepository } from '$lib/server/repositories';
 import { isGenreSlug } from '$lib/genres';
 import { parseGenreSort } from '$lib/components/genre/sort';
 import type { PageServerLoad } from './$types';
+import { unreadSortSchema } from '$lib/contracts/performance';
+import { parsePage, pageHref } from '$lib/pagination';
 
-// Il limite massimo della RPC: una vista genere resta una pagina unica.
-const GENRE_VIEW_LIMIT = 200;
-
-export const load: PageServerLoad = async ({ params, url, locals }) => {
+export const load: PageServerLoad = async ({ params, url, locals, depends }) => {
+	depends('app:library', 'app:reading', 'app:queue');
 	if (!isGenreSlug(params.slug)) error(404, 'Genere non trovato');
 
 	const sort = parseGenreSort(url.searchParams);
-	const library = requireRepository(locals.repos, 'library');
+	const repository = requireRepository(locals.repos, 'performance');
+	const unreadSort = unreadSortSchema.safeParse(url.searchParams.get('unreadSort'));
+	const readPage = parsePage(url.searchParams.get('readPage'));
+	const unreadPage = parsePage(url.searchParams.get('unreadPage'));
 
 	try {
-		// La coda serve solo al badge "Prossimo": basta uno scaffale per non caricare tutta la Home.
-		const [view, home] = await Promise.all([
-			library.getGenreView({
+		const [view, queue] = await Promise.all([
+			repository.getGenrePages({
 				genre: params.slug,
 				sortField: sort.field,
 				direction: sort.direction,
-				limit: GENRE_VIEW_LIMIT
+				unreadSort: unreadSort.success ? unreadSort.data : 'title',
+				readPage,
+				unreadPage
 			}),
-			library.getHome({ shelfLimit: 1 })
+			repository.getQueueSummary()
 		]);
+		if (readPage !== view.pages.read || unreadPage !== view.pages.unread) {
+			const corrected = new URL(pageHref(url, 'readPage', view.pages.read), url);
+			redirect(303, pageHref(corrected, 'unreadPage', view.pages.unread));
+		}
 
 		return {
 			view,
-			queuedIds: home.queue.map((entry) => entry.book.id)
+			queuedIds: queue.ids
 		};
 	} catch (cause) {
 		if (cause instanceof DataAccessError && cause.code === 'NOT_FOUND') {

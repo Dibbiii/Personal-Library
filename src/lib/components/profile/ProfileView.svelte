@@ -1,21 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ReadingCalendar from '$lib/components/explore/ReadingCalendar.svelte';
-	import WheelSection from '$lib/components/explore/WheelSection.svelte';
-	import DnfCemetery from '$lib/components/stats/DnfCemetery.svelte';
-	import StatsView from '$lib/components/stats/StatsView.svelte';
 	import YearPicker from '$lib/components/stats/YearPicker.svelte';
 	import type {
 		BookSummary,
 		BingoBoardListItem,
 		DnfBook,
 		GenreSlug,
-		LibraryHomeResponse,
 		QuotePreview,
 		ReadingCalendarDay,
 		YearStats
 	} from '$lib/contracts';
-	import { genreShares, libraryCounts, recentActivity } from '$lib/profile/overview';
+	import { genreShares } from '$lib/profile/overview';
+	import type { ProfileSummary, ProfileTab } from '$lib/contracts/performance';
 	import ActivityList from './ActivityList.svelte';
 	import ProfileCard from './ProfileCard.svelte';
 	import ProfileHero from './ProfileHero.svelte';
@@ -29,10 +25,13 @@
 		genreBreakdown: { slug: GenreSlug; count: number }[];
 		bingo: BingoBoardListItem | null;
 		quotes: QuotePreview[];
-		quoteCount: number;
 		dnf: DnfBook[];
 		calendar: ReadingCalendarDay[];
-		home: LibraryHomeResponse;
+		summary: ProfileSummary;
+		tab: ProfileTab;
+		components: Awaited<
+			ReturnType<typeof import('$lib/profile/load-components').loadProfileComponents>
+		>['components'];
 		/** Libri non letti, per la Ruota della fortuna. */
 		pool: BookSummary[];
 	}
@@ -47,16 +46,15 @@
 		{ key: 'calendar', label: 'Calendario' },
 		{ key: 'dnf', label: 'Abbandonati' }
 	] as const;
-	type TabKey = (typeof TABS)[number]['key'];
-
-	const tab = $derived.by<TabKey>(() => {
-		const requested = page.url.searchParams.get('tab');
-		return TABS.find((t) => t.key === requested)?.key ?? 'overview';
-	});
+	const tab = $derived(props.tab);
+	const StatsView = $derived(props.components.stats);
+	const WheelSection = $derived(props.components.wheel);
+	const ReadingCalendar = $derived(props.components.calendar);
+	const DnfCemetery = $derived(props.components.dnf);
 
 	const user = $derived(page.data.user);
 	const name = $derived(user?.displayName ?? user?.email ?? 'Lettore');
-	const counts = $derived(libraryCounts(props.home));
+	const counts = $derived(props.summary.counts);
 
 	function yearPath(year: number): string {
 		return year === props.currentYear ? '/profile' : `/profile/${year}`;
@@ -88,6 +86,8 @@
 							aria-current={tab === t.key ? 'page' : undefined}
 							data-sveltekit-noscroll
 							data-sveltekit-replacestate
+							data-sveltekit-preload-data="tap"
+							data-sveltekit-preload-code="hover"
 						>
 							{t.label}
 						</a>
@@ -105,14 +105,12 @@
 			stats={props.stats}
 			bingo={props.bingo}
 			calendar={props.calendar}
-			home={props.home}
+			summary={props.summary}
 			{counts}
-			dnf={props.dnf}
 			quotes={props.quotes}
-			quoteCount={props.quoteCount}
 			tabHref={(key) => tabHref(key)}
 		/>
-	{:else if tab === 'stats'}
+	{:else if tab === 'stats' && StatsView}
 		<StatsView
 			year={props.year}
 			stats={props.stats}
@@ -125,15 +123,15 @@
 		/>
 	{:else if tab === 'activity'}
 		<ProfileCard icon="calendar" title="Attività recente" class="activity-full">
-			<ActivityList items={recentActivity(props.home, props.dnf, 30)} />
+			<ActivityList items={props.summary.activity} />
 		</ProfileCard>
-	{:else if tab === 'wheel'}
+	{:else if tab === 'wheel' && WheelSection}
 		<div class="tool">
 			<WheelSection pool={props.pool} />
 		</div>
-	{:else if tab === 'calendar'}
+	{:else if tab === 'calendar' && ReadingCalendar}
 		<ReadingCalendar year={props.year} days={props.calendar} currentYear={props.currentYear} />
-	{:else}
+	{:else if DnfCemetery}
 		<DnfCemetery books={props.dnf} />
 	{/if}
 </div>

@@ -137,6 +137,11 @@ const PNG_1X1 = Buffer.from(
 	'base64'
 );
 
+// Missing-cover fallback must not reach real external services during this suite.
+test.beforeEach(async ({ page }) => {
+	await page.route('https://covers.openlibrary.org/**', (route) => route.fulfill({ status: 404 }));
+});
+
 /** Sceglie un genere o un formato cliccando sulla riga (come farebbe l'utente). */
 async function choose(scope: Page | ReturnType<Page['getByRole']>, name: string) {
 	const radio = scope.getByRole('radio', { name });
@@ -894,7 +899,11 @@ test.describe('cover', () => {
 
 		const headers = { origin: ORIGIN };
 		const upload = (file: { name: string; mimeType: string; buffer: Buffer }, id = bookId) =>
-			page.request.post('/api/covers/upload', { headers, multipart: { bookId: id, file } });
+			page.request.post('/api/covers/upload', {
+				headers,
+				multipart: { bookId: id, file },
+				maxRetries: 1
+			});
 
 		const ok = await upload({ name: 'cover.png', mimeType: 'image/png', buffer: PNG_1X1 });
 		expect(ok.status()).toBe(200);
@@ -907,6 +916,13 @@ test.describe('cover', () => {
 		expect(served.headers()['cache-control']).toContain('private');
 		expect(served.headers()['x-content-type-options']).toBe('nosniff');
 		expect(Buffer.from(await served.body()).equals(PNG_1X1)).toBe(true);
+		for (const width of [128, 320, 768]) {
+			const variant = await page.request.get(`/api/covers/${coverStoragePath}?w=${width}`);
+			expect(variant.status()).toBe(200);
+			expect(variant.headers()['content-type']).toBe('image/webp');
+			expect(variant.headers()['cache-control']).toContain('private');
+		}
+		expect((await page.request.get(`/api/covers/${coverStoragePath}?w=999`)).status()).toBe(404);
 
 		// Troppo grande: sia nel file (5,1 MB) sia oltre il limite della richiesta
 		const big = Buffer.concat([PNG_1X1, Buffer.alloc(5 * 1024 * 1024 + 100_000)]);
@@ -949,6 +965,7 @@ test.describe('cover', () => {
 			`covers/${account.id}/${randomUUID()}.png`
 		]) {
 			expect((await page.request.get(`/api/covers/${bad}`)).status()).toBe(404);
+			expect((await page.request.get(`/api/covers/${bad}?w=320`)).status()).toBe(404);
 		}
 
 		// Nessuna sessione: nessun accesso
@@ -1036,6 +1053,123 @@ test.describe('cover', () => {
 			'https://covers.openlibrary.org/b/id/123-L.jpg'
 		);
 	});
+});
+
+for (const originalCover of [null, 'https://books.google.com/books/content?id=broken']) {
+	test(`cover ISBN: recupera e salva l'edizione esatta con URL ${originalCover ? 'non funzionante' : 'assente'}`, async ({
+		page,
+		account
+	}) => {
+		const isbn = randomIsbn13();
+		const cover = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+		const result = candidate({
+			isbn13: isbn,
+			workTitle: `Copertina ${isbn}`,
+			editionTitle: `Copertina ${isbn}`,
+			coverUrl: originalCover
+		});
+		await page.route('**/api/catalog/search*', (route) =>
+			route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: true,
+					providers: { 'google-books': 'rate_limited' },
+					candidates: [result]
+				}
+			})
+		);
+		await page.route('**/api/catalog/isbn*', (route) =>
+			route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: false,
+					providers: {},
+					exactMatch: false,
+					candidates: []
+				}
+			})
+		);
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
+		await page.route('https://books.google.com/**', (route) => route.fulfill({ status: 404 }));
+		const requested: string[] = [];
+		await page.route('https://covers.openlibrary.org/**', (route) => {
+			requested.push(route.request().url());
+			return route.fulfill({ body: PNG_1X1, contentType: 'image/png' });
+		});
+		await page.goto('/add/search');
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('searchbox').fill('copertina recuperata');
+		await expect(
+			page.getByText(
+				'Google Books: limite di richieste raggiunto. I risultati potrebbero essere incompleti.'
+			)
+		).toBeVisible();
+		const row = page.getByRole('button', { name: new RegExp(`^Copertina ${isbn} Ada Verdi`) });
+		await expect(row.locator('img')).toHaveAttribute('src', cover);
+		await row.click();
+		const detail = page.getByRole('complementary', { name: 'Libro selezionato' });
+		await expect(detail.locator('.head img')).toHaveAttribute('src', cover);
+		await expect
+			.poll(() => detail.locator('.head img').evaluate((img) => (img as HTMLImageElement).complete))
+			.toBe(true);
+		await detail.getByRole('button', { name: 'Aggiungi alla mia libreria' }).click();
+		const sheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
+		await choose(sheet, 'Classici');
+		await sheet.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		expect((await userBooks(account.id)).find((book) => book.isbn_13 === isbn)).toMatchObject({
+			cover_url: cover,
+			title: result.editionTitle,
+			author_display: 'Ada Verdi'
+		});
+		expect(requested.length).toBeGreaterThan(0);
+		expect(requested.every((url) => url === cover)).toBe(true);
+	});
+}
+
+test('cover ISBN assente: mantiene il segnaposto e non ripete il tentativo nel dettaglio', async ({
+	page
+}) => {
+	const isbn = randomIsbn13();
+	const result = candidate({ isbn13: isbn, coverUrl: null });
+	await page.route('**/api/catalog/search*', (route) =>
+		route.fulfill({
+			json: {
+				contractVersion: 1,
+				degraded: false,
+				providers: {},
+				candidates: [result]
+			}
+		})
+	);
+	await page.route('**/api/catalog/isbn*', (route) =>
+		route.fulfill({
+			json: {
+				contractVersion: 1,
+				degraded: false,
+				providers: {},
+				exactMatch: false,
+				candidates: []
+			}
+		})
+	);
+	await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
+	let covers = 0;
+	await page.route('https://covers.openlibrary.org/**', (route) => {
+		covers++;
+		return route.fulfill({ status: 404 });
+	});
+	await page.goto('/add/search');
+	await page.waitForLoadState('networkidle');
+	await page.getByRole('searchbox').fill('copertina assente');
+	const row = page.getByRole('button', { name: /^La sfida del mago Ada Verdi/ });
+	await expect(row.locator('.placeholder')).toBeVisible();
+	await expect.poll(() => covers).toBe(1);
+	await row.click();
+	const detail = page.getByRole('complementary', { name: 'Libro selezionato' });
+	await expect(detail.locator('.head .placeholder')).toBeVisible();
+	await page.waitForLoadState('networkidle');
+	expect(covers).toBe(1);
 });
 
 test('gli endpoint richiedono la sessione', async ({ browser }) => {

@@ -29,15 +29,6 @@ async function register(page: Page, email: string) {
 	await page.waitForURL('**/library');
 }
 
-async function login(page: Page, email: string, password: string) {
-	await page.goto('/auth/login');
-	await page.waitForLoadState('networkidle');
-	await page.fill('input[name=email]', email);
-	await page.fill('input[name=password]', password);
-	await page.getByRole('button', { name: /accedi/i }).click();
-	await page.waitForURL('**/library');
-}
-
 test.beforeAll(() => {
 	sql = postgres(ADMIN_URL, { max: 2, onnotice: () => {} });
 });
@@ -141,16 +132,46 @@ test.describe('Ruota della Fortuna', () => {
 		await page.getByRole('button', { name: /^Thriller/ }).click();
 		await page.getByRole('button', { name: /^Romance/ }).click();
 		await expect(
-			page.getByRole('heading', { name: 'Nessun libro in questi generi' })
+			page.getByRole('heading', { name: 'Nessun libro con questi filtri' })
 		).toBeVisible();
 		await page.getByRole('button', { name: 'Mostra tutti i non letti' }).click();
 		await expect(page.getByRole('button', { name: 'Gira la ruota' })).toBeVisible();
 	});
 });
 
-test.describe('Calendario annuale (utente demo, sola lettura)', () => {
+test.describe('Calendario annuale (account temporaneo)', () => {
+	let email = '';
+	test.beforeEach(async ({ page }) => {
+		email = `calendar-e2e-${randomUUID()}@test.local`;
+		await register(page, email);
+		const [user] = await sql<{ id: string }[]>`select id from app.users where email=${email}`;
+		await sql.begin(async (tx) => {
+			await tx`select set_config('app.user_id',${user!.id},true)`;
+			for (const genre of [4, 5, 2]) {
+				const [book] = await tx<
+					{ id: string }[]
+				>`insert into public.user_books(user_id,genre_id,title,author_display,page_count,format,source)
+					values(${user!.id}::uuid,${genre},'Calendario '||${genre}::text,'Autore prova',500,'physical','manual') returning id`;
+				const [started] =
+					await tx`select public.start_reading(${book!.id}::uuid,'2026-01-01T08:00:00Z',0) as result`;
+				const readingId = started!.result.reading.id as string;
+				if (genre === 4) {
+					await tx`insert into public.reading_progress_events(user_id,reading_id,event_type,page,page_delta,local_date,occurred_at)
+						select ${user!.id}::uuid,${readingId}::uuid,'progress',n+1,1,'2026-01-01'::date+n,('2026-01-01'::date+n)::timestamptz
+						from generate_series(0,120) n`;
+				}
+				await tx`insert into public.reading_progress_events(user_id,reading_id,event_type,page,page_delta,local_date,occurred_at)
+					values(${user!.id}::uuid,${readingId}::uuid,'progress',150,10,'2026-08-11','2026-08-11T12:00:00Z')`;
+				if (genre === 5)
+					await tx`insert into public.reading_progress_events(user_id,reading_id,event_type,page,page_delta,local_date,occurred_at)
+					values(${user!.id}::uuid,${readingId}::uuid,'progress',10,10,'2026-01-18','2026-01-18T12:00:00Z')`;
+			}
+		});
+	});
+	test.afterEach(async () => {
+		if (email) await sql`delete from app.users where email=${email}`;
+	});
 	test('giorni multi-genere, dettaglio, cambio anno', async ({ page }) => {
-		await login(page, 'demo@segnalibro.local', 'segnalibro-demo');
 		await page.goto('/profile?tab=calendar');
 		await page.waitForLoadState('networkidle');
 
@@ -198,7 +219,6 @@ test.describe('Calendario annuale (utente demo, sola lettura)', () => {
 	});
 
 	test("l'API del calendario valida l'anno", async ({ page }) => {
-		await login(page, 'demo@segnalibro.local', 'segnalibro-demo');
 		const bad = await page.request.get('/api/explore/calendar?year=abc');
 		expect(bad.status()).toBe(422);
 		expect(await bad.json()).toMatchObject({ code: 'VALIDATION' });

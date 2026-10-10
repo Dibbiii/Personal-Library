@@ -30,7 +30,7 @@
 	aria-pressed={selected}
 	onclick={() => onselect(candidate)}
 >
-	<CoverImage src={candidate.coverUrl} width={64} height={96} />
+	<CoverImage src={candidate.coverUrl} {isbn} width={64} height={96} />
 	<span class="text">
 		<span class="title">{candidate.editionTitle}</span>
 		<span class="author">{candidate.authors.join(', ')}</span>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { refreshData } from '$lib/client/refresh-data';
 	import BingoBoardList from '$lib/components/bingo/BingoBoardList.svelte';
 	import BingoAssignSheet from '$lib/components/bingo/BingoAssignSheet.svelte';
 	import BingoGrid from '$lib/components/bingo/BingoGrid.svelte';
@@ -44,7 +45,7 @@
 	async function onChange(next: BingoBoard) {
 		board = next;
 		// Aggiorna i riepiloghi (elenco card) senza ricaricare la pagina.
-		await invalidateAll();
+		await refreshData(['app:profile']);
 		board = next;
 	}
 
@@ -97,7 +98,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ year: board.year })
 		});
-		if (response.ok) await goto('/bingo', { invalidateAll: true });
+		if (response.ok) await goto('/bingo', { invalidate: ['app:profile'] });
 	}
 
 	async function createBoard(year: number) {
@@ -118,7 +119,7 @@
 			}
 			bingoBoardSchema.parse(await response.json());
 			newOpen = false;
-			await goto(`/bingo/${year}`, { invalidateAll: true });
+			await goto(`/bingo/${year}`, { invalidate: ['app:profile'] });
 		} catch {
 			createError = 'Non sono riuscito a creare la card. Riprova.';
 		} finally {
@@ -152,8 +153,14 @@
 			{#if editing}
 				<form class="editor" onsubmit={(event) => (event.preventDefault(), saveBoard())}>
 					<label>Titolo<input bind:value={editTitle} maxlength="80" required /></label>
-					{#each editChallenges as challenge, index (index)}
-						<label>Sfida {index + 1}<input bind:value={editChallenges[index]} maxlength="120" required /></label>
+					{#each editChallenges as _challenge, index (index)}
+						<label
+							>Sfida {index + 1}<input
+								bind:value={editChallenges[index]}
+								maxlength="120"
+								required
+							/></label
+						>
 					{/each}
 					{#if boardError}<p class="error" role="alert">{boardError}</p>{/if}
 					<div class="editor-actions">

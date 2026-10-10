@@ -83,10 +83,9 @@ test.describe('Home Libreria', () => {
 			await expect(page.getByText('Ciao Lettrice Test, cosa leggi oggi?')).toBeVisible();
 			// scansione ISBN solo su mobile, "Aggiungi libro" sempre
 			await expect(page.locator('a[href="/add/scan"]')).toHaveCount(1);
-			await expect(page.getByRole('link', { name: 'Aggiungi libro' })).toHaveAttribute(
-				'href',
-				'/add'
-			);
+			await expect(
+				page.getByRole('main').getByRole('link', { name: 'Aggiungi libro' })
+			).toHaveAttribute('href', '/add');
 			await expect(page.getByRole('region', { name: /^I prossimi, 3 libri/ })).toBeVisible();
 			await expect(page.getByText('3 su 3')).toBeVisible();
 			// I link di raccolta stanno nell'intestazione, senza avvolgere i controlli dello scaffale.
