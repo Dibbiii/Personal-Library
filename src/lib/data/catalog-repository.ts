@@ -108,6 +108,17 @@ export class ServerCatalogRepository implements CatalogRepository {
 			}
 
 			return await withUser(userId, async (tx) => {
+				let series = input.series;
+				if (series && series.total === null) {
+					const [existingSeries] = await tx<{ total: number | null }[]>`
+						select max(series_total)::smallint as total
+						from public.user_books
+						where user_id = ${userId}::uuid
+							and lower(btrim(series_name)) = lower(btrim(${series.name}))
+					`;
+					// Un totale noto è condiviso: aggiungere un volume senza modificarlo lo eredita.
+					series = { ...series, total: existingSeries?.total ?? null };
+				}
 				const rows = await tx<{ id: string }[]>`
 					insert into public.user_books (
 						user_id, edition_id, genre_id, title, author_display, page_count, language,
@@ -118,14 +129,24 @@ export class ServerCatalogRepository implements CatalogRepository {
 						${userId}::uuid, ${editionId}::bigint, g.id, ${input.title}::text, ${input.author}::text,
 						${input.pageCount}::integer, ${input.language}::text,
 						${isbn?.isbn10 ?? null}::text, ${isbn?.isbn13 ?? null}::text, ${input.format}::text,
-						${input.series?.name ?? null}::text, ${input.series?.number ?? null}::numeric,
-						${input.series?.total ?? null}::smallint, ${input.coverUrl}::text, ${input.source}::text
+						${series?.name ?? null}::text, ${series?.number ?? null}::numeric,
+						${series?.total ?? null}::smallint, ${input.coverUrl}::text, ${input.source}::text
 					from public.genres g
 					where g.slug = ${input.genre} and g.is_active
 					returning id::text
 				`;
 				const row = rows[0];
 				if (!row) throw new DataAccessError('VALIDATION', 'Genere non valido');
+				if (series) {
+					await tx`
+						select public.change_book_series(
+							${row.id}::uuid,
+							${series.name}::text,
+							${series.number}::numeric,
+							${series.total}::smallint
+						)
+					`;
+				}
 				return { status: 'added' as const, bookId: row.id };
 			});
 		} catch (error) {
@@ -228,9 +249,6 @@ export class ServerCatalogRepository implements CatalogRepository {
 				const rows = await tx<{ id: string }[]>`
 					update public.user_books ub
 					set format = ${input.format}::text,
-						series_name = ${input.series?.name ?? null}::text,
-						series_number = ${input.series?.number ?? null}::numeric,
-						series_total = ${input.series?.total ?? null}::smallint,
 						edition_id = case when ${hasNewEdition} then ${editionChange?.editionId ?? null}::bigint else ub.edition_id end,
 						title = case when ${hasNewEdition} then ${editionChange?.title ?? null}::text else ub.title end,
 						author_display = case when ${hasNewEdition} then ${editionChange?.author ?? null}::text else ub.author_display end,
@@ -244,6 +262,14 @@ export class ServerCatalogRepository implements CatalogRepository {
 				`;
 				const row = rows[0];
 				if (!row) throw new DataAccessError('NOT_FOUND', 'Libro non trovato');
+				await tx`
+					select public.change_book_series(
+						${row.id}::uuid,
+						${input.series?.name ?? null}::text,
+						${input.series?.number ?? null}::numeric,
+						${input.series?.total ?? null}::smallint
+					)
+				`;
 				return { status: 'updated', bookId: row.id, reviewScoresReset };
 			});
 		} catch (error) {

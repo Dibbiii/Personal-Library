@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildAddHref, getAddContext, parseAddGenre } from '../../src/lib/catalog/add-context';
+import {
+	buildAddHref,
+	getAddContext,
+	getAddSeriesContext,
+	getAddSeriesParams,
+	parseAddGenre
+} from '../../src/lib/catalog/add-context';
 import { GENRE_ORDER } from '../../src/lib/genres';
 
 const paths = ['/add/manual', '/add/search', '/add/scan'] as const;
@@ -87,5 +93,41 @@ describe('contesto del flusso aggiunta', () => {
 		expect(buildAddHref('/add/manual', null, params)).toBe('/add/manual?isbn=123');
 		const selected = url(buildAddHref('/add/manual', 'classics', params));
 		expect(selected.searchParams.getAll('genre')).toEqual(['classics']);
+	});
+
+	it('legge i dati della serie precompilati nel flusso di aggiunta', () => {
+		expect(
+			getAddSeriesContext(
+				url('/add/search?seriesName=Le%20cronache%20del%20gatto&seriesNumber=2&seriesTotal=4')
+			)
+		).toEqual({
+			name: 'Le cronache del gatto',
+			number: 2,
+			total: 4
+		});
+	});
+
+	it('conserva i dati validi della serie passando tra le modalità di aggiunta', () => {
+		const params = getAddSeriesParams(
+			url('/add/search?seriesName=Saga%20del%20gatto&seriesNumber=2&seriesTotal=4&q=Gatto')
+		);
+		const destination = url(buildAddHref('/add/manual', 'classics', params));
+
+		expect(getAddSeriesContext(destination)).toEqual({
+			name: 'Saga del gatto',
+			number: 2,
+			total: 4
+		});
+		expect(destination.searchParams.get('genre')).toBe('classics');
+		expect(destination.searchParams.has('q')).toBe(false);
+	});
+
+	it.each([
+		'/add/search?seriesName=%20%20&seriesNumber=2&seriesTotal=4',
+		'/add/search?seriesName=Saga&seriesNumber=tre&seriesTotal=4',
+		'/add/search?seriesName=Saga&seriesNumber=2&seriesTotal=2.5',
+		'/add/search?seriesName=Saga&seriesNumber=3&seriesTotal=2'
+	])('ignora metadati di serie non validi: %s', (path) => {
+		expect(getAddSeriesContext(url(path))).toBeNull();
 	});
 });

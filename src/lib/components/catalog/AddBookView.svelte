@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { page } from '$app/state';
-	import { buildAddHref, getAddContext, type AddPath } from '$lib/catalog/add-context';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import {
+		buildAddHref,
+		getAddContext,
+		getAddSeriesContext,
+		getAddSeriesParams,
+		type AddPath
+	} from '$lib/catalog/add-context';
 	import { CatalogClientError, fetchBookInfo, lookupIsbn } from '$lib/catalog/client';
 	import { candidateKey, draftFromCandidate, type BookDraft } from '$lib/catalog/draft';
 	import type { BookInfo } from '$lib/catalog/book-info';
@@ -25,6 +32,8 @@
 	let { mode }: Props = $props();
 
 	const context = $derived(getAddContext(page.url));
+	const initialSeries = $derived(getAddSeriesContext(page.url));
+	const seriesParams = $derived(getAddSeriesParams(page.url));
 	/** "Annulla" esce dall'aggiunta: torna allo scaffale di partenza o alla libreria. */
 	const exitHref = $derived(context.genre ? `/genre/${context.genre}` : '/library');
 
@@ -116,9 +125,13 @@
 	let scanDegraded = $state(false);
 	let scanExact = $state(false);
 	let scanError = $state('');
-	const manualIsbnHref = $derived(
-		buildAddHref('/add/manual', context.genre, new URLSearchParams({ isbn }))
-	);
+	function manualAddHref(title: string, nextIsbn?: string): string {
+		const params = new SvelteURLSearchParams(seriesParams);
+		if (title) params.set('title', title);
+		if (nextIsbn) params.set('isbn', nextIsbn);
+		return buildAddHref('/add/manual', context.genre, params);
+	}
+	const manualIsbnHref = $derived(manualAddHref('', isbn));
 
 	async function onscan(code: string) {
 		isbn = code;
@@ -174,7 +187,7 @@
 		{#each tabs as tab (tab.mode)}
 			<a
 				class="tab"
-				href={buildAddHref(tab.href, context.genre)}
+				href={buildAddHref(tab.href, context.genre, seriesParams)}
 				aria-current={tab.mode === mode ? 'page' : undefined}
 			>
 				<span class="tab-icon"><Icon name={tab.icon} size={22} /></span>
@@ -195,12 +208,7 @@
 						{initialQuery}
 						{selectedKey}
 						onselect={select}
-						manualHref={(title, isbn) =>
-							buildAddHref(
-								'/add/manual',
-								context.genre,
-								new URLSearchParams({ ...(title ? { title } : {}), ...(isbn ? { isbn } : {}) })
-							)}
+						manualHref={manualAddHref}
 					/>
 				{/key}
 			{:else if mode === 'scan'}
@@ -308,6 +316,7 @@
 	open={sheetOpen}
 	draft={sheetDraft}
 	initialGenre={context.genre}
+	{initialSeries}
 	onclose={() => (sheetOpen = false)}
 />
 

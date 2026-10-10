@@ -1,4 +1,5 @@
 import type { LifecycleState, ReadingStatus } from '$lib/contracts/enums';
+import type { SeriesBook } from '$lib/contracts/books';
 import type { ReadingOperation } from './reading-contract';
 
 /**
@@ -227,35 +228,50 @@ export function readingSequenceLabel(sequence: number): string {
 // Serie
 // ---------------------------------------------------------------------------
 
-export type SeriesVolumeState = 'read' | 'current' | 'missing';
-
 export interface SeriesVolume {
 	number: number;
-	state: SeriesVolumeState;
+	book: Pick<SeriesBook, 'id' | 'title'> | null;
 }
 
 /**
- * Mini-dorsi della card Serie (mockup 03). Mostra al massimo `limit` volumi attorno al corrente;
- * i volumi precedenti sono "letti", i successivi "mancanti" (tratteggiati), come nel mockup.
+ * Crea gli slot della serie dai libri realmente presenti e dal totale dichiarato.
+ * Un volume precedente non viene considerato letto solo in base al numero.
  */
-export function seriesVolumes(
-	number: number | null,
-	total: number | null,
-	limit = 6
-): SeriesVolume[] {
-	if (number === null || !Number.isFinite(number)) return [];
-	const current = Math.max(1, Math.round(number));
-	const last = Math.max(total ?? current, current);
-	const from = Math.max(1, Math.min(current - 1, last - limit + 1));
-	const to = Math.min(last, from + limit - 1);
-	const volumes: SeriesVolume[] = [];
-	for (let n = from; n <= to; n++) {
-		volumes.push({
-			number: n,
-			state: n < current ? 'read' : n === current ? 'current' : 'missing'
-		});
+export function seriesVolumes(books: SeriesBook[], total: number | null): SeriesVolume[] {
+	const booksByNumber = new Map<number, SeriesBook[]>();
+	for (const book of books) {
+		if (book.number === null || !Number.isFinite(book.number) || book.number <= 0) continue;
+		const sameVolume = booksByNumber.get(book.number) ?? [];
+		sameVolume.push(book);
+		booksByNumber.set(book.number, sameVolume);
 	}
-	return volumes;
+
+	for (const sameVolume of booksByNumber.values()) {
+		sameVolume.sort((a, b) => a.title.localeCompare(b.title, 'it') || a.id.localeCompare(b.id));
+	}
+
+	const lastVolume = Math.max(
+		total ?? 0,
+		...Array.from(booksByNumber.keys(), (number) => Math.ceil(number)),
+		0
+	);
+	if (lastVolume === 0) return [];
+
+	const numbers = new Set<number>();
+	for (let number = 1; number <= lastVolume; number++) numbers.add(number);
+	for (const number of booksByNumber.keys()) numbers.add(number);
+
+	return Array.from(numbers)
+		.sort((a, b) => a - b)
+		.flatMap((number): SeriesVolume[] => {
+			const sameVolume = booksByNumber.get(number);
+			return sameVolume?.length
+				? sameVolume.map((book) => ({
+						number,
+						book: { id: book.id, title: book.title }
+					}))
+				: [{ number, book: null }];
+		});
 }
 
 /** "Vol. 2 di 3" (o "Vol. 2" se il totale è ignoto). */

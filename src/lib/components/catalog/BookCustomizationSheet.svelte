@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import { parseAddGenre } from '$lib/catalog/add-context';
+	import { parseAddGenre, type AddSeriesContext } from '$lib/catalog/add-context';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -20,6 +20,11 @@
 		seriesLabel,
 		type BookDraft
 	} from '$lib/catalog/draft';
+	import {
+		parseSeriesNumber,
+		seriesRefFromFields,
+		validateSeriesFields
+	} from '$lib/catalog/series-form';
 	import { GENRE_LABELS, GENRE_ORDER, isGenreSlug } from '$lib/genres';
 	import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 
@@ -30,7 +35,8 @@
 		/** Genere di partenza, sempre modificabile prima della conferma. */
 		initialGenre?: string | null;
 		initialFormat?: BookFormat;
-		initialSeries?: { name: string; number: number | null; total: number | null } | null;
+		/** Serie e volume da precompilare, ad esempio dallo slot mancante di una serie. */
+		initialSeries?: AddSeriesContext | null;
 		bookId?: string;
 		onclose: () => void;
 		/** Dopo l'inserimento. Senza handler si apre la scheda del libro. */
@@ -73,15 +79,9 @@
 		void draft;
 		genre = untrack(() => parseAddGenre(initialGenre));
 		format = mode === 'edit' ? initialFormat : 'physical';
-		seriesName = mode === 'edit' ? (initialSeries?.name ?? '') : '';
-		seriesNumber =
-			mode === 'edit' && initialSeries?.number !== null && initialSeries?.number !== undefined
-				? String(initialSeries.number)
-				: '';
-		seriesTotal =
-			mode === 'edit' && initialSeries?.total !== null && initialSeries?.total !== undefined
-				? String(initialSeries.total)
-				: '';
+		seriesName = initialSeries?.name ?? '';
+		seriesNumber = initialSeries?.number == null ? '' : String(initialSeries.number);
+		seriesTotal = initialSeries?.total == null ? '' : String(initialSeries.total);
 		busy = false;
 		error = '';
 		fieldError = {};
@@ -89,34 +89,19 @@
 		addedBookId = null;
 	});
 
-	const numberValue = $derived(parseNumber(seriesNumber));
-	const totalValue = $derived(parseNumber(seriesTotal));
+	const numberValue = $derived(parseSeriesNumber(seriesNumber));
+	const totalValue = $derived(parseSeriesNumber(seriesTotal));
 	const preview = $derived(
 		seriesName.trim() && numberValue !== undefined
 			? seriesLabel(numberValue, totalValue ?? null)
 			: null
 	);
 
-	/** '' -> null, numero valido -> number, altro -> undefined */
-	function parseNumber(text: string): number | null | undefined {
-		const value = text.trim().replace(',', '.');
-		if (value === '') return null;
-		const parsed = Number(value);
-		return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-	}
-
 	function validate(): boolean {
 		const next: typeof fieldError = {};
 		if (!genre || !isGenreSlug(genre)) next.genre = 'Scegli il genere del libro.';
-		if (seriesNumber.trim() && numberValue === undefined)
-			next.series = 'Il numero del volume deve essere maggiore di zero.';
-		else if (seriesTotal.trim() && (totalValue === undefined || !Number.isInteger(totalValue))) {
-			next.series = 'Il totale dei volumi deve essere un numero intero.';
-		} else if (numberValue && totalValue && numberValue > totalValue) {
-			next.series = 'Il volume non può superare il totale.';
-		} else if ((seriesNumber.trim() || seriesTotal.trim()) && !seriesName.trim()) {
-			next.series = 'Scrivi anche il nome della serie.';
-		}
+		const seriesError = validateSeriesFields(seriesName, numberValue, totalValue);
+		if (seriesError) next.series = seriesError;
 		fieldError = next;
 		return Object.keys(next).length === 0;
 	}
@@ -137,13 +122,7 @@
 
 		busy = true;
 		try {
-			const series = seriesName.trim()
-				? {
-						name: seriesName.trim(),
-						number: numberValue ?? null,
-						total: totalValue ?? null
-					}
-				: null;
+			const series = seriesRefFromFields(seriesName, numberValue, totalValue);
 			if (mode === 'edit' && bookId) {
 				const result = await updateBookInLibrary(
 					bookId,

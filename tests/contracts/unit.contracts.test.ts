@@ -134,6 +134,7 @@ describe('contract schemas', () => {
       readings: [{ ...reading, sequence: 1 }],
       review,
       quotes: [],
+      seriesBooks: [{ id: book.id, title: book.title, number: 1 }],
     };
     expect(bookDetailResponseSchema.parse(value)).toEqual(value);
   });

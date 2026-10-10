@@ -5,6 +5,7 @@ import {
   bookDetailResponseSchema,
   explorePoolResponseSchema,
   bookFormatChangeResponseSchema,
+  bookSeriesChangeResponseSchema,
   genreChangeResponseSchema,
   genreViewResponseSchema,
   libraryHomeResponseSchema,
@@ -270,6 +271,171 @@ import './seed.contracts';
     expect(detail.book.id).toBe(fx.books.fantasy);
     expect(detail.readings[0]?.sequence).toBe(1);
     expect(detail.review?.rating).toBe(4);
+    expect(detail.seriesBooks).toEqual([
+      { id: fx.books.fantasy, title: 'Il nome del vento', number: 1 }
+    ]);
+  });
+
+  it('get_book_detail orders actual series books numerically by volume', async () => {
+    const seriesName = `Serie ${randomUUID()}`;
+    const variantSeriesName = `${seriesName.toUpperCase()}   `;
+    const volumeOneId = randomUUID();
+    const volumeTwoId = randomUUID();
+    const volumeTenId = randomUUID();
+    await fx.sql`
+      insert into public.user_books (
+        id, user_id, genre_id, title, author_display, format, series_name, series_number, series_total
+      ) values
+        (
+          ${volumeTenId}::uuid, ${fx.userId}::uuid, 5, 'Volume dieci', 'Autore',
+          'physical', ${seriesName}, 10, 10
+        ),
+        (
+          ${volumeTwoId}::uuid, ${fx.userId}::uuid, 5, 'Volume due', 'Autore',
+          'physical', ${variantSeriesName}, 2, 10
+        ),
+        (
+          ${volumeOneId}::uuid, ${fx.userId}::uuid, 5, 'Volume uno', 'Autore',
+          'physical', ${seriesName}, 1, 10
+        )
+    `;
+
+    const detail = await expectRpcContract(
+      fx.client,
+      'get_book_detail',
+      { p_book_id: volumeTenId },
+      bookDetailResponseSchema
+    );
+
+    expect(detail.seriesBooks.map(({ id, number }) => [id, number])).toEqual([
+      [volumeOneId, 1],
+      [volumeTwoId, 2],
+      [volumeTenId, 10]
+    ]);
+  });
+
+  it('change_book_series updates the shared total across the user series', async () => {
+    const volumeOneId = randomUUID();
+    const volumeThreeId = randomUUID();
+    const otherVolumeId = randomUUID();
+    const seriesName = `Serie ${randomUUID()}`;
+    const variantSeriesName = `${seriesName.toUpperCase()}   `;
+    const otherUser = await createTestUser('series');
+    try {
+      await fx.sql`
+        insert into public.user_books (
+          id, user_id, genre_id, title, author_display, format, series_name, series_number, series_total
+        ) values
+          (
+            ${volumeOneId}::uuid, ${fx.userId}::uuid, 5, 'Volume uno', 'Autore',
+            'physical', null, null, null
+          ),
+          (
+            ${volumeThreeId}::uuid, ${fx.userId}::uuid, 5, 'Volume tre', 'Autore',
+            'physical', ${variantSeriesName}, 3, 3
+          ),
+          (
+            ${otherVolumeId}::uuid, ${otherUser.id}::uuid, 5, 'Altro volume', 'Autore',
+            'physical', ${seriesName}, 2, 3
+          )
+      `;
+
+      const changed = await expectRpcContract(
+        fx.client,
+        'change_book_series',
+        {
+          p_book_id: volumeOneId,
+          p_series_name: seriesName,
+          p_series_number: 1,
+          p_series_total: 5
+        },
+        bookSeriesChangeResponseSchema
+      );
+      const rows = await fx.sql<{ series_total: number }[]>`
+        select series_total
+        from public.user_books
+        where user_id = ${fx.userId}::uuid
+          and lower(btrim(series_name)) = lower(btrim(${seriesName}))
+        order by series_number
+      `;
+      const otherRows = await fx.sql<{ series_total: number }[]>`
+        select series_total
+        from public.user_books
+        where id = ${otherVolumeId}::uuid
+      `;
+
+      expect(changed.book.series).toEqual({ name: seriesName, number: 1, total: 5 });
+      expect(rows.map(({ series_total }) => series_total)).toEqual([5, 5]);
+      expect(otherRows.map(({ series_total }) => series_total)).toEqual([3]);
+    } finally {
+      await otherUser.cleanup();
+    }
+  });
+
+  it('change_book_series rejects totals below existing volumes without partial updates', async () => {
+    const volumeOneId = randomUUID();
+    const volumeThreeId = randomUUID();
+    const seriesName = `Serie ${randomUUID()}`;
+    await fx.sql`
+      insert into public.user_books (
+        id, user_id, genre_id, title, author_display, format, series_name, series_number, series_total
+      ) values
+        (
+          ${volumeOneId}::uuid, ${fx.userId}::uuid, 5, 'Volume uno', 'Autore',
+          'physical', ${seriesName}, 1, 3
+        ),
+        (
+          ${volumeThreeId}::uuid, ${fx.userId}::uuid, 5, 'Volume tre', 'Autore',
+          'physical', ${seriesName}, 3, 3
+        )
+    `;
+
+    const { error } = await fx.client.rpc('change_book_series', {
+      p_book_id: volumeOneId,
+      p_series_name: seriesName,
+      p_series_number: 1,
+      p_series_total: 2
+    });
+    const rows = await fx.sql<{ series_total: number }[]>`
+      select series_total
+      from public.user_books
+      where user_id = ${fx.userId}::uuid
+        and lower(btrim(series_name)) = lower(btrim(${seriesName}))
+      order by series_number
+    `;
+
+    expect(error?.code).toBe('22023');
+    expect(rows.map(({ series_total }) => series_total)).toEqual([3, 3]);
+  });
+
+  it('change_book_series rejects volume numbers that the database would round', async () => {
+    const bookId = randomUUID();
+    await fx.sql`
+      insert into public.user_books (
+        id, user_id, genre_id, title, author_display, format
+      ) values (
+        ${bookId}::uuid, ${fx.userId}::uuid, 5, 'Volume preciso', 'Autore', 'physical'
+      )
+    `;
+
+    const { error } = await fx.client.rpc('change_book_series', {
+      p_book_id: bookId,
+      p_series_name: `Serie ${randomUUID()}`,
+      p_series_number: 1.234,
+      p_series_total: 3
+    });
+    const [row] = await fx.sql<{
+      series_name: string | null;
+      series_number: string | null;
+      series_total: number | null;
+    }[]>`
+      select series_name, series_number::text, series_total
+      from public.user_books
+      where id = ${bookId}::uuid
+    `;
+
+    expect(error?.code).toBe('22023');
+    expect(row).toEqual({ series_name: null, series_number: null, series_total: null });
   });
 
   it('get_genre_view preserves read/unread sections', async () => {

@@ -55,11 +55,23 @@ export const isbnLookupResponseSchema = catalogSearchResponseSchema.extend({
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 
+/** Verifica la precisione del campo `numeric(6,2)` senza introdurre errori di arrotondamento binario. */
+export function hasAtMostTwoDecimals(value: number): boolean {
+	const [coefficient, exponent = '0'] = String(value).toLowerCase().split('e');
+	const decimalPlaces = (coefficient?.split('.')[1]?.length ?? 0) - Number(exponent);
+	return decimalPlaces <= 2;
+}
+
 export const seriesInputSchema = z
 	.object({
 		name: text(LIMITS.series),
-		/** numeric(6,2): anche 1.5 per i volumi intermedi */
-		number: z.number().positive().max(9999).nullable(),
+		/** numeric(6,2): anche 1.5 per i volumi intermedi, senza arrotondamenti. */
+		number: z
+			.number()
+			.positive()
+			.max(9999)
+			.refine(hasAtMostTwoDecimals, 'Il numero del volume può avere al massimo due decimali.')
+			.nullable(),
 		total: z.number().int().positive().max(999).nullable()
 	})
 	.refine(

@@ -5,7 +5,10 @@ import {
 	shelfPageResponseSchema
 } from '../contracts/rpc';
 
-import type { ChangeBookFormatInput, ChangeBookGenreInput } from '../contracts/rpc';
+import type {
+	ChangeBookFormatInput,
+	ChangeBookGenreInput
+} from '../contracts/rpc';
 
 import type { LibraryRepository } from './repositories';
 
@@ -13,7 +16,10 @@ import type { RpcTransport } from './rpc-client';
 
 import { callRpc } from './rpc-client';
 import { RPC } from './rpc-names';
-import { bookFormatChangeResponseSchema, genreChangeResponseSchema } from '../contracts/rpc';
+import {
+	bookFormatChangeResponseSchema,
+	genreChangeResponseSchema
+} from '../contracts/rpc';
 import { bookRemovalResultSchema } from '../contracts/library-mutations';
 
 /**

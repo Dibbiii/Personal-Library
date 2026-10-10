@@ -221,25 +221,57 @@ describe('date', () => {
 });
 
 describe('serie', () => {
-	it('mostra letti, corrente e mancanti', () => {
-		expect(seriesVolumes(2, 3)).toEqual([
-			{ number: 1, state: 'read' },
-			{ number: 2, state: 'current' },
-			{ number: 3, state: 'missing' }
+	it('ordina i volumi presenti e rappresenta gli slot mancanti senza inferire che siano letti', () => {
+		expect(
+			seriesVolumes(
+				[
+					{ id: 'book-3', title: 'Terzo volume', number: 3 },
+					{ id: 'book-1', title: 'Primo volume', number: 1 }
+				],
+				4
+			)
+		).toEqual([
+			{ number: 1, book: { id: 'book-1', title: 'Primo volume' } },
+			{ number: 2, book: null },
+			{ number: 3, book: { id: 'book-3', title: 'Terzo volume' } },
+			{ number: 4, book: null }
 		]);
 	});
 
-	it('limita i volumi attorno al corrente', () => {
-		const volumes = seriesVolumes(1, 7, 4);
-		expect(volumes.map((v) => v.number)).toEqual([1, 2, 3, 4]);
-		const tail = seriesVolumes(7, 7, 4);
-		expect(tail.map((v) => v.number)).toEqual([4, 5, 6, 7]);
-		expect(tail.at(-1)?.state).toBe('current');
+	it('usa l’ultimo volume presente quando il totale non è noto e ordina i volumi intermedi', () => {
+		expect(
+			seriesVolumes(
+				[
+					{ id: 'book-3', title: 'Terzo volume', number: 3 },
+					{ id: 'book-1', title: 'Primo volume', number: 1 }
+				],
+				null
+			)
+		).toEqual([
+			{ number: 1, book: { id: 'book-1', title: 'Primo volume' } },
+			{ number: 2, book: null },
+			{ number: 3, book: { id: 'book-3', title: 'Terzo volume' } }
+		]);
 	});
 
-	it('senza numero o totale', () => {
-		expect(seriesVolumes(null, 3)).toEqual([]);
-		expect(seriesVolumes(1, null)).toEqual([{ number: 1, state: 'current' }]);
+	it('ordina numeri intermedi e volumi con lo stesso numero in modo stabile', () => {
+		expect(
+			seriesVolumes(
+				[
+					{ id: 'book-b', title: 'Volume bis', number: 2 },
+					{ id: 'book-c', title: 'Volume 1 e mezzo', number: 1.5 },
+					{ id: 'book-a-copy', title: 'Volume uno - altra edizione', number: 1 },
+					{ id: 'book-a', title: 'Volume uno', number: 1 }
+				],
+				2
+			).map((volume) => [volume.number, volume.book?.id ?? null])
+		).toEqual([
+			[1, 'book-a'],
+			[1, 'book-a-copy'],
+			[1.5, 'book-c'],
+			[2, 'book-b']
+		]);
+
 		expect(seriesVolumeLabel(2, 3)).toBe('Vol. 2 di 3');
 		expect(seriesVolumeLabel(2, null)).toBe('Vol. 2');
 		expect(seriesVolumeLabel(null, 3)).toBeNull();
