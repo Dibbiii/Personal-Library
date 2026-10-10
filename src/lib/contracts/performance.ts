@@ -26,6 +26,7 @@ export const libraryCountsSchema = z.object({
 	reading: nonNegativeIntSchema,
 	unread: nonNegativeIntSchema,
 	physical: nonNegativeIntSchema,
+	physicalUnread: nonNegativeIntSchema,
 	digital: nonNegativeIntSchema,
 	both: nonNegativeIntSchema,
 	englishRead: nonNegativeIntSchema,

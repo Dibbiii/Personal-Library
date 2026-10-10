@@ -21,6 +21,14 @@ async function open(page: Page, url: string) {
 	await page.waitForLoadState('networkidle');
 }
 
+function dateInCurrentYear(month: number, day: number): string {
+	return `${YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function timeInCurrentYear(month: number, day: number, hour: number): string {
+	return `${dateInCurrentYear(month, day)}T${String(hour).padStart(2, '0')}:00:00+00`;
+}
+
 test.beforeAll(() => {
 	sql = postgres(ADMIN_URL, { max: 2, onnotice: () => {} });
 });
@@ -61,18 +69,18 @@ async function seed(userId: string) {
 				(${ids.reread}::uuid, ${userId}::uuid, 3, 'Riletto e Lasciato', 'Autore Riletto', 400, 'digital', 'manual')
 		`;
 
-		await tx`select public.add_completed_reading(${ids.read}::uuid, '2026-01-03T10:00:00+00', '2026-01-20T20:00:00+00', 300, 0)`;
-		await tx`select public.add_completed_reading(${ids.reread}::uuid, '2026-02-01T10:00:00+00', '2026-02-10T20:00:00+00', 400, 0)`;
+		await tx`select public.add_completed_reading(${ids.read}::uuid, ${timeInCurrentYear(1, 3, 10)}, ${timeInCurrentYear(1, 20, 20)}, 300, 0)`;
+		await tx`select public.add_completed_reading(${ids.reread}::uuid, ${timeInCurrentYear(2, 1, 10)}, ${timeInCurrentYear(2, 10, 20)}, 400, 0)`;
 
 		// DNF senza letture completate: entra nel Cimitero.
 		const [start] = await tx<{ id: string }[]>`
-			select (public.start_reading(${ids.dnf}::uuid, '2026-03-01T10:00:00+00', 0)->'reading'->>'id') as id`;
-		await tx`select public.mark_dnf(${randomUUID()}::uuid, ${start!.id}::uuid, 77, '2026-03-05T10:00:00+00', '2026-03-05')`;
+			select (public.start_reading(${ids.dnf}::uuid, ${timeInCurrentYear(3, 1, 10)}, 0)->'reading'->>'id') as id`;
+		await tx`select public.mark_dnf(${randomUUID()}::uuid, ${start!.id}::uuid, 77, ${timeInCurrentYear(3, 5, 10)}, ${dateInCurrentYear(3, 5)})`;
 
 		// Rilettura abbandonata dopo una lettura completata: NON entra nel Cimitero.
 		const [again] = await tx<{ id: string }[]>`
-			select (public.start_reading(${ids.reread}::uuid, '2026-04-01T10:00:00+00', 0)->'reading'->>'id') as id`;
-		await tx`select public.mark_dnf(${randomUUID()}::uuid, ${again!.id}::uuid, 55, '2026-04-04T10:00:00+00', '2026-04-04')`;
+			select (public.start_reading(${ids.reread}::uuid, ${timeInCurrentYear(4, 1, 10)}, 0)->'reading'->>'id') as id`;
+		await tx`select public.mark_dnf(${randomUUID()}::uuid, ${again!.id}::uuid, 55, ${timeInCurrentYear(4, 4, 10)}, ${dateInCurrentYear(4, 4)})`;
 
 		await tx`
 			insert into public.quotes (user_id, user_book_id, body, page)
@@ -107,6 +115,10 @@ test.describe('Profilo: Statistiche, Bingo, Citazioni, Cimitero', () => {
 		await page.reload();
 		await page.waitForLoadState('networkidle');
 
+		await expect(page.getByTestId('physical-unread-stat')).toContainText('1 / 4');
+		const currentYearCard = page.getByTestId('current-year-books-stat');
+		await expect(currentYearCard).toContainText('2');
+
 		const tombs = page.getByTestId('tombstone');
 		await expect(tombs).toHaveCount(1);
 		await expect(tombs.first()).toContainText('Libro Lasciato');
@@ -122,6 +134,7 @@ test.describe('Profilo: Statistiche, Bingo, Citazioni, Cimitero', () => {
 		await page.getByRole('link', { name: String(YEAR - 1) }).click();
 		await expect(page).toHaveURL(new RegExp(`/profile/${YEAR - 1}\\?tab=stats$`));
 		await expect(page.getByTestId('stats-empty')).toBeVisible();
+		await expect(currentYearCard).toContainText('2');
 	});
 
 	test('bingo: nuova card, assegna e rimuovi un libro letto', async ({ page }) => {

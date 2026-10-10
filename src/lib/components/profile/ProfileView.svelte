@@ -21,6 +21,7 @@
 		year: number;
 		calendarYear: number;
 		currentYear: number;
+		currentYearBooksRead: number;
 		years: number[];
 		stats: YearStats;
 		genreBreakdown: { slug: GenreSlug; count: number }[];
@@ -115,6 +116,10 @@
 		<StatsView
 			year={props.year}
 			stats={props.stats}
+			currentYear={props.currentYear}
+			currentYearBooksRead={props.currentYearBooksRead}
+			physicalBooksUnread={counts.physicalUnread}
+			totalBooks={counts.total}
 			genreBreakdown={props.genreBreakdown}
 			bingo={props.bingo}
 			quotes={props.quotes}

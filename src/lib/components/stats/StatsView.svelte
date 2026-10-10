@@ -16,6 +16,10 @@
 
 	interface Props {
 		year: number;
+		currentYear: number;
+		currentYearBooksRead: number;
+		physicalBooksUnread: number;
+		totalBooks: number;
 		stats: YearStats;
 		genreBreakdown: { slug: GenreSlug; count: number }[];
 		bingo: BingoBoardListItem | null;
@@ -28,6 +32,10 @@
 
 	let {
 		year,
+		currentYear,
+		currentYearBooksRead,
+		physicalBooksUnread,
+		totalBooks,
 		stats,
 		genreBreakdown,
 		bingo,
@@ -105,6 +113,26 @@
 		<StatCard icon="file-text" label="Pagine totali" class="pages">
 			<p class="value v30">{formatNumber(stats.pagesRead)}</p>
 			<p class="sub">{plural(stats.pagesRead, 'pagina', 'pagine')} nel {year}</p>
+		</StatCard>
+
+		<StatCard
+			icon="format-paper"
+			label="Libri cartacei da leggere"
+			class="physical-unread"
+			testId="physical-unread-stat"
+		>
+			<p class="value v30">{formatNumber(physicalBooksUnread)} / {formatNumber(totalBooks)}</p>
+			<p class="sub">cartacei non letti / libri totali</p>
+		</StatCard>
+
+		<StatCard
+			icon="check"
+			label="Libri letti nel {currentYear}"
+			class="current-year-books"
+			testId="current-year-books-stat"
+		>
+			<p class="value v30">{formatNumber(currentYearBooksRead)}</p>
+			<p class="sub">{countLabel(currentYearBooksRead, 'libro letto', 'libri letti')}</p>
 		</StatCard>
 
 		<StatCard icon="globe" label="Letti in inglese" class="language">
