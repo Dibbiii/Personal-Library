@@ -212,10 +212,18 @@ test.describe('Calendario annuale (account temporaneo)', () => {
 		await expect(page.getByRole('heading', { name: 'Calendario 2025' })).toBeVisible();
 		await expect(page.getByText('Nessuna lettura registrata nel 2025.')).toBeVisible();
 		await expect(page.getByRole('button', { name: /gennaio:/ })).toHaveCount(0);
+		await page.reload();
+		await expect(page.getByRole('heading', { name: 'Calendario 2025' })).toBeVisible();
+		await expect(page.getByText('Nessuna lettura registrata nel 2025.')).toBeVisible();
 
 		// Il Profilo di un anno passato apre il calendario di quell'anno
 		await page.goto('/profile/2025?tab=calendar');
 		await expect(page.getByRole('heading', { name: 'Calendario 2025' })).toBeVisible();
+		await page.getByRole('button', { name: /Anno del calendario/ }).click();
+		await page.getByRole('radio', { name: '2026' }).click();
+		await expect(page.getByRole('heading', { name: 'Calendario 2026' })).toBeVisible();
+		await page.reload();
+		await expect(page.getByRole('heading', { name: 'Calendario 2026' })).toBeVisible();
 	});
 
 	test("l'API del calendario valida l'anno", async ({ page }) => {
