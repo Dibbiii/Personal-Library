@@ -21,7 +21,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
 		label: 'Profilo',
 		icon: 'user',
 		match: ['/profile', '/stats', '/bingo', '/quotes']
-	}
+	},
+	{ href: '/friends', label: 'Amici', icon: 'users', match: ['/friends'] }
 ];
 
 export function isNavActive(item: NavItem, pathname: string): boolean {

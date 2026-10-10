@@ -2,10 +2,6 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { isNavActive, NAV_ITEMS } from '$lib/navigation';
-
-	const friendsActive = $derived(
-		page.url.pathname === '/friends' || page.url.pathname.startsWith('/friends/')
-	);
 </script>
 
 <nav class="bottom-nav" aria-label="Navigazione principale">
@@ -23,16 +19,6 @@
 			<span class="label">{item.label}</span>
 		</a>
 	{/each}
-
-	<a
-		class="item"
-		class:active={friendsActive}
-		href="/friends"
-		aria-current={friendsActive ? 'page' : undefined}
-	>
-		<span class="pill"><Icon name="users" size={22} /></span>
-		<span class="label">Amici</span>
-	</a>
 </nav>
 
 <style>
