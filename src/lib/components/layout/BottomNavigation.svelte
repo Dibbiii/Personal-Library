@@ -2,6 +2,10 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { isNavActive, NAV_ITEMS } from '$lib/navigation';
+
+	const friendsActive = $derived(
+		page.url.pathname === '/friends' || page.url.pathname.startsWith('/friends/')
+	);
 </script>
 
 <nav class="bottom-nav" aria-label="Navigazione principale">
@@ -12,6 +16,16 @@
 			<span class="label">{item.label}</span>
 		</a>
 	{/each}
+
+	<a
+		class="item"
+		class:active={friendsActive}
+		href="/friends"
+		aria-current={friendsActive ? 'page' : undefined}
+	>
+		<span class="pill"><Icon name="users" size={22} /></span>
+		<span class="label">Amici</span>
+	</a>
 
 	<a class="add-book" href="/add" aria-label="Aggiungi libro">
 		<Icon name="plus" size={28} strokeWidth={2.2} />
@@ -32,13 +46,13 @@
 	}
 
 	.item {
-		flex: 0 0 25%;
+		flex: 0 0 20%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 4px;
-		min-width: var(--tap-size);
+		min-width: 0;
 		color: var(--nav-ink, var(--color-nav-inactive));
 		text-decoration: none;
 		border-radius: var(--radius-md);
@@ -48,7 +62,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 60px;
+		width: 52px;
+		max-width: 100%;
 		height: 32px;
 		border-radius: 16px;
 		transition:
@@ -57,9 +72,13 @@
 	}
 
 	.label {
+		max-width: 100%;
+		overflow: hidden;
 		font-size: 12px;
 		line-height: 14px;
 		font-weight: 600;
+		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
 
 	.item.active {
@@ -71,7 +90,7 @@
 		color: var(--nav-active-fg, var(--color-on-primary));
 	}
 
-	.item:nth-of-type(2) {
+	.item:nth-of-type(3) {
 		margin-left: auto;
 	}
 
