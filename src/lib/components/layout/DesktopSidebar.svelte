@@ -13,9 +13,9 @@
 </script>
 
 <aside class="sidebar">
-	<a class="brand" href="/library" aria-label="Segnalibro, vai alla libreria">
+	<a class="brand" href="/library">
 		<Icon name="bookmark" size={24} strokeWidth={2} />
-		<span>Segnalibro</span>
+		<span>Libreria</span>
 	</a>
 
 	<nav aria-label="Navigazione principale">
