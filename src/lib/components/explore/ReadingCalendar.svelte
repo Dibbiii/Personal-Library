@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { readingCalendarResponseSchema } from '$lib/contracts/rpc';
@@ -13,14 +13,16 @@
 
 	interface Props {
 		year: number;
+		/** Anno della pagina Profilo, usato come valore predefinito senza override `?year=`. */
+		defaultYear: number;
 		days: readonly ReadingCalendarDay[];
 		/** Anno corrente del server: limite superiore del selettore. */
 		currentYear: number;
 	}
 
-	let { year: initialYear, days: initialDays, currentYear }: Props = $props();
+	let { year: initialYear, defaultYear, days: initialDays, currentYear }: Props = $props();
 
-	// Il calendario parte dai dati del server e poi cambia anno da solo: il valore iniziale basta.
+	// Il calendario parte dai dati del server e carica dal client solo dopo un cambio anno.
 	// svelte-ignore state_referenced_locally
 	let year = $state(initialYear);
 	// svelte-ignore state_referenced_locally
@@ -35,6 +37,21 @@
 	const months = Array.from({ length: 12 }, (_, i) => i + 1);
 	const options = $derived(yearOptions(currentYear, 9));
 	const activity = $derived(new Map(days.map((day) => [day.date, day])));
+
+	// Una nuova risposta server deve sostituire anche lo stato locale del periodo selezionato.
+	$effect(() => {
+		const nextYear = initialYear;
+		const nextDays = initialDays;
+		const [stateYear, stateDays] = untrack(() => [year, days] as const);
+		if (nextYear === stateYear && nextDays === stateDays) return;
+		requestId += 1;
+		year = nextYear;
+		days = nextDays;
+		loading = false;
+		failedYear = null;
+		sheetOpen = false;
+		openDate = null;
+	});
 
 	// "Oggi" solo sul client: evita differenze di fuso tra server e dispositivo.
 	onMount(() => {
@@ -60,7 +77,7 @@
 			if (id !== requestId) return;
 			days = parsed.days;
 			const url = new URL(page.url);
-			if (target === currentYear) url.searchParams.delete('year');
+			if (target === defaultYear) url.searchParams.delete('year');
 			else url.searchParams.set('year', String(target));
 			replaceState(url, page.state);
 		} catch {

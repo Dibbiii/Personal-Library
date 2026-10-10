@@ -13,10 +13,12 @@ export function currentYear(): number {
 export async function loadProfilePage(
 	repos: Repositories | null,
 	year: number,
-	requestedTab: string | null = null
+	requestedTab: string | null = null,
+	requestedCalendarYear = year
 ) {
 	const parsedTab = profileTabSchema.safeParse(requestedTab);
 	const tab = parsedTab.success ? parsedTab.data : 'overview';
+	const calendarYear = tab === 'calendar' ? requestedCalendarYear : year;
 	const stats = requireRepository(repos, 'stats');
 	const extras = requireRepository(repos, 'statsExtras');
 	const bingo = requireRepository(repos, 'bingo');
@@ -27,7 +29,7 @@ export async function loadProfilePage(
 		stats.getYearStats(year),
 		extras.getGenreBreakdown(year),
 		bingo.listBoards(),
-		tab === 'overview' || tab === 'calendar' ? stats.getCalendar(year) : null,
+		tab === 'overview' || tab === 'calendar' ? stats.getCalendar(calendarYear) : null,
 		performance.getProfileSummary(
 			tab === 'overview',
 			tab === 'activity' ? 30 : tab === 'overview' ? 4 : 0
@@ -45,6 +47,7 @@ export async function loadProfilePage(
 	return {
 		tab,
 		year,
+		calendarYear,
 		currentYear: thisYear,
 		years: [...years].sort((a, b) => b - a),
 		stats: yearStats.stats,

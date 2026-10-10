@@ -19,6 +19,7 @@
 
 	interface Props {
 		year: number;
+		calendarYear: number;
 		currentYear: number;
 		years: number[];
 		stats: YearStats;
@@ -130,7 +131,12 @@
 			<WheelSection pool={props.pool} />
 		</div>
 	{:else if tab === 'calendar' && ReadingCalendar}
-		<ReadingCalendar year={props.year} days={props.calendar} currentYear={props.currentYear} />
+		<ReadingCalendar
+			year={props.calendarYear}
+			defaultYear={props.year}
+			days={props.calendar}
+			currentYear={props.currentYear}
+		/>
 	{:else if DnfCemetery}
 		<DnfCemetery books={props.dnf} />
 	{/if}
