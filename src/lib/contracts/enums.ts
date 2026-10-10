@@ -7,7 +7,8 @@ export const genreSlugSchema = z.enum([
 	'thriller-mystery',
 	'fantasy-magical-gothic',
 	'romance-ya-na',
-	'contemporary-historical'
+	'contemporary-historical',
+	'essays'
 ]);
 
 export const bookFormatSchema = z.enum(['physical', 'digital', 'both']);

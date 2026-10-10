@@ -27,7 +27,8 @@ export const SHELF_DECORATION: Record<GenreSlug, DecorationKind> = {
 	'thriller-mystery': 'stack',
 	'fantasy-magical-gothic': 'plant',
 	'romance-ya-na': 'candle',
-	'contemporary-historical': 'stack'
+	'contemporary-historical': 'stack',
+	essays: 'globe'
 };
 
 export type ShelfItem =

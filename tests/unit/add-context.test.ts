@@ -6,6 +6,11 @@ const paths = ['/add/manual', '/add/search', '/add/scan'] as const;
 const url = (path: string) => new URL(path, 'https://segnalibro.test');
 
 describe('contesto del flusso aggiunta', () => {
+	it('accetta Saggi come genere del flusso', () => {
+		expect(parseAddGenre('essays')).toBe('essays');
+		expect(buildAddHref('/add', 'essays')).toBe('/add?genre=essays');
+	});
+
 	it.each(GENRE_ORDER)('accetta il genere %s senza modificarlo', (genre) => {
 		expect(parseAddGenre(genre)).toBe(genre);
 		expect(buildAddHref('/add', genre)).toBe(`/add?genre=${genre}`);

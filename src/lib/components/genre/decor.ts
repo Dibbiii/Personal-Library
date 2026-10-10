@@ -12,5 +12,6 @@ export const GENRE_DECOR: Record<
 	'thriller-mystery': ['lantern', 'stack', 'hourglass'],
 	'fantasy-magical-gothic': ['lantern', 'candle', 'trailing'],
 	'romance-ya-na': ['figurine', 'mug', 'trailing'],
-	'contemporary-historical': ['bookends', 'mug', 'cactus']
+	'contemporary-historical': ['bookends', 'mug', 'cactus'],
+	essays: ['globe', 'stack', 'fern']
 };

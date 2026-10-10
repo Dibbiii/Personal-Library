@@ -7,7 +7,7 @@ const ADMIN_URL =
 	process.env.DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5433/segnalibro';
 const PASSWORD = 'Dettaglio-e2e-2026!';
 
-/** genre_id: 1 Classici, 2 Mitologia, 3 Distopia, 4 Thriller, 5 Fantasy, 6 Romance, 7 Contemporanea */
+/** genre_id: 1 Classici, 2 Mitologia, 3 Distopia, 4 Thriller, 5 Fantasy, 6 Romance, 7 Contemporanea, 8 Saggi */
 const BOOK_DEFS = {
 	alfa: { title: 'Libro Alfa', genre: 2, pages: 300 },
 	beta: { title: 'Libro Beta', genre: 5, pages: 200 },

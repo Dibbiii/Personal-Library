@@ -73,7 +73,8 @@ export const GENRE_TOPICS: Record<GenreSlug, DiscoverTopic[]> = {
 	'thriller-mystery': ['thriller', 'mystery'],
 	'fantasy-magical-gothic': ['fantasy'],
 	'romance-ya-na': ['romance'],
-	'contemporary-historical': ['fiction', 'history']
+	'contemporary-historical': ['fiction', 'history'],
+	essays: ['biography', 'history', 'philosophy']
 };
 
 export const DISCOVER_SECTIONS = [

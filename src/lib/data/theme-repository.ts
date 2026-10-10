@@ -23,12 +23,17 @@ function rowToDefinition(row: CustomThemeRow): ThemeDefinition {
 	const tokens = (
 		typeof row.tokens === 'object' && row.tokens !== null ? row.tokens : {}
 	) as Record<string, unknown>;
+	const savedGenres =
+		typeof tokens.genres === 'object' && tokens.genres !== null && !Array.isArray(tokens.genres)
+			? (tokens.genres as Record<string, unknown>)
+			: {};
+	const fallbackGenres = builtinThemes.segnalibro!.genres;
 	return themeDefinitionSchema.parse({
 		schemaVersion: row.schemaVersion,
 		id: row.id,
 		name: row.name,
 		colors: tokens.colors,
-		genres: tokens.genres
+		genres: { ...fallbackGenres, ...savedGenres }
 	});
 }
 

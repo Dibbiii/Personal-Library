@@ -8,7 +8,8 @@ export const GENRE_ORDER: readonly GenreSlug[] = [
 	'thriller-mystery',
 	'fantasy-magical-gothic',
 	'romance-ya-na',
-	'contemporary-historical'
+	'contemporary-historical',
+	'essays'
 ];
 
 export const GENRE_LABELS: Record<GenreSlug, string> = {
@@ -18,7 +19,8 @@ export const GENRE_LABELS: Record<GenreSlug, string> = {
 	'thriller-mystery': 'Thriller, Gialli e Mistero',
 	'fantasy-magical-gothic': 'Fantasy, Realismo Magico e Gotico',
 	'romance-ya-na': 'Romance, Young Adult e New Adult',
-	'contemporary-historical': 'Narrativa Contemporanea e Storica'
+	'contemporary-historical': 'Narrativa Contemporanea e Storica',
+	essays: 'Saggi'
 };
 
 /** Nomi brevi usati nelle legende (calendario, filtri). */
@@ -29,7 +31,8 @@ export const GENRE_SHORT_LABELS: Record<GenreSlug, string> = {
 	'thriller-mystery': 'Thriller',
 	'fantasy-magical-gothic': 'Fantasy',
 	'romance-ya-na': 'Romance',
-	'contemporary-historical': 'Contemporanea'
+	'contemporary-historical': 'Contemporanea',
+	essays: 'Saggi'
 };
 
 export function isGenreSlug(value: string): value is GenreSlug {

@@ -39,7 +39,7 @@ const QUEUE_DEPENDENCY = 'app:queue'                                      // da 
 
 - Header, "In lettura" (cover `lg` 104x156 frontali, candela e pianta, LED rosa, card progresso; ogni card e'
   un link a `/book/<id>#progress`), "I prossimi 3" (cover 72x108 con badge 1/2/3, slot "Trascina qui", tazza,
-  titoli a 2 righe), 7 scaffali per genere nell'ordine della spec (plancia = link a `/genre/<slug>`).
+  titoli a 2 righe), 8 scaffali per genere nell'ordine della spec, incluso Saggi in verde (plancia = link a `/genre/<slug>`).
 - Scaffale: libri con stato in testa (in lettura sempre di fronte con badge "In lettura"; il primo "Prossimo"
   di fronte, gli altri dorsi con badge sopra), gli altri sono dorsi (8% "evidenziati" di fronte, senza
   immagine reale), una decorazione dopo il 2°-5° elemento e al piu' un libro appoggiato prima della

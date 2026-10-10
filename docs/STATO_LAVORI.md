@@ -1,6 +1,6 @@
 # Segnalibro — stato dei lavori
 
-Aggiornato alla fine della Fase B. Niente è stato committato: tutto è nel working tree.
+Riepilogo delle funzionalità aggiornato con lo scaffale Saggi.
 
 ## Regole fissate dall'utente
 - **Supabase vietato, per nessun motivo.** Il database è PostgreSQL 17 in Docker; auth, sessioni e storage dei file sono codice nostro nel server SvelteKit.
@@ -24,7 +24,7 @@ Aggiornato alla fine della Fase B. Niente è stato committato: tutto è nel work
 ### Fase B — funzionalità
 | Area | Consegnato |
 |---|---|
-| Home (`/library`) | In lettura, I prossimi 3 con soft-limit, 7 scaffali con dorsi CSS deterministici, paginazione keyset, drag con Pointer Events e alternativa accessibile Su/Giù/Rimuovi |
+| Home (`/library`) | In lettura, I prossimi 3 con soft-limit, 8 scaffali con dorsi CSS deterministici (Saggi in verde), paginazione keyset, drag con Pointer Events e alternativa accessibile Su/Giù/Rimuovi |
 | Vista genere e dettaglio libro | Ordinamento nell'URL, sheet Sposta, sheet Stato di lettura, aggiornamento pagina con correzioni, finish, DNF, pausa/ripresa, riletture con date, cambio genere con avviso sul reset dei voti |
 | Recensione | 3 aggettivi, voto, valutazioni per genere, 27 tag, citazioni (CRUD), autosave, stato bloccato fino alla prima lettura completata |
 | Esplora | Ruota della fortuna in SVG con filtri per genere, calendario annuale dai Progress Event reali, marcatore multi-genere |

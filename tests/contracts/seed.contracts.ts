@@ -51,7 +51,7 @@ const DEMO = { email: 'demo@segnalibro.local', password: 'segnalibro-demo' };
 		});
 	});
 
-	it('Home: two current readings, three queued books, seven shelves', async (ctx) => {
+	it('Home: two current readings, three queued books, eight shelves', async (ctx) => {
 		if (!seeded) return ctx.skip();
 		const home = await expectRpcContract(
 			client,
@@ -72,7 +72,7 @@ const DEMO = { email: 'demo@segnalibro.local', password: 'segnalibro-demo' };
 			'Il problema dei tre corpi',
 			"Assassinio sull'Orient Express"
 		]);
-		expect(home.shelves).toHaveLength(7);
+		expect(home.shelves).toHaveLength(8);
 		const myth = home.shelves.find((s) => s.genre.slug === 'mythology-epic-retelling');
 		expect(myth?.totalCount).toBe(9);
 	});

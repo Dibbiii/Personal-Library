@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GENRE_ORDER } from '../genres';
 import { contractVersionSchema, uuidSchema } from './primitives';
 import { themeDefinitionSchema, themeSelectionSchema } from './themes';
 
@@ -17,6 +18,7 @@ export const SHELF_COOKIE = 'sb-shelf';
 
 export const DEFAULT_SHELF_MODE: ShelfMode = 'hybrid';
 export const DEFAULT_MOTION_PREFERENCE: MotionPreference = 'system';
+const GENRE_COUNT = GENRE_ORDER.length;
 
 export const displayNameSchema = z.string().trim().min(1, 'Scrivi un nome').max(80);
 
@@ -42,19 +44,19 @@ export const updateSettingsInputSchema = z
 export type UpdateSettingsInput = z.infer<typeof updateSettingsInputSchema>;
 
 // ---------------------------------------------------------------------------
-// Scaffali personali: i sette generi di riferimento, rinominabili e ordinabili.
+// Scaffali personali: i generi di riferimento, rinominabili e ordinabili.
 // ---------------------------------------------------------------------------
 
 export const userGenreShelfSchema = z.object({
 	id: z.number().int().positive(),
 	slug: z.string().trim().min(1),
 	name: z.string().trim().min(1).max(80),
-	sortOrder: z.number().int().min(1).max(7)
+	sortOrder: z.number().int().min(1).max(GENRE_COUNT)
 });
 
 export const userGenreShelvesResponseSchema = z.object({
 	contractVersion: contractVersionSchema,
-	genres: z.array(userGenreShelfSchema).length(7)
+	genres: z.array(userGenreShelfSchema).length(GENRE_COUNT)
 });
 
 export const updateUserGenreShelvesInputSchema = z
@@ -63,14 +65,14 @@ export const updateUserGenreShelvesInputSchema = z
 			.array(
 				userGenreShelfSchema.pick({ slug: true, name: true, sortOrder: true })
 			)
-			.length(7)
+			.length(GENRE_COUNT)
 	})
 	.strict()
 	.superRefine(({ genres }, ctx) => {
-		if (new Set(genres.map((genre) => genre.slug)).size !== 7) {
+		if (new Set(genres.map((genre) => genre.slug)).size !== GENRE_COUNT) {
 			ctx.addIssue({ code: 'custom', message: 'I generi devono essere distinti.' });
 		}
-		if (new Set(genres.map((genre) => genre.sortOrder)).size !== 7) {
+		if (new Set(genres.map((genre) => genre.sortOrder)).size !== GENRE_COUNT) {
 			ctx.addIssue({ code: 'custom', message: 'Le posizioni devono essere distinte.' });
 		}
 	});

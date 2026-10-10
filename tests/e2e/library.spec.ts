@@ -113,12 +113,16 @@ test.describe('Home Libreria', () => {
 			await expect(page.getByText('3 libri', { exact: true })).toBeVisible();
 			await page.getByRole('link', { name: 'Tutti gli scaffali' }).click();
 			await expect(page).toHaveURL(/\/library$/);
-			// 7 scaffali nell'ordine della spec, titolo toccabile
+			// 8 scaffali nell'ordine della spec, titolo toccabile
 			const genres = page.getByRole('link', {
-				name: /Classici|Mitologia|Distopia|Thriller|Fantasy|Romance|Contemporanea/
+				name: /Classici|Mitologia|Distopia|Thriller|Fantasy|Romance|Contemporanea|Saggi/
 			});
 			await expect(genres.first()).toHaveAttribute('href', '/genre/classics');
-			await expect(page.locator('a[href^="/genre/"]')).toHaveCount(7);
+			await expect(page.locator('a[href^="/genre/"]')).toHaveCount(8);
+			await expect(page.getByRole('link', { name: /Scaffale Saggi/ })).toHaveAttribute(
+				'href',
+				'/genre/essays'
+			);
 			// dorso di un libro -> dettaglio
 			await expect(page.locator('a[href^="/book/"][aria-label^="Libro D"]').first()).toBeVisible();
 			// ricerca: nasconde in lettura/prossimi e filtra gli scaffali
