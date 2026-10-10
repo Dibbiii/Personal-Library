@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import postgres from 'postgres';
+import { GENRE_LABELS } from '../../src/lib/genres';
 
 const ADMIN_URL =
 	process.env.DATABASE_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5433/segnalibro';
@@ -391,4 +392,134 @@ test('rilettura storica con date non crea giorni di lettura', async ({ page }) =
 		from public.user_books where id = ${ids.epsilon}::uuid`;
 	expect(row?.events).toBe(0);
 	expect(row?.completed).toBe(2);
+});
+
+test('modifica la personalizzazione senza sostituire il libro né perdere le relazioni', async ({
+	page
+}) => {
+	await sql`insert into public.reading_queue (user_id, user_book_id, position)
+	values (${userId}::uuid, ${ids.epsilon}::uuid, 4)`;
+	try {
+		const [before] = await sql<
+			{
+				id: string;
+				genre_slug: string;
+				format: string;
+				series_name: string | null;
+				review_rating: number | null;
+				readings: number;
+				queue_position: number | null;
+			}[]
+		>`
+		select
+			b.id::text,
+			g.slug as genre_slug,
+			b.format,
+			b.series_name,
+			b.review_rating::int as review_rating,
+			(select count(*)::int from public.readings r where r.user_book_id = b.id) as readings,
+			(select position from public.reading_queue q where q.user_book_id = b.id) as queue_position
+		from public.user_books b
+		join public.genres g on g.id = b.genre_id
+		where b.id = ${ids.epsilon}::uuid`;
+		expect(before).toMatchObject({ id: ids.epsilon, review_rating: 4, queue_position: 4 });
+
+		await openBook(page, 'epsilon');
+		await page.getByRole('button', { name: 'Altre azioni', exact: true }).click();
+		await page.getByRole('menuitem', { name: 'Modifica edizione e dati', exact: true }).click();
+		await expect(page).toHaveURL(new RegExp(`/book/${ids.epsilon}/edit$`));
+		await expect(page.getByText('Edizione attuale:', { exact: false })).toBeVisible();
+		await page.getByRole('button', { name: 'Continua alla personalizzazione' }).click();
+
+		const sheet = page.getByRole('dialog', { name: 'Modifica libro' });
+		let updateRequests = 0;
+		page.on('request', (request) => {
+			if (
+				request.method() === 'PATCH' &&
+				new URL(request.url()).pathname === `/api/books/${ids.epsilon}`
+			) {
+				updateRequests++;
+			}
+		});
+		await sheet.getByRole('radio', { name: 'Digitale', exact: true }).check();
+		await sheet.getByLabel('Nome della serie').fill('Modifica annullata');
+		await sheet.getByRole('button', { name: 'Annulla', exact: true }).click();
+		await expect(sheet).toBeHidden();
+		expect(updateRequests).toBe(0);
+
+		const [unchanged] = await sql<
+			{ genre_slug: string; format: string; series_name: string | null }[]
+		>`
+			select g.slug as genre_slug, b.format, b.series_name
+			from public.user_books b join public.genres g on g.id = b.genre_id
+			where b.id = ${ids.epsilon}::uuid`;
+		expect(unchanged).toMatchObject({
+			genre_slug: before?.genre_slug,
+			format: before?.format,
+			series_name: before?.series_name
+		});
+
+		await page.getByRole('button', { name: 'Continua alla personalizzazione' }).click();
+		await sheet.getByRole('radio', { name: GENRE_LABELS['dystopia-scifi'], exact: true }).check();
+		await sheet.getByRole('radio', { name: 'Digitale', exact: true }).check();
+		await sheet.getByLabel('Nome della serie').fill('Saga di prova');
+		await sheet.getByLabel('Numero volume').fill('2');
+		await sheet.getByLabel('Volumi totali').fill('5');
+		await sheet.getByRole('button', { name: 'Salva modifiche', exact: true }).click();
+		expect(updateRequests).toBe(1);
+
+		await expect(page).toHaveURL(new RegExp(`/book/${ids.epsilon}$`));
+		await expect(
+			page.getByRole('heading', { level: 1, name: BOOK_DEFS.epsilon.title })
+		).toBeVisible();
+		await expect(page.getByTestId('notice')).toContainText(
+			'valutazioni specifiche sono state azzerate'
+		);
+
+		const [after] = await sql<
+			{
+				id: string;
+				genre_slug: string;
+				format: string;
+				series_name: string | null;
+				series_number: number | null;
+				series_total: number | null;
+				review_rating: number | null;
+				readings: number;
+				queue_position: number | null;
+			}[]
+		>`
+		select
+			b.id::text,
+			g.slug as genre_slug,
+			b.format,
+			b.series_name,
+			b.series_number::float8 as series_number,
+			b.series_total::int as series_total,
+			b.review_rating::int as review_rating,
+			(select count(*)::int from public.readings r where r.user_book_id = b.id) as readings,
+			(select position from public.reading_queue q where q.user_book_id = b.id) as queue_position
+		from public.user_books b
+		join public.genres g on g.id = b.genre_id
+		where b.id = ${ids.epsilon}::uuid`;
+		expect(after).toMatchObject({
+			id: ids.epsilon,
+			genre_slug: 'dystopia-scifi',
+			format: 'digital',
+			series_name: 'Saga di prova',
+			series_number: 2,
+			series_total: 5,
+			review_rating: before?.review_rating,
+			readings: before?.readings,
+			queue_position: before?.queue_position
+		});
+
+		const matches = await sql<{ id: string }[]>`
+		select id::text from public.user_books
+		where user_id = ${userId}::uuid and title = ${BOOK_DEFS.epsilon.title}`;
+		expect(matches).toEqual([{ id: ids.epsilon }]);
+	} finally {
+		await sql`delete from public.reading_queue
+		where user_id = ${userId}::uuid and user_book_id = ${ids.epsilon}::uuid`;
+	}
 });

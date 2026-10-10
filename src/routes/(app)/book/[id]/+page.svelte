@@ -370,6 +370,16 @@
 
 	onMount(() => {
 		offline = navigator.onLine === false;
+		const url = new URL(location.href);
+		if (url.searchParams.get('reviewScoresReset') === '1') {
+			say('Genere cambiato: le valutazioni specifiche sono state azzerate.');
+			url.searchParams.delete('reviewScoresReset');
+			void goto(`${url.pathname}${url.search}${url.hash}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true
+			});
+		}
 		// Il link "aggiorna pagina" della Home (#progress) apre direttamente lo sheet.
 		if (location.hash === '#progress' && reading?.status === 'active') {
 			document.getElementById('progress')?.scrollIntoView({ block: 'center' });
@@ -400,6 +410,7 @@
 			{book}
 			queued={detail.queuePosition !== null}
 			{canQueue}
+			onedit={() => void goto(`/book/${book.id}/edit`)}
 			onmove={() => openSheet('move')}
 			onformat={() => openSheet('format')}
 			onqueue={toggleQueue}

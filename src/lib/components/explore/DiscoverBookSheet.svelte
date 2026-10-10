@@ -80,7 +80,7 @@
 				headingId="{uid}-title"
 				ownedHref={ownedId ? `/book/${ownedId}` : null}
 				onchange={(next) => (draft = next)}
-				{onadd}
+				oncontinue={onadd}
 			/>
 		</div>
 	{/if}

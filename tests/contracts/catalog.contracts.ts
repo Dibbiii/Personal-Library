@@ -1,7 +1,9 @@
 // Registered by db.contracts.test.ts: the only write path into the shared catalog.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ServerCatalogRepository } from '../../src/lib/data/catalog-repository';
 import { sql, upsertCatalogEdition } from '../../src/lib/server/db';
+import type { UpdateBookInput } from '../../src/lib/catalog/schemas';
 import { runDb } from '../helpers/env';
 import { adminSql, createTestUser, type TestUser } from '../helpers/users';
 
@@ -10,6 +12,14 @@ import { adminSql, createTestUser, type TestUser } from '../helpers/users';
 	const tag = randomUUID().slice(0, 8);
 	const digits = () => String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
 	const isbn13 = () => `979${digits()}0`;
+	const validIsbn13 = () => {
+		const body = `979${digits()}`;
+		const sum = [...body].reduce(
+			(total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
+			0
+		);
+		return `${body}${(10 - (sum % 10)) % 10}`;
+	};
 
 	beforeAll(async () => {
 		user = await createTestUser('catalog');
@@ -121,6 +131,98 @@ import { adminSql, createTestUser, type TestUser } from '../helpers/users';
 		expect(second.created).toBe(true); expect(second.editionId).not.toBe(first.editionId);
 		const [row] = await adminSql()`select isbn_13, google_books_id, published_year from public.editions where id=${second.editionId}::bigint`;
 		expect(row).toEqual({ isbn_13: secondIsbn, google_books_id: null, published_year: 2025 });
+	});
+
+	it('updates an existing library row and rejects an exact-edition duplicate', async () => {
+		const repository = new ServerCatalogRepository({} as never);
+		const bookId = randomUUID();
+		const duplicateBookId = randomUUID();
+		const title = `Contract ${tag} edited book`;
+		const author = `Contract ${tag} author`;
+		const isbn = validIsbn13();
+		const workId = `OLW-${tag}-edit`;
+		const input: UpdateBookInput = {
+			genre: 'dystopia-scifi',
+			format: 'digital',
+			series: { name: `Contract ${tag} series`, number: 2, total: 5 },
+			title: `${title} edition`,
+			author,
+			pageCount: 280,
+			language: 'en',
+			isbn,
+			coverUrl: null,
+			edition: {
+				provider: 'open-library',
+				providerIds: {
+					openLibraryWorkId: workId,
+					openLibraryEditionId: `OLE-${tag}-edit`,
+					googleBooksId: null
+				},
+				workTitle: `${title} work`,
+				authors: [author],
+				publisher: `Contract ${tag} publisher`,
+				publishedDate: '2024'
+			}
+		};
+
+		await expect(repository.updateBook(user.id, randomUUID(), input)).rejects.toMatchObject({
+			code: 'NOT_FOUND'
+		});
+		const [missingWork] = await adminSql()<{ count: number }[]>`
+			select count(*)::int as count
+			from public.works
+			where open_library_work_id = ${workId}`;
+		expect(missingWork?.count).toBe(0);
+
+		await adminSql()`insert into public.user_books
+			(id, user_id, genre_id, title, author_display, page_count, language, format, source)
+			values
+				(${bookId}::uuid, ${user.id}::uuid, 1, ${title}, ${author}, 200, 'it', 'physical', 'manual'),
+				(${duplicateBookId}::uuid, ${user.id}::uuid, 1, ${`Contract ${tag} second`}, ${author}, 200, 'it', 'physical', 'manual')`;
+
+		await expect(repository.updateBook(user.id, bookId, input)).resolves.toEqual({
+			status: 'updated',
+			bookId,
+			reviewScoresReset: false
+		});
+		// The current book is excluded from duplicate detection when it keeps its edition.
+		await expect(repository.updateBook(user.id, bookId, input)).resolves.toEqual({
+			status: 'updated',
+			bookId,
+			reviewScoresReset: false
+		});
+		await expect(repository.updateBook(user.id, duplicateBookId, input)).resolves.toMatchObject({
+			status: 'duplicate',
+			exact: true,
+			existing: { id: bookId, title: `${title} edition`, author }
+		});
+
+		const [updated] = await adminSql()<{
+			id: string;
+			title: string;
+			format: string;
+			genre: string;
+			edition_id: string;
+		}[]>`
+			select b.id::text, b.title, b.format, g.slug as genre, b.edition_id::text
+			from public.user_books b join public.genres g on g.id = b.genre_id
+			where b.id = ${bookId}::uuid`;
+		expect(updated).toMatchObject({
+			id: bookId,
+			title: `${title} edition`,
+			format: 'digital',
+			genre: 'dystopia-scifi'
+		});
+		expect(updated?.edition_id).toMatch(/^\d+$/);
+
+		const [unchanged] = await adminSql()<{
+			title: string;
+			format: string;
+			edition_id: string | null;
+		}[]>`
+			select title, format, edition_id::text
+			from public.user_books where id = ${duplicateBookId}::uuid`;
+		expect(unchanged).toEqual({ title: `Contract ${tag} second`, format: 'physical', edition_id: null });
 	});
 
 	it('is safe under concurrent imports of the same book', async () => {

@@ -1,8 +1,8 @@
-import type { EditionCandidate } from '$lib/contracts/books';
+import type { BookSummary, EditionCandidate } from '$lib/contracts/books';
 import type { BookInfo } from './book-info';
 import type { BookFormat, GenreSlug } from '$lib/contracts/enums';
 import { languageLabel } from './language';
-import type { AddBookRequest } from './schemas';
+import type { AddBookRequest, UpdateBookRequest } from './schemas';
 
 /** Libro da confermare nello sheet: proviene da un candidato dei provider o dal form manuale. */
 export interface BookDraft {
@@ -24,6 +24,21 @@ export interface DraftChoices {
 	genre: GenreSlug;
 	format: BookFormat;
 	series: { name: string; number: number | null; total: number | null } | null;
+}
+
+export function draftFromBook(book: BookSummary): BookDraft {
+	return {
+		source: book.source === 'manual' ? 'manual' : book.source === 'isbn' ? 'isbn' : 'search',
+		title: book.title,
+		author: book.author,
+		pageCount: book.pageCount,
+		language: book.language,
+		isbn: null,
+		coverUrl: book.cover.coverUrl,
+		publisher: null,
+		publishedDate: null,
+		edition: null
+	};
 }
 
 export function draftFromCandidate(
@@ -69,6 +84,20 @@ export function buildAddRequest(
 		coverUrl: draft.coverUrl,
 		edition: draft.edition,
 		force
+	};
+}
+
+export function buildUpdateBookRequest(draft: BookDraft, choices: DraftChoices): UpdateBookRequest {
+	if (!draft.edition) return choices;
+	return {
+		...choices,
+		title: draft.title,
+		author: draft.author,
+		pageCount: draft.pageCount,
+		language: draft.language,
+		isbn: draft.isbn,
+		coverUrl: draft.coverUrl,
+		edition: draft.edition
 	};
 }
 
@@ -122,7 +151,8 @@ function lastSegment(url: string): string | null {
 export function draftWithEdition(
 	draft: BookDraft,
 	edition: InfoEdition,
-	workUrl: string
+	workUrl: string,
+	workTitle?: string
 ): BookDraft {
 	const publishedDate = edition.year ? String(edition.year) : null;
 	return {
@@ -143,7 +173,7 @@ export function draftWithEdition(
 				openLibraryEditionId: lastSegment(edition.url),
 				googleBooksId: null
 			},
-			workTitle: draft.edition?.workTitle ?? draft.title,
+			workTitle: workTitle ?? draft.edition?.workTitle ?? draft.title,
 			authors: draft.edition?.authors ?? [draft.author],
 			publisher: edition.publisher,
 			publishedDate

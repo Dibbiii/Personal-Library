@@ -8,6 +8,7 @@
 		queued: boolean;
 		/** Nascosto per i libri in lettura: iniziare a leggere toglie già il libro dai prossimi. */
 		canQueue: boolean;
+		onedit: () => void;
 		onmove: () => void;
 		onformat: () => void;
 		onqueue: () => void;
@@ -15,7 +16,8 @@
 		onremove?: () => void;
 	}
 
-	let { book, queued, canQueue, onmove, onformat, onqueue, oncover, onremove }: Props = $props();
+	let { book, queued, canQueue, onedit, onmove, onformat, onqueue, oncover, onremove }: Props =
+		$props();
 
 	const uid = $props.id();
 	let open = $state(false);
@@ -77,6 +79,10 @@
 			<button class="item" type="button" role="menuitem" onclick={() => choose(onmove)}>
 				<span class="tile"><Icon name="library" size={20} strokeWidth={1.9} /></span>
 				Sposta il libro
+			</button>
+			<button class="item" type="button" role="menuitem" onclick={() => choose(onedit)}>
+				<span class="tile"><Icon name="pencil" size={20} strokeWidth={1.9} /></span>
+				Modifica edizione e dati
 			</button>
 			<button class="item" type="button" role="menuitem" onclick={() => choose(onformat)}>
 				Modifica formato

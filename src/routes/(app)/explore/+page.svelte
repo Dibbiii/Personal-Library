@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
-	import AddBookConfirmSheet from '$lib/components/catalog/AddBookConfirmSheet.svelte';
+	import BookCustomizationSheet from '$lib/components/catalog/BookCustomizationSheet.svelte';
 	import DiscoverBookSheet from '$lib/components/explore/DiscoverBookSheet.svelte';
 	import DiscoverFilters from '$lib/components/explore/DiscoverFilters.svelte';
 	import DiscoverResults from '$lib/components/explore/DiscoverResults.svelte';
@@ -299,7 +299,7 @@
 	onadd={add}
 />
 
-<AddBookConfirmSheet
+<BookCustomizationSheet
 	open={confirmOpen}
 	draft={confirmDraft}
 	onclose={() => (confirmOpen = false)}
