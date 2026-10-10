@@ -32,7 +32,9 @@
 	}
 </script>
 
-<p class="intro">Rinomina i tuoi sette scaffali e scegli l’ordine in cui appaiono nella libreria.</p>
+<p class="intro">
+	Rinomina i tuoi {genres.length} scaffali e scegli l’ordine in cui appaiono nella libreria.
+</p>
 <ol class="shelves">
 	{#each draft as genre, index (genre.slug)}
 		<li>

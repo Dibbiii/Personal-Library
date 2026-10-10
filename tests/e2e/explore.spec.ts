@@ -8,7 +8,7 @@ const ADMIN_URL =
 
 const PASSWORD = 'Esplora-e2e-2026!';
 
-/** genre_id: 1 Classici, 2 Mitologia, 3 Distopia, 4 Thriller, 5 Fantasy, 6 Romance, 7 Contemporanea */
+/** genre_id: 1 Classici, 2 Mitologia, 3 Distopia, 4 Thriller, 5 Fantasy, 6 Romance, 7 Contemporanea, 8 Saggi */
 const BOOKS = [
 	{ title: 'Orgoglio e pregiudizio', author: 'Jane Austen', genre: 1 },
 	{ title: 'Madame Bovary', author: 'Gustave Flaubert', genre: 1 },
@@ -179,7 +179,7 @@ test.describe('Calendario annuale (account temporaneo)', () => {
 		await expect(page.getByText('Un pallino per ogni giorno di lettura.')).toBeVisible();
 		await expect(
 			page.getByRole('list', { name: 'Legenda dei generi' }).getByRole('listitem')
-		).toHaveCount(7);
+		).toHaveCount(8);
 		await expect(page.locator('section.month')).toHaveCount(12);
 
 		// Due generi: meta e meta, etichetta accessibile

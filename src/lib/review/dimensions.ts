@@ -69,6 +69,13 @@ export const DIMENSIONS_BY_GENRE: Readonly<Record<GenreSlug, readonly ReviewDime
 		dim('contemporary.setting', 'Ambientazione'),
 		dim('contemporary.themes', 'Temi'),
 		dim('contemporary.emotional', 'Impatto emotivo')
+	],
+	essays: [
+		dim('essays.clarity', 'Chiarezza'),
+		dim('essays.depth', 'Approfondimento'),
+		dim('essays.rigor', 'Rigore'),
+		dim('essays.style', 'Stile'),
+		dim('essays.impact', 'Impatto')
 	]
 };
 

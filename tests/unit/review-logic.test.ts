@@ -33,6 +33,10 @@ const migration004 = readFileSync(
 	path.resolve(process.cwd(), 'db/migrations/004_reference_data.sql'),
 	'utf8'
 );
+const migration216 = readFileSync(
+	path.resolve(process.cwd(), 'db/migrations/216_essays_shelf.sql'),
+	'utf8'
+);
 const migration203 = readFileSync(
 	path.resolve(process.cwd(), 'db/migrations/203_canonical_italian_tags.sql'),
 	'utf8'
@@ -51,17 +55,36 @@ describe('dimensioni per genere', () => {
 				all.add(key);
 			}
 		}
-		expect(all.size).toBe(35);
+		expect(all.size).toBe(40);
 	});
 
-	it('coincidono con rating_dimensions della migration 004 (chiave, etichetta, ordine)', () => {
+	it('definisce cinque valutazioni specifiche per Saggi', () => {
+		const dimensions = (
+			DIMENSIONS_BY_GENRE as Record<
+				string,
+				readonly { key: string; label: string; shortLabel: string }[]
+			>
+		).essays;
+
+		expect(dimensions?.map(({ key, label, shortLabel }) => ({ key, label, shortLabel }))).toEqual([
+			{ key: 'essays.clarity', label: 'Chiarezza', shortLabel: 'Chiarezza' },
+			{ key: 'essays.depth', label: 'Approfondimento', shortLabel: 'Approfondimento' },
+			{ key: 'essays.rigor', label: 'Rigore', shortLabel: 'Rigore' },
+			{ key: 'essays.style', label: 'Stile', shortLabel: 'Stile' },
+			{ key: 'essays.impact', label: 'Impatto', shortLabel: 'Impatto' }
+		]);
+	});
+
+	it('coincidono con rating_dimensions delle migration 004 e 216 (chiave, etichetta, ordine)', () => {
 		const rows = [
-			...migration004.matchAll(/\('([a-z0-9._-]+)',\s*(\d+),\s*'([^']+)',\s*(\d+),\s*1,\s*true\)/g)
+			...`${migration004}\n${migration216}`.matchAll(
+				/\('([a-z0-9._-]+)',\s*(\d+),\s*'([^']+)',\s*(\d+),\s*1,\s*true\)/g
+			)
 		].map((m) => ({ key: m[1]!, label: m[3]!, order: Number(m[4]) }));
 		const defined = GENRE_ORDER.flatMap((slug) =>
 			DIMENSIONS_BY_GENRE[slug].map((d, i) => ({ key: d.key, label: d.label, order: i + 1 }))
 		);
-		expect(rows.filter((r) => r.key.includes('.'))).toHaveLength(35);
+		expect(rows.filter((r) => r.key.includes('.'))).toHaveLength(40);
 		expect(defined).toEqual(expect.arrayContaining(rows));
 		expect(rows).toEqual(expect.arrayContaining(defined));
 	});

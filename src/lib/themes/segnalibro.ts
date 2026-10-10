@@ -137,6 +137,14 @@ export const segnalibroTheme: ThemeDefinition = {
 			dark: '#23506E',
 			onBase: '#340A0E',
 			onLight: '#340A0E'
+		},
+
+		essays: {
+			base: '#476C4F',
+			light: '#E1EBE2',
+			dark: '#263D2D',
+			onBase: '#FFFFFF',
+			onLight: '#340A0E'
 		}
 	}
 };

@@ -4,6 +4,7 @@ import { readdirSync } from 'node:fs';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations, migrationStatus } from '../../scripts/db-migrate.mjs';
+import { GENRE_ORDER } from '../../src/lib/genres';
 import { DATABASE_ADMIN_URL, runDb } from '../helpers/env';
 import { adminSql } from '../helpers/users';
 import { sql, withUser } from '../../src/lib/server/db';
@@ -83,7 +84,76 @@ const USER_OWNED_TABLES = [
 					(select count(*)::int from public.tags) as tags,
 					(select count(*)::int from public.tags where is_active) as "activeTags"
 			`;
-			expect(counts).toEqual({ genres: 7, dims: 35, tags: 41, activeTags: 18 });
+			expect(counts).toEqual({ genres: 8, dims: 40, tags: 41, activeTags: 18 });
+		});
+
+		it('persists and reorders all eight personal shelves', async () => {
+			const userId = randomUUID();
+			await scratchSql`
+				insert into app.users (id, email, password_hash)
+				values (${userId}::uuid, ${`shelves-${userId}@example.test`}, 'test-hash')
+			`;
+
+			const input = [...GENRE_ORDER]
+				.reverse()
+				.map((slug, index) => ({
+					slug,
+					name: slug === 'essays' ? 'Saggi personalizzato' : slug,
+					sort_order: index + 1
+				}));
+			const result = await scratchSql.begin(async (tx) => {
+				await tx`select set_config('app.user_id', ${userId}, true)`;
+				const [row] = await tx<{ shelves: { genres: { slug: string; name: string; sortOrder: number }[] } }[]>`
+					select public.update_user_genre_shelves(${tx.json(input)}) as shelves
+				`;
+				return row?.shelves;
+			});
+
+			expect(result?.genres.map((genre) => genre.slug)).toEqual([...GENRE_ORDER].reverse());
+			expect(result?.genres[0]).toMatchObject({
+				slug: 'essays',
+				name: 'Saggi personalizzato',
+				sortOrder: 1
+			});
+		});
+
+		it('moves a book to Saggi and returns it on the dedicated shelf', async () => {
+			const userId = randomUUID();
+			const bookId = randomUUID();
+			await scratchSql`
+				insert into app.users (id, email, password_hash)
+				values (${userId}::uuid, ${`book-${userId}@example.test`}, 'test-hash')
+			`;
+			await scratchSql`
+				insert into public.user_books (id, user_id, genre_id, title, author_display, format)
+				values (${bookId}::uuid, ${userId}::uuid, 1, 'Saggio di test', 'Autore di test', 'physical')
+			`;
+
+			const result = await scratchSql.begin(async (tx) => {
+				await tx`select set_config('app.user_id', ${userId}, true)`;
+				const [changed] = await tx<{
+					result: { book: { genre: { slug: string } } };
+				}[]>`
+					select public.change_book_genre(${bookId}::uuid, 'essays') as result
+				`;
+				const [loaded] = await tx<{
+					home: {
+						shelves: {
+							genre: { slug: string; name: string };
+							totalCount: number;
+							books: { id: string }[];
+						}[];
+					};
+				}[]>`
+					select public.get_library_home(24) as home
+				`;
+				return { changed: changed?.result, home: loaded?.home };
+			});
+
+			expect(result.changed?.book.genre.slug).toBe('essays');
+			const essaysShelf = result.home?.shelves.find((shelf) => shelf.genre.slug === 'essays');
+			expect(essaysShelf).toMatchObject({ genre: { name: 'Saggi' }, totalCount: 1 });
+			expect(essaysShelf?.books.map((book) => book.id)).toContain(bookId);
 		});
 	});
 
@@ -190,7 +260,7 @@ const USER_OWNED_TABLES = [
 
 			// the catalog itself is readable
 			const [{ n }] = (await sql`select count(*)::int as n from public.genres`) as unknown as [{ n: number }];
-			expect(n).toBe(7);
+			expect(n).toBe(8);
 		});
 
 		it('the runtime role cannot create objects or change its own privileges', async () => {

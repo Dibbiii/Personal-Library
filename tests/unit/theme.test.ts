@@ -55,6 +55,11 @@ describe('temi built-in', () => {
 		}
 	});
 
+	it('assegna un token verde al genere Saggi', () => {
+		const vars = themeToCssVariables(resolveBuiltinTheme(DEFAULT_THEME_KEY));
+		expect(vars['--genre-essays']).toBe('#476C4F');
+	});
+
 	it('generano CSS con selettore per tema e regole di contesto genere', () => {
 		const block = themeToCssBlock(resolveBuiltinTheme(DEFAULT_THEME_KEY));
 		expect(block).toContain(':root[data-theme="segnalibro"]');

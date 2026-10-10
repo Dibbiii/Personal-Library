@@ -51,20 +51,21 @@ import './seed.contracts';
     );
 
     expect(home.contractVersion).toBe(1);
-    expect(home.shelves).toHaveLength(7);
+    expect(home.shelves).toHaveLength(8);
   });
 
-  it('renames and reorders the seven personal shelves without changing home/view contracts', async () => {
+  it('renames and reorders the eight personal shelves without changing home/view contracts', async () => {
     const initial = await expectRpcContract(
       fx.client,
       'get_user_genre_shelves',
       {},
       userGenreShelvesResponseSchema,
     );
+    expect(initial.genres).toHaveLength(8);
     const genres = initial.genres.map((genre, index) => ({
       slug: genre.slug,
       name: genre.slug === 'fantasy-magical-gothic' ? 'Mondi fantastici' : genre.name,
-      sort_order: 7 - index,
+      sort_order: initial.genres.length - index,
     }));
     const saved = await expectRpcContract(
       fx.client,
@@ -73,11 +74,11 @@ import './seed.contracts';
       userGenreShelvesResponseSchema,
     );
 
-    expect(saved.genres[0]?.slug).toBe(initial.genres[6]?.slug);
+    expect(saved.genres[0]?.slug).toBe(initial.genres[initial.genres.length - 1]?.slug);
     expect(saved.genres.find((genre) => genre.slug === 'fantasy-magical-gothic')?.name).toBe('Mondi fantastici');
 
     const home = await expectRpcContract(fx.client, 'get_library_home', { p_shelf_limit: 24 }, libraryHomeResponseSchema);
-    expect(home.shelves[0]?.genre.slug).toBe(initial.genres[6]?.slug);
+    expect(home.shelves[0]?.genre.slug).toBe(initial.genres[initial.genres.length - 1]?.slug);
     const view = await expectRpcContract(
       fx.client,
       'get_genre_view',
@@ -389,19 +390,36 @@ import './seed.contracts';
     expect(assigned.board.cells[0]?.book?.id).toBe(fx.books.fantasy);
   });
 
-  it('genre change returns a BookSummary and reset signal', async () => {
+  it('genre change to Saggi persists in its own view and returns a reset signal', async () => {
     const changed = await expectRpcContract(
       fx.client,
       'change_book_genre',
       {
         p_book_id: fx.books.fantasy,
-        p_genre_slug: 'mythology-epic-retelling',
+        p_genre_slug: 'essays',
       },
       genreChangeResponseSchema,
     );
 
-    expect(changed.book.genre.slug).toBe('mythology-epic-retelling');
+    expect(changed.book.genre.slug).toBe('essays');
     expect(changed.reviewScoresReset).toBe(true);
+
+    const view = await expectRpcContract(
+      fx.client,
+      'get_genre_view',
+      {
+        p_genre_slug: 'essays',
+        p_sort_field: 'title',
+        p_sort_direction: 'asc',
+        p_limit: 48,
+        p_offset: 0,
+      },
+      genreViewResponseSchema,
+    );
+    expect(view.genre).toMatchObject({ id: 8, slug: 'essays', name: 'Saggi' });
+    expect(view.sections.flatMap((section) => section.books).map((book) => book.id)).toContain(
+      fx.books.fantasy,
+    );
   });
 
   it('book format accepts both owned formats and returns the summary contract', async () => {

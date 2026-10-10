@@ -65,11 +65,20 @@ describe('review/quote contracts (senza DB)', () => {
     await closeAdminSql();
   });
 
-  it('get_review_reference restituisce i 18 tag canonici e 35 dimensioni', async () => {
+  it('get_review_reference restituisce i 18 tag canonici e 40 dimensioni', async () => {
     const ref = await expectRpcContract(fx.client, 'get_review_reference', {}, reviewReferenceResponseSchema);
     expect(ref.tags).toHaveLength(18);
     expect(ref.tags[0]).toMatchObject({ slug: 'romantico', label: 'Romantico' });
-    expect(ref.dimensions).toHaveLength(35);
+    expect(ref.dimensions).toHaveLength(40);
+    expect(
+      ref.dimensions.filter((d) => d.genreSlug === 'essays').map((d) => d.dimensionKey),
+    ).toEqual([
+      'essays.clarity',
+      'essays.depth',
+      'essays.rigor',
+      'essays.style',
+      'essays.impact',
+    ]);
     expect(
       ref.dimensions.filter((d) => d.genreSlug === 'fantasy-magical-gothic').map((d) => d.dimensionKey),
     ).toEqual([

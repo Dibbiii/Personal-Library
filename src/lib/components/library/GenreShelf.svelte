@@ -60,7 +60,8 @@
 		'thriller-mystery': ['hourglass', 'lantern'],
 		'fantasy-magical-gothic': ['lantern', 'trailing'],
 		'romance-ya-na': ['trailing', 'figurine'],
-		'contemporary-historical': ['cactus', 'bookends']
+		'contemporary-historical': ['cactus', 'bookends'],
+		essays: ['globe', 'fern']
 	};
 
 	const theme = getThemeController();
