@@ -20,6 +20,7 @@
 	import SeriesCard from '$lib/components/detail/SeriesCard.svelte';
 	import ActionsMenu from '$lib/components/detail/ActionsMenu.svelte';
 	import CoverPicker from '$lib/components/catalog/CoverPicker.svelte';
+	import MoodboardPanel from '$lib/components/detail/MoodboardPanel.svelte';
 	import ReviewPanel from '$lib/components/review/ReviewPanel.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import IconButton from '$lib/components/ui/IconButton.svelte';
@@ -63,6 +64,7 @@
 	const book = $derived(detail.book);
 	const reading = $derived(detail.currentReading);
 	const slug = $derived(book.genre.slug);
+	let moodboardQuotes = $derived([...detail.quotes]);
 
 	const status = $derived(currentStatusChoice(book));
 	const unlocked = $derived(isReviewUnlocked(book));
@@ -319,11 +321,12 @@
 	}
 
 	// ---- Schede e dati pubblici (Open Library, in streaming dal load) ----
-	type Tab = 'overview' | 'review' | 'history' | 'editions' | 'author';
+	type Tab = 'overview' | 'review' | 'moodboard' | 'history' | 'editions' | 'author';
 	let tab = $state<Tab>('overview');
 	const tabs = $derived<{ id: Tab; label: string }[]>([
 		{ id: 'overview', label: 'Panoramica' },
 		{ id: 'review', label: 'Recensione' },
+		{ id: 'moodboard', label: 'Moodboard' },
 		...(detail.readings.length > 0 ? [{ id: 'history' as const, label: 'Letture' }] : []),
 		{ id: 'editions', label: 'Edizioni' },
 		{ id: 'author', label: 'Autore' }
@@ -338,6 +341,11 @@
 		if (!next) return;
 		tab = next.id;
 		document.getElementById(`tab-${next.id}`)?.focus();
+	}
+
+	function openReviewTab() {
+		tab = 'review';
+		document.getElementById('tab-review')?.focus();
 	}
 
 	// Dopo un invalidate i dati restano visibili finché la nuova risposta (in cache) non arriva.
@@ -536,6 +544,11 @@
 					/>
 				</div>
 			{/if}
+			{#if tab === 'moodboard'}
+				<div role="tabpanel" id="panel-moodboard" aria-labelledby="tab-moodboard">
+					<MoodboardPanel quotes={moodboardQuotes} onopenreview={openReviewTab} />
+				</div>
+			{/if}
 
 			<div
 				class="review-area"
@@ -545,7 +558,12 @@
 				aria-labelledby={tab === 'review' ? 'tab-review' : undefined}
 			>
 				<h2 class="review-title">La mia recensione</h2>
-				<ReviewPanel {detail} {scoresReset} onsaved={() => void refreshData(READING_DEPENDENCIES)}>
+				<ReviewPanel
+					{detail}
+					{scoresReset}
+					onsaved={() => void refreshData(READING_DEPENDENCIES)}
+					onquoteschange={(quotes) => (moodboardQuotes = quotes)}
+				>
 					{#snippet lockedFooter()}
 						<button
 							class="move"
