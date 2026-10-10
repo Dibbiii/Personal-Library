@@ -46,8 +46,7 @@
 					body: quote.body,
 					title: quote.bookTitle,
 					author: quote.author,
-					page: quote.page,
-					genreName: GENRE_SHORT_LABELS[genre]
+					page: quote.page
 				}
 			: null
 	);

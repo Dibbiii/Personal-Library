@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ellipsize, fitText, wrapText } from '../../src/lib/quotes/layout';
 import { quoteCardFileName } from '../../src/lib/quotes/export';
 import { paletteTokens } from '../../src/lib/quotes/palette';
+import { renderQuoteCard } from '../../src/lib/quotes/render';
 import {
 	abbreviateAuthor,
 	bingoBoardStatus,
@@ -110,6 +111,56 @@ describe('stile della card', () => {
 		expect(quoteCardFileName('Il nome del vento')).toBe('segnalibro-il-nome-del-vento.png');
 		expect(quoteCardFileName('  Più è meglio! ')).toBe('segnalibro-piu-e-meglio.png');
 		expect(quoteCardFileName('???')).toBe('segnalibro-citazione.png');
+	});
+});
+
+describe('renderQuoteCard', () => {
+	it('mostra titolo e autore e non stampa il genere nel footer', () => {
+		const drawnText: string[] = [];
+		const ctx = {
+			beginPath() {},
+			arcTo() {},
+			closePath() {},
+			moveTo() {},
+			stroke() {},
+			fill() {},
+			clearRect() {},
+			fillRect() {},
+			save() {},
+			restore() {},
+			fillText(text: string) {
+				drawnText.push(text);
+			},
+			translate() {},
+			scale() {},
+			measureText(text: string) {
+				return { width: Array.from(text).length * 12 };
+			}
+		} as unknown as CanvasRenderingContext2D;
+		const canvas = { getContext: () => ctx } as unknown as HTMLCanvasElement;
+		const content = {
+			body: 'Una citazione breve.',
+			title: 'Il nome del vento',
+			author: 'Patrick Rothfuss',
+			page: 42,
+			genreName: 'Fantasy'
+		};
+
+		vi.stubGlobal('Path2D', class {});
+		try {
+			renderQuoteCard(
+				canvas,
+				content,
+				{ background: '#fff', ink: '#000', accent: '#333' },
+				{ display: 'Georgia, serif', ui: 'system-ui, sans-serif' }
+			);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+
+		expect(drawnText).toContain('Il nome del vento');
+		expect(drawnText).toContain('Patrick Rothfuss · p. 42');
+		expect(drawnText).not.toContain('Fantasy');
 	});
 });
 
