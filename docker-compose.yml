@@ -8,7 +8,7 @@ services:
     environment:
       DATABASE_URL: postgres://segnalibro_app:${SEGNALIBRO_APP_PASSWORD:-segnalibro_app}@db:5432/segnalibro
       DATABASE_ADMIN_URL: postgres://postgres:postgres@db:5432/segnalibro
-      SESSION_COOKIE_NAME: [REDACTED]
+      SESSION_COOKIE_NAME: session
       STORAGE_DIR: /app/storage
       BODY_SIZE_LIMIT: 6M
       GOOGLE_BOOKS_API_KEY: ${GOOGLE_BOOKS_API_KEY:-}
