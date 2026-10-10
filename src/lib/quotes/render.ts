@@ -13,7 +13,6 @@ export interface QuoteCardContent {
 	title: string;
 	author: string;
 	page: number | null;
-	genreName: string;
 }
 
 export interface CardFonts {
@@ -163,14 +162,6 @@ export function renderQuoteCard(
 	ctx.textBaseline = 'alphabetic';
 	ctx.fillText('Segnalibro', MARGIN + 66, 1276);
 	ctx.globalAlpha = 1;
-
-	// Genere, allineato a destra
-	ctx.globalAlpha = 0.75;
-	ctx.font = `600 28px ${fonts.ui}`;
-	ctx.textAlign = 'right';
-	ctx.fillText(content.genreName, CARD_WIDTH - MARGIN, 1276);
-	ctx.globalAlpha = 1;
-	ctx.textAlign = 'left';
 }
 
 /** Path del segnalibro dalla stessa icona usata nell'interfaccia. */
