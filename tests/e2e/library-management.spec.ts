@@ -64,6 +64,59 @@ async function followAddLink(page: Page, link: Locator, slug: GenreSlug) {
 test.describe('Aggiunta ed eliminazione dalla libreria', () => {
 	test.setTimeout(60_000);
 
+	test('il colore del genere non modifica la navbar globale', async ({ page, account }) => {
+		await seedBook(account, 'Libro a tema');
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(`/genre/${CLASSICS}`);
+		await page.waitForLoadState('networkidle');
+
+		// Simula una palette globale nettamente distinta dal colore del genere corrente.
+		await page.evaluate(() => {
+			const root = document.documentElement;
+			root.dataset.appearance = 'light';
+			root.style.setProperty('--color-background', '#ff0000');
+			root.style.setProperty('--color-background-shelf', '#ee0000');
+			root.style.setProperty('--color-surface', '#dd0000');
+			root.style.setProperty('--color-primary', '#cc0000');
+		});
+
+		const mobile = await page.evaluate(() => {
+			const content = document.querySelector<HTMLElement>('.content[data-genre="classics"]');
+			const nav = document.querySelector<HTMLElement>('.bottom-nav');
+			const addBook = document.querySelector<HTMLElement>('.bottom-nav .add-book');
+			if (!content || !nav || !addBook) throw new Error('Navigazione mobile non trovata');
+			return {
+				genre: getComputedStyle(content).getPropertyValue('--genre-current').trim(),
+				genreBase: getComputedStyle(document.documentElement)
+					.getPropertyValue('--genre-classics')
+					.trim(),
+				navBackground: getComputedStyle(nav).backgroundColor,
+				navBorder: getComputedStyle(nav).borderTopColor,
+				addBookBackground: getComputedStyle(addBook).backgroundColor
+			};
+		});
+
+		expect(mobile.genre).toBe(mobile.genreBase);
+		expect(mobile.navBackground).toBe('rgb(255, 0, 0)');
+		expect(mobile.navBorder).toBe('rgb(221, 0, 0)');
+		expect(mobile.addBookBackground).toBe('rgb(204, 0, 0)');
+
+		await page.setViewportSize({ width: 1280, height: 800 });
+		const sidebar = page.locator('.sidebar');
+		await expect(sidebar).toBeVisible();
+		const desktop = await page.evaluate(() => {
+			const nav = document.querySelector<HTMLElement>('.sidebar');
+			const activeLink = document.querySelector<HTMLElement>('.sidebar .link.active');
+			if (!nav || !activeLink) throw new Error('Navigazione desktop non trovata');
+			return {
+				navBackground: getComputedStyle(nav).backgroundColor,
+				activeBackground: getComputedStyle(activeLink).backgroundColor
+			};
+		});
+		expect(desktop.navBackground).toBe('rgb(238, 0, 0)');
+		expect(desktop.activeBackground).toBe('rgb(204, 0, 0)');
+	});
+
 	test('aggiunta contestuale: scaffale vuoto in Home e header genere (niente + sugli scaffali popolati)', async ({
 		page,
 		account

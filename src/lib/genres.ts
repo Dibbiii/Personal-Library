@@ -47,8 +47,6 @@ export function genreScopeStyle(slug: GenreSlug): string {
 		`--genre-current-dark: var(--genre-${slug}-dark)`,
 		`--genre-current-on: var(--genre-${slug}-on-base)`,
 		`--genre-current-on-light: var(--genre-${slug}-on-light)`,
-		`--genre-current-nav-bg: color-mix(in srgb, var(--genre-${slug}-light) 90%, var(--genre-${slug}-dark))`,
-		`--genre-current-nav-border: color-mix(in srgb, var(--genre-${slug}-light) 80%, var(--genre-${slug}-dark))`,
 		`--genre-current-line-top: color-mix(in srgb, var(--genre-${slug}-light) 84%, var(--genre-${slug}-dark))`,
 		`--genre-current-line-bottom: color-mix(in srgb, var(--genre-${slug}-light) 66%, var(--genre-${slug}-dark))`
 	].join(';');
