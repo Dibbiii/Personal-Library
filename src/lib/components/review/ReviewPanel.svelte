@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { BookDetailResponse } from '$lib/contracts/rpc';
+	import type { Quote } from '$lib/contracts/reviews';
 	import ReviewEditor from './ReviewEditor.svelte';
 	import ReviewLockedCard from './ReviewLockedCard.svelte';
 
@@ -12,11 +13,20 @@
 		afterScores?: Snippet | undefined;
 		/** Chiamata dopo ogni salvataggio riuscito della recensione. */
 		onsaved?: (() => void) | undefined;
+		/** Aggiorna le citazioni mostrate anche fuori dalla scheda Recensione. */
+		onquoteschange?: ((quotes: Quote[]) => void) | undefined;
 		/** Forza l'avviso "valutazioni specifiche azzerate" (risposta di changeGenre). */
 		scoresReset?: boolean;
 	}
 
-	let { detail, lockedFooter, afterScores, onsaved, scoresReset = false }: Props = $props();
+	let {
+		detail,
+		lockedFooter,
+		afterScores,
+		onsaved,
+		onquoteschange,
+		scoresReset = false
+	}: Props = $props();
 
 	// La recensione si abilita con almeno una lettura completata, non con lo stato corrente:
 	// una rilettura in corso resta recensibile (spec sez. 6 e 48.17).
@@ -25,7 +35,7 @@
 
 {#if unlocked}
 	{#key detail.book.id}
-		<ReviewEditor {detail} {afterScores} {onsaved} {scoresReset} />
+		<ReviewEditor {detail} {afterScores} {onsaved} {onquoteschange} {scoresReset} />
 	{/key}
 {:else}
 	<ReviewLockedCard footer={lockedFooter} />

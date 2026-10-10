@@ -148,6 +148,81 @@ test('libro non trovato: 404 in italiano', async ({ page }) => {
 	expect(bad?.status()).toBe(404);
 });
 
+test('moodboard: mostra le citazioni del libro e si sincronizza con la recensione', async ({
+	page
+}) => {
+	await openBook(page, 'epsilon');
+	const moodboardTab = page.getByRole('tab', { name: 'Moodboard', exact: true });
+	await expect(moodboardTab).toBeVisible();
+
+	await page.getByRole('tab', { name: 'Recensione', exact: true }).focus();
+	await page.keyboard.press('ArrowRight');
+	await expect(moodboardTab).toHaveAttribute('aria-selected', 'true');
+	let moodboard = page.getByRole('tabpanel', { name: 'Moodboard' });
+	await expect(moodboard.getByTestId('moodboard-empty')).toBeVisible();
+
+	await moodboard.getByRole('button', { name: 'Vai alla Recensione' }).click();
+	const review = page.getByTestId('review-panel');
+	await review.getByRole('button', { name: 'Aggiungi citazione' }).click();
+	await review
+		.getByLabel('Testo della citazione')
+		.fill('Le storie cambiano quando trovi le parole giuste.');
+	await review.getByLabel('Pagina (facoltativa)').fill('48');
+	await review.getByRole('button', { name: 'Salva' }).click();
+	await expect(review.getByTestId('quote-item')).toContainText(
+		'Le storie cambiano quando trovi le parole giuste.'
+	);
+
+	await moodboardTab.click();
+	moodboard = page.getByRole('tabpanel', { name: 'Moodboard' });
+	let card = moodboard.getByTestId('moodboard-quote');
+	await expect(card).toHaveCount(1);
+	await expect(card).toContainText('Le storie cambiano quando trovi le parole giuste.');
+	await expect(card).toContainText('p. 48');
+
+	await page.reload();
+	await page.waitForLoadState('networkidle');
+	await moodboardTab.click();
+	moodboard = page.getByRole('tabpanel', { name: 'Moodboard' });
+	await expect(moodboard.getByTestId('moodboard-quote')).toContainText(
+		'Le storie cambiano quando trovi le parole giuste.'
+	);
+
+	await openBook(page, 'alfa');
+	await page.getByRole('tab', { name: 'Moodboard', exact: true }).click();
+	await expect(
+		page.getByRole('tabpanel', { name: 'Moodboard' }).getByTestId('moodboard-empty')
+	).toBeVisible();
+
+	await openBook(page, 'epsilon');
+	await page.getByRole('tab', { name: 'Recensione', exact: true }).click();
+	const reviewItem = page.getByTestId('review-panel').getByTestId('quote-item');
+	await reviewItem.getByRole('button', { name: 'Modifica citazione' }).click();
+	await page.getByLabel('Testo della citazione').fill('Testo aggiornato dalla recensione.');
+	await page.getByLabel('Pagina (facoltativa)').fill('');
+	await page.getByTestId('review-panel').getByRole('button', { name: 'Salva' }).click();
+
+	await page.getByRole('tab', { name: 'Moodboard', exact: true }).click();
+	moodboard = page.getByRole('tabpanel', { name: 'Moodboard' });
+	card = moodboard.getByTestId('moodboard-quote');
+	await expect(card).toContainText('Testo aggiornato dalla recensione.');
+	await expect(card).not.toContainText('Le storie cambiano quando trovi le parole giuste.');
+
+	await page.getByRole('tab', { name: 'Recensione', exact: true }).click();
+	await page
+		.getByTestId('review-panel')
+		.getByTestId('quote-item')
+		.getByRole('button', { name: 'Elimina citazione' })
+		.click();
+	await page.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
+	await expect(page.getByTestId('review-panel').getByTestId('quote-item')).toHaveCount(0);
+
+	await page.getByRole('tab', { name: 'Moodboard', exact: true }).click();
+	await expect(
+		page.getByRole('tabpanel', { name: 'Moodboard' }).getByTestId('moodboard-empty')
+	).toBeVisible();
+});
+
 test('segna come letto dal menu Sposta', async ({ page }) => {
 	await openBook(page, 'alfa');
 	await expect(page.getByText('Non ancora letto')).toBeVisible();

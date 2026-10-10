@@ -28,10 +28,11 @@
 		detail: BookDetailResponse;
 		afterScores?: Snippet | undefined;
 		onsaved?: (() => void) | undefined;
+		onquoteschange?: ((quotes: Quote[]) => void) | undefined;
 		scoresReset?: boolean;
 	}
 
-	let { detail, afterScores, onsaved, scoresReset = false }: Props = $props();
+	let { detail, afterScores, onsaved, onquoteschange, scoresReset = false }: Props = $props();
 
 	const DEBOUNCE_MS = 700;
 
@@ -103,6 +104,11 @@
 	function update(patch: Partial<ReviewDraft>) {
 		draft = { ...clone(draft), ...patch };
 		afterChange();
+	}
+
+	function updateQuotes(next: Quote[]) {
+		quotes = next;
+		onquoteschange?.(next);
 	}
 
 	function afterChange() {
@@ -238,7 +244,7 @@
 		selected={draft.tags}
 		ontoggle={(slug) => update({ tags: toggleTag(draft.tags, slug) })}
 	/>
-	<QuotesEditor {bookId} {quotes} onchange={(next) => (quotes = next)} />
+	<QuotesEditor {bookId} {quotes} onchange={updateQuotes} />
 
 	<SaveStatus {status} onretry={retry} />
 </div>
