@@ -70,6 +70,15 @@ describe('addBookRequestSchema', () => {
 		expect(addBookRequestSchema.safeParse(series(0, 6)).success).toBe(false);
 	});
 
+	it('serie: il numero del volume rispetta la precisione del database', () => {
+		const series = (number: number) => ({
+			...manual,
+			series: { name: 'Dune', number, total: 6 }
+		});
+		expect(addBookRequestSchema.safeParse(series(1.23)).success).toBe(true);
+		expect(addBookRequestSchema.safeParse(series(1.234)).success).toBe(false);
+	});
+
 	it('cover solo da host dei provider', () => {
 		expect(
 			addBookRequestSchema.safeParse({

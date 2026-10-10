@@ -500,7 +500,9 @@
 			<aside class="side-area" aria-label="Il libro nella libreria">
 				<div id="place"><LibraryPlaceCard {book} queuePosition={detail.queuePosition} /></div>
 				{#if book.series}
-					<div id="series"><SeriesCard series={book.series} /></div>
+					<div id="series">
+						<SeriesCard series={book.series} books={detail.seriesBooks} currentBookId={book.id} />
+					</div>
 				{/if}
 			</aside>
 		</div>

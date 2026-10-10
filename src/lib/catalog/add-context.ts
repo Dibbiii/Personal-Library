@@ -1,10 +1,44 @@
 import type { GenreSlug } from '../contracts/enums';
 import { isGenreSlug } from '../genres';
+import { seriesInputSchema } from './schemas';
 
 export type AddPath = '/add' | '/add/manual' | '/add/search' | '/add/scan';
 
+export interface AddSeriesContext {
+	name: string;
+	number: number | null;
+	total: number | null;
+}
+
 export function parseAddGenre(value: string | null | undefined): GenreSlug | null {
 	return value && isGenreSlug(value) ? value : null;
+}
+
+/** Legge i metadati precompilati dalla query, senza fidarsi dei valori ricevuti. */
+export function getAddSeriesContext(url: URL): AddSeriesContext | null {
+	const name = url.searchParams.get('seriesName');
+	if (name === null) return null;
+
+	const parseNumber = (value: string | null): number | null => {
+		if (value === null || value.trim() === '') return null;
+		return Number(value.trim().replace(',', '.'));
+	};
+	const series = seriesInputSchema.safeParse({
+		name,
+		number: parseNumber(url.searchParams.get('seriesNumber')),
+		total: parseNumber(url.searchParams.get('seriesTotal'))
+	});
+	return series.success ? series.data : null;
+}
+
+export function getAddSeriesParams(url: URL): URLSearchParams {
+	const series = getAddSeriesContext(url);
+	const params = new URLSearchParams();
+	if (!series) return params;
+	params.set('seriesName', series.name);
+	if (series.number !== null) params.set('seriesNumber', String(series.number));
+	if (series.total !== null) params.set('seriesTotal', String(series.total));
+	return params;
 }
 
 /** Conserva i dati del fallback (ISBN/titolo), ma non propaga generi non validi. */

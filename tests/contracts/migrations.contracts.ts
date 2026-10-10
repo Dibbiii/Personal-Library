@@ -1,6 +1,14 @@
 // Registered by db.contracts.test.ts: schema, roles and privileges of the migrated database.
 import { randomUUID } from 'node:crypto';
-import { readdirSync } from 'node:fs';
+import {
+	copyFileSync,
+	mkdtempSync,
+	mkdirSync,
+	readdirSync,
+	rmSync
+} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runMigrations, migrationStatus } from '../../scripts/db-migrate.mjs';
@@ -13,6 +21,7 @@ import { createTestUser, type TestUser } from '../helpers/users';
 const EXPECTED_MIGRATIONS = readdirSync(new URL('../../db/migrations', import.meta.url))
 	.filter((name) => name.endsWith('.sql'))
 	.sort();
+const SERIES_MIGRATION = '216_change_book_series.sql';
 
 const USER_OWNED_TABLES = [
 	'profiles',
@@ -64,6 +73,82 @@ const USER_OWNED_TABLES = [
 			expect(await runMigrations(scratchSql)).toEqual([]);
 			const status = await migrationStatus(scratchSql);
 			expect(status.every((s: { state: string }) => s.state === 'applied')).toBe(true);
+		});
+
+		it('migration 216 reconciles existing series totals per user', async () => {
+			const databaseName = `segnalibro_series_${randomUUID().replaceAll('-', '').slice(0, 8)}`;
+			const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'segnalibro-series-migration-'));
+			const beforeDir = path.join(tempRoot, 'before');
+			const finalDir = path.join(tempRoot, 'final');
+			mkdirSync(beforeDir);
+			mkdirSync(finalDir);
+
+			const migrationSource = new URL('../../db/migrations/', import.meta.url);
+			for (const filename of EXPECTED_MIGRATIONS.filter((name) => name < SERIES_MIGRATION)) {
+				copyFileSync(new URL(filename, migrationSource), path.join(beforeDir, filename));
+			}
+			copyFileSync(
+				new URL(SERIES_MIGRATION, migrationSource),
+				path.join(finalDir, SERIES_MIGRATION)
+			);
+
+			let db: postgres.Sql | undefined;
+			try {
+				await admin.unsafe(`create database ${databaseName}`);
+				const url = new URL(DATABASE_ADMIN_URL);
+				url.pathname = `/${databaseName}`;
+				db = postgres(url.toString(), { max: 1, onnotice: () => {} });
+				expect(await runMigrations(db, { dir: beforeDir })).toEqual(
+					EXPECTED_MIGRATIONS.filter((name) => name < SERIES_MIGRATION)
+				);
+
+				const userId = randomUUID();
+				const otherUserId = randomUUID();
+				const suffix = randomUUID().slice(0, 8);
+				await db`
+					insert into app.users (id, email, password_hash) values
+						(${userId}::uuid, ${`series-backfill-${suffix}@example.test`}, 'test-hash'),
+						(${otherUserId}::uuid, ${`series-backfill-other-${suffix}@example.test`}, 'test-hash')
+				`;
+				await db`
+					insert into public.user_books (
+						user_id, genre_id, title, author_display, format,
+						series_name, series_number, series_total
+					) values
+						(${userId}::uuid, 5, 'Alba 1', 'Autore', 'physical', 'Saga Alba', 1, 2),
+						(${userId}::uuid, 5, 'Alba 2', 'Autore', 'physical', ' saga alba ', 2, 4),
+						(${otherUserId}::uuid, 5, 'Alba altra', 'Autore', 'physical', 'saga alba', 1, 7),
+						(${userId}::uuid, 5, 'Scura 1', 'Autore', 'physical', 'Saga Scura', 1, 2),
+						(${userId}::uuid, 5, 'Scura 3', 'Autore', 'physical', 'saga scura ', 3, null),
+						(${userId}::uuid, 5, 'Saga non numerata', 'Autore', 'physical', 'Saga senza numero', null, 5)
+				`;
+
+				expect(await runMigrations(db, { dir: finalDir })).toEqual([SERIES_MIGRATION]);
+				const groups = await db<{ series_key: string; total: number | null; count: number }[]>`
+					select lower(btrim(series_name)) as series_key, max(series_total)::smallint as total,
+						count(*)::int as count
+					from public.user_books
+					where user_id = ${userId}::uuid
+					group by lower(btrim(series_name))
+					order by lower(btrim(series_name))
+				`;
+				const otherTotals = await db<{ total: number | null }[]>`
+					select series_total as total
+					from public.user_books
+					where user_id = ${otherUserId}::uuid
+				`;
+
+				expect(groups).toEqual([
+					{ series_key: 'saga alba', total: 4, count: 2 },
+					{ series_key: 'saga scura', total: null, count: 2 },
+					{ series_key: 'saga senza numero', total: 5, count: 1 }
+				]);
+				expect(otherTotals).toEqual([{ total: 7 }]);
+			} finally {
+				await db?.end({ timeout: 2 });
+				await admin.unsafe(`drop database if exists ${databaseName} with (force)`);
+				rmSync(tempRoot, { recursive: true, force: true });
+			}
 		});
 
 		it('refuses to run when an applied migration was modified', async () => {

@@ -8,7 +8,8 @@ import {
 	queueBookSchema,
 	shelfPageSchema,
 	shelfSchema,
-	editionCandidateSchema
+	editionCandidateSchema,
+	seriesBookSchema
 } from './books';
 import {
 	bookFormatSchema,
@@ -75,6 +76,7 @@ export const bookDetailResponseSchema = z.object({
 	contractVersion: contractVersionSchema,
 
 	book: bookSummarySchema,
+	seriesBooks: z.array(seriesBookSchema),
 
 	queuePosition: positiveIntSchema.nullable(),
 	currentReading: readingSchema.nullable(),
@@ -247,6 +249,11 @@ export const genreChangeResponseSchema = z.object({
 });
 
 export const bookFormatChangeResponseSchema = z.object({
+	contractVersion: contractVersionSchema,
+	book: bookSummarySchema
+});
+
+export const bookSeriesChangeResponseSchema = z.object({
 	contractVersion: contractVersionSchema,
 	book: bookSummarySchema
 });

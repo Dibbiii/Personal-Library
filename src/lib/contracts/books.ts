@@ -37,6 +37,12 @@ export const seriesRefSchema = z.object({
 	total: positiveIntSchema.nullable()
 });
 
+export const seriesBookSchema = z.object({
+	id: uuidSchema,
+	title: nonEmptyTextSchema,
+	number: z.number().positive().nullable()
+});
+
 export const bookSummarySchema = z.object({
 	id: uuidSchema,
 	editionId: catalogIdSchema.nullable(),
@@ -162,6 +168,7 @@ export const editionCandidateSchema = z.object({
 export type GenreRef = z.infer<typeof genreRefSchema>;
 export type CoverRef = z.infer<typeof coverRefSchema>;
 export type SeriesRef = z.infer<typeof seriesRefSchema>;
+export type SeriesBook = z.infer<typeof seriesBookSchema>;
 export type BookSummary = z.infer<typeof bookSummarySchema>;
 export type CurrentlyReadingBook = z.infer<typeof currentlyReadingBookSchema>;
 export type QueueBook = z.infer<typeof queueBookSchema>;

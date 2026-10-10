@@ -817,6 +817,153 @@ test.describe('aggiungi un libro', () => {
 		);
 		expect(copies).toHaveLength(2);
 	});
+
+	test('serie: aggiunge un volume mancante dal gruppo e ne precompila i dati', async ({
+		page,
+		account
+	}) => {
+		const seriesName = `Saga gatto ${randomUUID().slice(0, 8)}`;
+		const firstTitle = `Volume uno ${randomUUID().slice(0, 6)}`;
+		const secondTitle = `Volume due ${randomUUID().slice(0, 6)}`;
+		await page.route('**/api/catalog/search*', (route) =>
+			route.fulfill({
+				json: {
+					contractVersion: 1,
+					degraded: false,
+					providers: {},
+					candidates: [
+						candidate({
+							workTitle: secondTitle,
+							editionTitle: secondTitle,
+							authors: ['Autore Serie'],
+							isbn13: null,
+							coverUrl: null
+						})
+					]
+				}
+			})
+		);
+		await page.route('**/api/catalog/info*', (route) => route.fulfill({ json: { info: null } }));
+
+		await page.goto('/add/manual');
+		await page.waitForLoadState('networkidle');
+		await page.getByLabel('Titolo').fill(firstTitle);
+		await page.getByLabel('Autore').fill('Autore Serie');
+		await page.getByRole('button', { name: 'Continua' }).click();
+		const firstSheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
+		await choose(firstSheet, 'Classici');
+		await firstSheet.getByLabel('Nome della serie').fill(seriesName);
+		await firstSheet.getByLabel('Numero volume').fill('1');
+		await firstSheet.getByLabel('Volumi totali').fill('3');
+		await firstSheet.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+
+		const addSecondVolume = page.getByRole('link', {
+			name: `Aggiungi volume 2 alla serie ${seriesName}`
+		});
+		await expect(addSecondVolume).toBeVisible();
+		await addSecondVolume.click();
+		await page.waitForURL(/\/add\/search/);
+		const addUrl = new URL(page.url());
+		expect(addUrl.pathname).toBe('/add/search');
+		expect(addUrl.searchParams.get('seriesName')).toBe(seriesName);
+		expect(addUrl.searchParams.get('seriesNumber')).toBe('2');
+		expect(addUrl.searchParams.get('seriesTotal')).toBe('3');
+
+		await page.getByRole('searchbox').fill(secondTitle);
+		await page.getByRole('button', { name: new RegExp(secondTitle) }).click();
+		await page
+			.getByRole('complementary', { name: 'Libro selezionato' })
+			.getByRole('button', { name: 'Aggiungi alla mia libreria' })
+			.click();
+		const secondSheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
+		await expect(secondSheet.getByLabel('Nome della serie')).toHaveValue(seriesName);
+		await expect(secondSheet.getByLabel('Numero volume')).toHaveValue('2');
+		await expect(secondSheet.getByLabel('Volumi totali')).toHaveValue('3');
+		await choose(secondSheet, 'Classici');
+		await secondSheet.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+
+		const volumes = (await userBooks(account.id))
+			.filter((book) => book.series_name === seriesName)
+			.sort((a, b) => Number(a.series_number) - Number(b.series_number));
+		expect(volumes.map((book) => Number(book.series_number))).toEqual([1, 2]);
+		const seriesBooks = page.getByRole('list', { name: `Libri della serie ${seriesName}` });
+		await expect(seriesBooks.getByRole('link', { name: new RegExp(firstTitle) })).toBeVisible();
+		await expect(seriesBooks.getByRole('link', { name: new RegExp(secondTitle) })).toBeVisible();
+
+		const thirdTitle = `Volume tre ${randomUUID().slice(0, 6)}`;
+		await page.goto('/add/manual');
+		await page.waitForLoadState('networkidle');
+		await page.getByLabel('Titolo').fill(thirdTitle);
+		await page.getByLabel('Autore').fill('Autore Serie');
+		await page.getByRole('button', { name: 'Continua' }).click();
+		const thirdSheet = page.getByRole('dialog', { name: 'Aggiungi alla libreria' });
+		await choose(thirdSheet, 'Classici');
+		await thirdSheet.getByLabel('Nome della serie').fill(seriesName);
+		await thirdSheet.getByLabel('Numero volume').fill('3');
+		await thirdSheet.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		const allVolumes = (await userBooks(account.id)).filter(
+			(book) => book.series_name === seriesName
+		);
+		expect(allVolumes.map((book) => Number(book.series_number)).sort()).toEqual([1, 2, 3]);
+		expect(allVolumes.map((book) => book.series_total)).toEqual([3, 3, 3]);
+
+		await page.getByRole('button', { name: 'Altre azioni' }).click();
+		await page.getByRole('menuitem', { name: 'Modifica edizione e dati' }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}\/edit$/);
+		await page.getByRole('button', { name: 'Continua alla personalizzazione' }).click();
+		const editSheet = page.getByRole('dialog', { name: 'Modifica libro' });
+		await editSheet.getByLabel('Volumi totali').fill('5');
+		await editSheet.getByRole('button', { name: 'Salva modifiche' }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+		await expect(
+			page.getByRole('link', { name: `Aggiungi volume 5 alla serie ${seriesName}` })
+		).toBeVisible();
+		const updatedVolumes = (await userBooks(account.id)).filter(
+			(book) => book.series_name === seriesName
+		);
+		expect(updatedVolumes.map((book) => book.series_total)).toEqual([5, 5, 5]);
+	});
+
+	test('serie: associa a una serie un libro già inserito', async ({ page, account }) => {
+		const title = `Libro già inserito ${randomUUID().slice(0, 8)}`;
+		const seriesName = `Serie aggiunta dopo ${randomUUID().slice(0, 8)}`;
+		await page.goto('/add/manual');
+		await page.waitForLoadState('networkidle');
+		await page.getByLabel('Titolo').fill(title);
+		await page.getByLabel('Autore').fill('Autore Serie');
+		await page.getByRole('button', { name: 'Continua' }).click();
+		await pickGenreAndAdd(page, 'Classici');
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+
+		await page.getByRole('button', { name: 'Altre azioni' }).click();
+		await page.getByRole('menuitem', { name: 'Modifica edizione e dati' }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}\/edit$/);
+		await page.getByRole('button', { name: 'Continua alla personalizzazione' }).click();
+		const sheet = page.getByRole('dialog', { name: 'Modifica libro' });
+		await sheet.getByLabel('Nome della serie').fill(seriesName);
+		await sheet.getByLabel('Numero volume').fill('2');
+		await sheet.getByLabel('Volumi totali').fill('3');
+		await sheet.getByLabel('Numero volume').fill('1.234');
+		await sheet.getByRole('button', { name: 'Salva modifiche' }).click();
+		await expect(sheet.getByRole('alert')).toHaveText(
+			'Il numero del volume può avere al massimo due decimali.'
+		);
+		await sheet.getByLabel('Numero volume').fill('2');
+		await sheet.getByRole('button', { name: 'Salva modifiche' }).click();
+		await page.waitForURL(/\/book\/[0-9a-f-]{36}$/);
+
+		await expect(page.getByRole('region', { name: `Serie ${seriesName}` })).toBeVisible();
+		await expect(page.getByRole('link', { name: `Volume 2: ${title}` })).toBeVisible();
+		const row = (await userBooks(account.id)).find((book) => book.title === title);
+		expect(row).toMatchObject({
+			series_name: seriesName,
+			series_total: 3
+		});
+		expect(Number(row?.series_number)).toBe(2);
+	});
 });
 
 test.describe('scanner ISBN: fotocamera', () => {
