@@ -85,19 +85,9 @@
 	--genre-current-on-light: var(--color-text-primary);
 }
 
-/* Derivati del genere corrente: nav, bordi e mensole della vista genere */
+/* Derivati del genere corrente per bordi e mensole della vista genere */
 :root,
 [data-genre] {
-	--genre-current-nav-bg: color-mix(
-		in srgb,
-		var(--genre-current-light) 90%,
-		var(--genre-current-dark)
-	);
-	--genre-current-nav-border: color-mix(
-		in srgb,
-		var(--genre-current-light) 80%,
-		var(--genre-current-dark)
-	);
 	--genre-current-line-top: color-mix(
 		in srgb,
 		var(--genre-current-light) 84%,

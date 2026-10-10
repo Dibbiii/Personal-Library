@@ -12,7 +12,7 @@
 
 	let { children, userLabel = null }: Props = $props();
 
-	// Nella vista genere pagina e navigazione prendono i colori del genere (mockup 02).
+	// Il contesto colore del genere viene applicato solo al contenuto, non alla navigazione globale.
 	const genre = $derived.by(() => {
 		const slug = page.params.slug;
 		return page.route.id === '/(app)/genre/[slug]' && slug && isGenreSlug(slug) ? slug : null;
@@ -24,9 +24,9 @@
 
 <a class="skip-link" href="#main">Vai al contenuto</a>
 
-<div class="shell" class:genre={genre !== null} class:home={isHome} data-genre={genre}>
+<div class="shell" class:genre={genre !== null} class:home={isHome}>
 	<DesktopSidebar {userLabel} />
-	<main id="main" class="content">
+	<main id="main" class="content" data-genre={genre}>
 		{@render children()}
 	</main>
 	<BottomNavigation />
@@ -44,11 +44,6 @@
 	.shell.genre {
 		position: relative;
 		background: var(--color-background-shelf);
-		--nav-bg: var(--genre-current-nav-bg);
-		--nav-border: var(--genre-current-nav-border);
-		--nav-ink: var(--genre-current-dark);
-		--nav-active-bg: var(--genre-current-dark);
-		--nav-active-fg: var(--genre-current-light);
 	}
 
 	.shell.genre .content {
